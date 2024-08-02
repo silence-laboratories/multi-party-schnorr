@@ -1,7 +1,6 @@
 use curve25519_dalek::{traits::Identity, EdwardsPoint, Scalar};
 use ff::Field;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use sl_mpc_mate::message::{Opaque, GR};
 
 use crate::common::_get_lagrange_coeff_list;
 use crate::common::traits::PersistentObj;
@@ -143,7 +142,7 @@ fn run_refresh_protocol(n: u8, parties: Vec<KeygenParty<R0>>) -> Vec<Keyshare> {
 }
 
 pub(crate) fn _check_secret_recovery<'a>(
-    big_a_poly: &'a [Opaque<EdwardsPoint, GR>],
+    big_a_poly: &'a [EdwardsPoint],
     public_key: &'a EdwardsPoint,
     total_parties: u8,
 ) -> Result<(), KeygenError> {
@@ -152,7 +151,7 @@ pub(crate) fn _check_secret_recovery<'a>(
         .map(|i| Scalar::from((i + 1) as u64))
         .collect::<Vec<_>>();
 
-    let evaluate = |poly: &[Opaque<EdwardsPoint, GR>], point: Scalar| {
+    let evaluate = |poly: &[EdwardsPoint], point: Scalar| {
         (0..poly.len())
             .map(|i| poly[i] * point.pow_vartime([i as u64]))
             .fold(EdwardsPoint::identity(), |acc, point| acc + point)

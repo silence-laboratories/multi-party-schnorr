@@ -5,10 +5,8 @@ use curve25519_dalek::{traits::Identity, EdwardsPoint, Scalar};
 use ff::Field;
 use rand::{CryptoRng, RngCore};
 
-use sl_mpc_mate::{
-    math::factorial_range,
-    message::{Opaque, GR},
-};
+use sl_mpc_mate::math::factorial_range;
+
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// A polynomial with coefficients of type `Scalar`.
@@ -57,7 +55,7 @@ impl Polynomial {
     pub fn commit(&self) -> GroupPolynomial {
         let mut points = Vec::with_capacity(self.coeffs.len());
         for coeff in &self.coeffs {
-            points.push(Opaque::from(EdwardsPoint::mul_base(coeff)));
+            points.push(EdwardsPoint::mul_base(coeff));
         }
         GroupPolynomial::new(points)
     }

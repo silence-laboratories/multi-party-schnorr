@@ -1,6 +1,6 @@
 mod dlog_proof;
 mod math;
-mod poly;
+// mod poly;
 /// Utility functions
 pub mod utils;
 
@@ -13,9 +13,8 @@ use bincode::{
 pub use dlog_proof::*;
 use ed25519_dalek::{SigningKey, VerifyingKey};
 pub use math::*;
-pub use poly::*;
+// pub use poly::*;
 use rand::{CryptoRng, RngCore};
-use sl_mpc_mate::message::Opaque;
 
 /// Set of a party's keys that can be reused
 /// for independent execution of DKG
@@ -35,26 +34,6 @@ pub struct PartyPublicKeys {
 
     /// Public key for encryption
     pub encryption_key: crypto_box::PublicKey,
-}
-
-impl Encode for PartyPublicKeys {
-    fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), EncodeError> {
-        Opaque::from(self.verify_key.to_bytes()).encode(encoder)?;
-        Opaque::from(self.encryption_key.to_bytes()).encode(encoder)?;
-        Ok(())
-    }
-}
-
-impl Decode for PartyPublicKeys {
-    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, DecodeError> {
-        let verify_key = VerifyingKey::from_bytes(&Opaque::decode(decoder)?.0)
-            .map_err(|_| DecodeError::Other("Bad verify_key"))?;
-        let encryption_key = crypto_box::PublicKey::from_bytes(Opaque::decode(decoder)?.0);
-        Ok(Self {
-            verify_key,
-            encryption_key,
-        })
-    }
 }
 
 impl PartyKeys {

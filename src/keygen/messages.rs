@@ -1,14 +1,14 @@
+use std::hash::Hash;
+
 use curve25519_dalek::{EdwardsPoint, Scalar};
-use ed25519_dalek::{Signature, SIGNATURE_LENGTH};
-use sl_mpc_mate::message::{Opaque, GR, PF};
+use sl_mpc_mate::math::GroupPolynomial;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{
     common::{
         get_lagrange_coeff,
-        traits::PersistentObj,
         utils::{EncryptedData, HashBytes, SessionId},
-        DLogProof, GroupPolynomial,
+        DLogProof,
     },
     impl_basemessage,
 };
@@ -17,7 +17,7 @@ use super::KeyRefreshData;
 
 /// Type for the key generation protocol's message 1.
 ///
-#[derive(bincode::Encode, bincode::Decode, Zeroize, ZeroizeOnDrop, Clone)]
+#[derive(Hash)]
 pub struct KeygenMsg1 {
     /// Participant Id of the sender
     pub from_party: u8,
@@ -27,20 +27,13 @@ pub struct KeygenMsg1 {
 
     /// Participants commitment
     pub commitment: HashBytes,
-
-    /// Participants signature of the message
-    #[zeroize(skip)]
-    pub signature: [u8; SIGNATURE_LENGTH],
 }
 
 /// Type for the key generation protocol's message 2.
-#[derive(bincode::Encode, bincode::Decode, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct KeygenMsg2 {
     /// Participant Id of the sender
     pub from_party: u8,
-
-    /// Participants signature of the message
-    pub signature: [u8; SIGNATURE_LENGTH],
 
     /// Sesssion id
     pub session_id: SessionId,
@@ -49,7 +42,7 @@ pub struct KeygenMsg2 {
     pub r_i: [u8; 32],
 
     /// Participants Fik values
-    pub big_a_i_poly: GroupPolynomial,
+    pub big_a_i_poly: GroupPolynomial<EdwardsPoint>,
 
     /// Ciphertext list
     pub c_i_list: Vec<EncryptedData>,
@@ -58,12 +51,9 @@ pub struct KeygenMsg2 {
     pub dlog_proofs_i: Vec<DLogProof>,
 }
 
-impl PersistentObj for KeygenMsg1 {}
-impl PersistentObj for KeygenMsg2 {}
-
 /// Keyshare of a party.
 #[allow(unused)]
-#[derive(Clone, bincode::Encode, bincode::Decode, Zeroize, ZeroizeOnDrop)]
+#[derive(Clone)]
 pub struct Keyshare {
     /// Threshold value
     pub threshold: u8,
@@ -71,10 +61,10 @@ pub struct Keyshare {
     pub total_parties: u8,
     /// Party Id of the sender
     pub party_id: u8,
-    pub(crate) d_i: Opaque<Scalar, PF>,
+    pub(crate) d_i: Scalar,
     /// Public key of the generated key.
-    pub public_key: Opaque<EdwardsPoint, GR>,
-    pub(crate) big_a_poly: Vec<Opaque<EdwardsPoint, GR>>,
+    pub public_key: EdwardsPoint,
+    pub(crate) big_a_poly: GroupPolynomial<EdwardsPoint>,
 }
 
 impl Keyshare {
@@ -110,11 +100,11 @@ impl Keyshare {
             }
             get_lagrange_coeff(&self.party_id, partys_with_keyshares.into_iter())
         };
-        let s_i_0 = self.d_i.0 * lambda;
+        let s_i_0 = self.d_i * lambda;
         KeyRefreshData {
             d_i_0: s_i_0,
             lost_keyshare_party_ids,
-            expected_public_key: self.public_key.0,
+            expected_public_key: self.public_key,
         }
     }
 }

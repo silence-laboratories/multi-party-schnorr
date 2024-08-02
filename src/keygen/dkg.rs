@@ -2,11 +2,13 @@ use crypto_bigint::subtle::ConstantTimeEq;
 use crypto_box::SecretKey;
 use curve25519_dalek::{traits::Identity, EdwardsPoint, Scalar};
 use ed25519_dalek::{DigestSigner, DigestVerifier, Signature, SigningKey};
+
+use ff::Field;
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use sha2::{Digest, Sha256, Sha512};
-use sl_mpc_mate::message::{Opaque, GR};
+use sl_mpc_mate::math::GroupPolynomial;
 
 use crate::common::{
     traits::{PersistentObj, Round},
@@ -14,7 +16,7 @@ use crate::common::{
         calculate_final_session_id, decrypt_message, encrypt_message, BaseMessage, EncryptedData,
         HashBytes, SessionId,
     },
-    DLogProof, GroupPolynomial, PartyKeys, PartyPublicKeys,
+    DLogProof, PartyKeys, PartyPublicKeys,
 };
 
 use super::{
@@ -41,7 +43,7 @@ pub struct R0;
 /// State of a keygen party after receiving public keys of all parties and generating the first message.
 // #[derive(Clone, bincode::Encode, bincode::Decode)]
 pub struct R1 {
-    big_a_i: GroupPolynomial,
+    big_a_i: GroupPolynomial<EdwardsPoint>,
     c_i_j: Vec<EncryptedData>,
     commitment: HashBytes,
 }
@@ -82,7 +84,7 @@ impl KeygenParty<R0> {
         // Set the constant polynomial to the keyshare secret.
         // d_i_0 is the current party's additive share of the private key
         if let Some(ref v) = refresh_data {
-            rand_params.polynomial.coeffs[0] = v.d_i_0;
+            rand_params.polynomial.set_constant(v.d_i_0);
         }
 
         Self::new_with_context(
@@ -117,7 +119,7 @@ impl KeygenParty<R0> {
             let is_lost = v.lost_keyshare_party_ids.contains(&party_id);
             let cond1 = v.expected_public_key == EdwardsPoint::identity();
             let cond2 = v.lost_keyshare_party_ids.len() > (n - t).into();
-            let cond3 = rand_params.polynomial.coeffs[0] != v.d_i_0;
+            let cond3 = rand_params.polynomial.get_constant() != &v.d_i_0;
             let cond4 = if is_lost {
                 v.d_i_0 != Scalar::ZERO
             } else {
@@ -177,7 +179,7 @@ impl Round for KeygenParty<R0> {
                 let d_i = self
                     .rand_params
                     .polynomial
-                    .evaluate_at(Scalar::from(party_id + 1));
+                    .evaluate_at(&Scalar::from(party_id + 1));
 
                 let enc_data = encrypt_message(
                     (
@@ -203,16 +205,11 @@ impl Round for KeygenParty<R0> {
             &self.rand_params.r_i,
         );
 
-        // 11.2(e)
-        let msg_hash = digest_msg1(&self.rand_params.session_id, &commitment);
-        let signature = SigningKey::from(self.params.signing_key).sign_digest(msg_hash);
-
         // 11.2(f)
         let msg1 = KeygenMsg1 {
             from_party: self.params.party_id,
             session_id: self.rand_params.session_id,
             commitment,
-            signature: signature.to_bytes(),
         };
 
         let next_state = KeygenParty {
@@ -259,9 +256,6 @@ impl Round for KeygenParty<R1> {
             let PartyPublicKeys { verify_key, .. } =
                 &self.params.party_pubkeys_list[party_pubkey_idx as usize];
 
-            let message_hash = digest_msg1(&message.session_id, &message.commitment);
-            verify_key.verify_digest(message_hash, &message.signature())?;
-
             sid_i_list.push(message.session_id);
             commitment_list.push(message.commitment);
             party_id_list.push(party_pubkey_idx);
@@ -287,17 +281,6 @@ impl Round for KeygenParty<R1> {
             .map(|f_i| DLogProof::prove(&dlog_sid, f_i, &mut rng))
             .collect::<Vec<_>>();
 
-        // 11.4(c)
-        let digest_message_2 = digest_msg2(
-            &final_sid,
-            &commitment_list,
-            &self.state.big_a_i,
-            &self.rand_params.r_i,
-            &self.state.c_i_j,
-            &dlog_proofs,
-        );
-        let signature = SigningKey::from(self.params.signing_key).sign_digest(digest_message_2);
-
         // 11.4(d)
         let msg2 = KeygenMsg2 {
             session_id: final_sid,
@@ -306,7 +289,6 @@ impl Round for KeygenParty<R1> {
             c_i_list: self.state.c_i_j,
             r_i: self.rand_params.r_i,
             dlog_proofs_i: dlog_proofs,
-            signature: signature.to_bytes(),
         };
 
         let next_state = KeygenParty {
@@ -335,20 +317,6 @@ impl Round for KeygenParty<R2> {
             validate_input_messages(messages, self.params.n, Some(self.state.final_session_id))?;
 
         messages.par_iter().try_for_each(|msg| {
-            // Verify signature.
-            let message_hash = digest_msg2(
-                &self.state.final_session_id,
-                &self.state.commitment_list,
-                &msg.big_a_i_poly,
-                &msg.r_i,
-                &msg.c_i_list,
-                &msg.dlog_proofs_i,
-            );
-
-            // 11.6(a)
-            let verifying_key = &self.params.party_pubkeys_list[msg.from_party as usize].verify_key;
-            verifying_key.verify_digest(message_hash, &Signature::from(msg.signature))?;
-
             // 11.6(b)-i Verify commitments.
             let party_id = msg.party_id();
             let sid = self.state.sid_i_list[party_id as usize];
@@ -472,9 +440,9 @@ impl Round for KeygenParty<R2> {
             threshold: self.params.t,
             total_parties: self.params.n,
             party_id: self.params.party_id,
-            big_a_poly: big_a_poly.coeffs,
-            d_i: Opaque::from(d_i_share),
-            public_key: Opaque::from(public_key),
+            big_a_poly,
+            d_i: d_i_share,
+            public_key,
         };
         Ok(keyshare)
     }
@@ -482,7 +450,7 @@ impl Round for KeygenParty<R2> {
 fn hash_commitment(
     session_id: SessionId,
     party_id: u8,
-    big_f_i_vec: &GroupPolynomial,
+    big_f_i_vec: &GroupPolynomial<EdwardsPoint>,
     ciphertexts: &[EncryptedData],
     r_i: &[u8; 32],
 ) -> HashBytes {
@@ -507,50 +475,6 @@ fn digest_msg1(session_id: &SessionId, commitment: &HashBytes) -> Sha512 {
     sha2::Digest::update(&mut hasher, b"KeygenMsg1");
     sha2::Digest::update(&mut hasher, session_id.as_ref());
     sha2::Digest::update(&mut hasher, commitment.as_ref());
-
-    hasher
-}
-fn digest_msg2(
-    session_id: &SessionId,
-    commitment_i_list: &[HashBytes],
-    big_a_i: &[Opaque<EdwardsPoint, GR>],
-    r_i: &[u8; 32],
-    c_i_list: &[EncryptedData],
-    dlog_proofs: &[DLogProof],
-) -> Sha512 {
-    let mut hasher = Sha512::new();
-
-    sha2::Digest::update(&mut hasher, DKG_LABEL);
-    sha2::Digest::update(&mut hasher, b"KeygenMsg2");
-    sha2::Digest::update(&mut hasher, session_id.as_ref());
-
-    for commitment in commitment_i_list {
-        sha2::Digest::update(&mut hasher, commitment.as_ref());
-    }
-
-    for point in big_a_i {
-        sha2::Digest::update(&mut hasher, point.compress().as_bytes());
-    }
-    for c_i in c_i_list {
-        sha2::Digest::update(&mut hasher, c_i.to_bytes().unwrap());
-    }
-
-    sha2::Digest::update(&mut hasher, r_i);
-
-    for proof in dlog_proofs {
-        sha2::Digest::update(&mut hasher, proof.to_bytes().unwrap())
-    }
-
-    hasher
-}
-
-fn _hash_complete_msg(session_id: &SessionId, public_key: &EdwardsPoint) -> Sha512 {
-    let mut hasher = Sha512::new();
-
-    sha2::Digest::update(&mut hasher, DKG_LABEL);
-    sha2::Digest::update(&mut hasher, b"KeygenCompleteMsg");
-    sha2::Digest::update(&mut hasher, session_id.as_ref());
-    sha2::Digest::update(&mut hasher, public_key.compress().as_bytes());
 
     hasher
 }
@@ -602,7 +526,7 @@ fn validate_input_messages<M: BaseMessage>(
 }
 fn verfiy_dlog_proofs(
     proofs: &[DLogProof],
-    points: &[Opaque<EdwardsPoint, GR>],
+    points: &[EdwardsPoint],
     dlog_sid: &SessionId,
     threshold: u8,
 ) -> bool {

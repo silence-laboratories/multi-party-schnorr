@@ -18,7 +18,7 @@ use super::{
     PartyKeys, PartyPublicKeys,
 };
 
-#[derive(bincode::Encode, bincode::Decode, Zeroize, ZeroizeOnDrop, Clone, Debug)]
+#[derive(Hash, bincode::Encode, bincode::Decode, Zeroize, ZeroizeOnDrop, Clone, Debug)]
 pub struct EncryptedData {
     pub sender_pid: u8,
     pub receiver_pid: u8,
@@ -26,6 +26,7 @@ pub struct EncryptedData {
     // Size of the nonce is 24
     pub nonce: [u8; 24],
 }
+
 impl PersistentObj for EncryptedData {}
 
 // Not using the SessionId type from sl_mpc_mate because it is not serializable.
@@ -67,8 +68,6 @@ pub trait BaseMessage {
     fn session_id(&self) -> &SessionId;
     // Return the party id of the message sender.
     fn party_id(&self) -> u8;
-    // Return the signature of the message signed by sender.
-    fn signature(&self) -> Signature;
 }
 #[macro_export]
 /// Macro to implement the BaseMessage trait for a message type.
@@ -82,10 +81,6 @@ macro_rules! impl_basemessage {
 
                 fn party_id(&self) -> u8 {
                     self.from_party
-                }
-
-                fn signature(&self) -> Signature {
-                    Signature::from_bytes(&self.signature)
                 }
             }
         )*

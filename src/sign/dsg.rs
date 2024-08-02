@@ -6,7 +6,6 @@ use ed25519_dalek::{DigestSigner, DigestVerifier, Signature, SigningKey, Verifie
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256, Sha512};
-use sl_mpc_mate::message::Opaque;
 
 use crate::{
     common::{
@@ -214,7 +213,7 @@ impl Round for SignerParty<R1> {
             session_id: final_sid,
             dlog_proof,
             blind_factor: self.rand_params.blind_factor,
-            big_r_i: Opaque::from(self.state.big_r_i),
+            big_r_i: self.state.big_r_i,
         };
 
         let next = SignerParty {
@@ -273,7 +272,7 @@ impl Round for SignerParty<R2> {
 
             verify_key.verify_digest(msg_hash, &Signature::from(msg.signature))?;
 
-            if msg.big_r_i.0.is_identity() {
+            if msg.big_r_i.is_identity() {
                 return Err(SignError::InvalidBigRi);
             }
 
@@ -303,14 +302,14 @@ impl Round for SignerParty<R2> {
                 .then_some(())
                 .ok_or(SignError::InvalidDLogProof(msg.from_party))?;
 
-            big_r_i += msg.big_r_i.0;
+            big_r_i += msg.big_r_i;
         }
 
         let big_r = big_r_i.compress();
         let party_ids = self.state.party_id_to_idx.iter().map(|(pid, _)| *pid);
         let coeff = get_lagrange_coeff(&self.params.keyshare.party_id, party_ids);
 
-        let d_i = coeff * self.params.keyshare.d_i.0;
+        let d_i = coeff * self.params.keyshare.d_i;
 
         let next = SignerParty {
             params: self.params,
@@ -352,7 +351,7 @@ impl Round for SignerParty<SignReady> {
         let msg3 = SignMsg3 {
             from_party: self.params.keyshare.party_id,
             session_id: self.state.final_session_id,
-            s_i: Opaque::from(s_i),
+            s_i,
             signature: signature.to_bytes(),
         };
 
@@ -406,7 +405,7 @@ impl Round for SignerParty<PartialSign> {
 
             verify_key.verify_digest(msg_hash_3, &Signature::from(msg.signature))?;
 
-            s += msg.s_i.0;
+            s += msg.s_i;
         }
 
         let sig: [u8; 64] = [self.state.big_r, s.to_bytes()]

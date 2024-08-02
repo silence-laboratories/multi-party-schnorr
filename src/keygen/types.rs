@@ -1,10 +1,10 @@
-use curve25519_dalek::scalar::Scalar;
+use curve25519_dalek::{scalar::Scalar, EdwardsPoint};
 use rand::{CryptoRng, Rng, RngCore};
-use sl_mpc_mate::random_bytes;
+use sl_mpc_mate::{math::Polynomial, random_bytes};
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::common::{PartyPublicKeys, Polynomial};
+use crate::common::PartyPublicKeys;
 
 /// Parameters for the keygen protocol. Constant across all rounds.
 #[derive(zeroize::Zeroize, zeroize::ZeroizeOnDrop, Clone)]
@@ -28,7 +28,6 @@ pub struct KeygenParams {
     pub party_pubkeys_list: Vec<PartyPublicKeys>,
 }
 
-#[derive(Zeroize, ZeroizeOnDrop, Clone)]
 /// All random params needed for keygen
 pub struct KeyEntropy {
     /// Threshold for the keygen protocol.
@@ -37,7 +36,7 @@ pub struct KeyEntropy {
     pub n: u8,
     /// Session id for the keygen protocol,
     pub session_id: [u8; 32],
-    pub(crate) polynomial: Polynomial,
+    pub(crate) polynomial: Polynomial<EdwardsPoint>,
     /// Random bytes for the keygen protocol.
     pub(crate) r_i: [u8; 32],
 }
