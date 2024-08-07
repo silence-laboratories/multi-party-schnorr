@@ -1,22 +1,22 @@
 use crypto_bigint::subtle::ConstantTimeEq;
-use crypto_box::SecretKey;
+use crypto_box::{PublicKey, SecretKey};
 use curve25519_dalek::{traits::Identity, EdwardsPoint, Scalar};
-use ed25519_dalek::{DigestSigner, DigestVerifier, Signature, SigningKey};
+use std::hash::Hash;
 
 use ff::Field;
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use sha2::{Digest, Sha256, Sha512};
+use sha2::{digest::Update, Digest, Sha256, Sha512};
 use sl_mpc_mate::math::GroupPolynomial;
 
 use crate::common::{
-    traits::{PersistentObj, Round},
+    traits::Round,
     utils::{
-        calculate_final_session_id, decrypt_message, encrypt_message, BaseMessage, EncryptedData,
+        calculate_final_session_id, decrypt_message, encrypt_message, BaseMessage, EncryptedScalar,
         HashBytes, SessionId,
     },
-    DLogProof, PartyKeys, PartyPublicKeys,
+    DLogProof,
 };
 
 use super::{
@@ -44,7 +44,7 @@ pub struct R0;
 // #[derive(Clone, bincode::Encode, bincode::Decode)]
 pub struct R1 {
     big_a_i: GroupPolynomial<EdwardsPoint>,
-    c_i_j: Vec<EncryptedData>,
+    c_i_j: Vec<EncryptedScalar>,
     commitment: HashBytes,
 }
 /// State of a keygen party after processing the first message.
@@ -69,17 +69,17 @@ fn validate_input(t: u8, n: u8, party_id: u8) -> Result<(), KeygenError> {
 
 impl KeygenParty<R0> {
     /// Create a new keygen party.
-    pub fn new<R: CryptoRng + RngCore>(
+    pub fn new(
         t: u8,
         n: u8,
         party_id: u8,
-        keys: &PartyKeys,
-        party_pubkeys_list: Vec<PartyPublicKeys>,
+        decryption_key: SecretKey,
+        encyption_keys: Vec<PublicKey>,
         refresh_data: Option<KeyRefreshData>,
-        rng: &mut R,
+        seed: [u8; 32],
     ) -> Result<Self, KeygenError> {
-        let mut rand_params = KeyEntropy::generate(t, n, rng);
-        let seed = rng.gen();
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let mut rand_params = KeyEntropy::generate(t, n, &mut rng);
 
         // Set the constant polynomial to the keyshare secret.
         // d_i_0 is the current party's additive share of the private key
@@ -91,11 +91,11 @@ impl KeygenParty<R0> {
             t,
             n,
             party_id,
-            keys,
+            decryption_key,
+            encyption_keys,
             rand_params,
-            party_pubkeys_list,
             refresh_data,
-            seed,
+            rng.gen(),
         )
     }
     /// Create a new keygen protocol instance with a given context. Used for testing purposes internally.
@@ -104,15 +104,19 @@ impl KeygenParty<R0> {
         t: u8,
         n: u8,
         party_id: u8,
-        party_keys: &PartyKeys,
+        dec_key: crypto_box::SecretKey,
+        party_enc_keys: Vec<PublicKey>,
         rand_params: KeyEntropy,
-        party_pubkeys_list: Vec<PartyPublicKeys>,
         key_refresh_data: Option<KeyRefreshData>,
         seed: [u8; 32],
     ) -> Result<Self, KeygenError> {
         validate_input(t, n, party_id)?;
-        let my_pubkeys = party_keys.public_keys();
-        validate_pubkeys(&party_pubkeys_list, n, party_id, &my_pubkeys)?;
+
+        // Validate public keys
+        let my_ek = &party_enc_keys[party_id as usize];
+        if my_ek != &dec_key.public_key() {
+            return Err(KeygenError::InvalidParticipantSet);
+        }
 
         // Validate refresh data
         if let Some(ref v) = key_refresh_data {
@@ -135,10 +139,9 @@ impl KeygenParty<R0> {
                 t,
                 n,
                 party_id,
-                party_pubkeys_list,
                 x_i: Scalar::from(party_id + 1),
-                signing_key: party_keys.signing_key.to_bytes(),
-                enc_secret_key: party_keys.encryption_secret_key.to_scalar(),
+                dec_key,
+                party_enc_keys,
             },
             rand_params,
             seed,
@@ -146,11 +149,8 @@ impl KeygenParty<R0> {
             state: R0,
         })
     }
-    pub fn public_keys(&self) -> PartyPublicKeys {
-        PartyPublicKeys {
-            verify_key: SigningKey::from(self.params.signing_key).verifying_key(),
-            encryption_key: crypto_box::SecretKey::from(self.params.enc_secret_key).public_key(),
-        }
+    pub fn encryption_key(&self) -> &crypto_box::PublicKey {
+        &self.params.dec_key.public_key()
     }
 }
 
@@ -173,7 +173,7 @@ impl Round for KeygenParty<R0> {
         let c_i_j = (0..self.params.n)
             .map(|party_id| {
                 // party_id is also the index of the party's data in all the lists.
-                let ek_i = &self.params.party_pubkeys_list[party_id as usize].encryption_key;
+                let ek_i = &self.params.party_enc_keys[party_id as usize];
 
                 // Party's point is just party-id. (Adding 1 because party-id's start from 0).
                 let d_i = self
@@ -183,11 +183,11 @@ impl Round for KeygenParty<R0> {
 
                 let enc_data = encrypt_message(
                     (
-                        &crypto_box::SecretKey::from(self.params.enc_secret_key),
+                        &crypto_box::SecretKey::from(self.params.dec_key),
                         self.params.party_id,
                     ),
                     (&ek_i, party_id),
-                    &d_i.to_bytes(),
+                    d_i.to_bytes(),
                     &mut rng,
                 )
                 .ok_or(KeygenError::EncryptionError)?;
@@ -252,9 +252,6 @@ impl Round for KeygenParty<R1> {
                 }
             }
             let party_pubkey_idx = message.party_id();
-
-            let PartyPublicKeys { verify_key, .. } =
-                &self.params.party_pubkeys_list[party_pubkey_idx as usize];
 
             sid_i_list.push(message.session_id);
             commitment_list.push(message.commitment);
@@ -355,11 +352,10 @@ impl Round for KeygenParty<R2> {
             .iter()
             .map(|msg| {
                 let encrypted_d_i = &msg.c_i_list[self.params.party_id as usize];
-                let sender_pubkey =
-                    &self.params.party_pubkeys_list[msg.party_id() as usize].encryption_key;
+                let sender_pubkey = &self.params.party_enc_keys[msg.party_id() as usize];
 
                 let d_i_bytes = decrypt_message(
-                    &SecretKey::from(self.params.enc_secret_key),
+                    &SecretKey::from(self.params.dec_key),
                     sender_pubkey,
                     encrypted_d_i,
                 )
@@ -451,51 +447,22 @@ fn hash_commitment(
     session_id: SessionId,
     party_id: u8,
     big_f_i_vec: &GroupPolynomial<EdwardsPoint>,
-    ciphertexts: &[EncryptedData],
+    ciphertexts: &[EncryptedScalar],
     r_i: &[u8; 32],
 ) -> HashBytes {
-    let mut hasher = Sha256::new();
-    sha2::Digest::update(&mut hasher, b"SL-Keygen-Commitment");
-    sha2::Digest::update(&mut hasher, session_id.as_ref());
-    sha2::Digest::update(&mut hasher, party_id.to_be_bytes());
+    let mut hasher = Sha256::new()
+        .chain_update(b"SL-Keygen-Commitment")
+        .chain_update(session_id.as_ref())
+        .chain_update(&party_id.to_be_bytes());
     for point in big_f_i_vec.iter() {
         sha2::Digest::update(&mut hasher, point.compress().as_bytes());
     }
     for c in ciphertexts {
-        sha2::Digest::update(&mut hasher, c.to_bytes().unwrap());
+        c.hash(&mut hasher);
+        // sha2::Digest::update(&mut hasher, c.as_bytes());
     }
     sha2::Digest::update(&mut hasher, r_i);
     hasher.finalize().into()
-}
-
-fn digest_msg1(session_id: &SessionId, commitment: &HashBytes) -> Sha512 {
-    let mut hasher = Sha512::new();
-
-    sha2::Digest::update(&mut hasher, DKG_LABEL);
-    sha2::Digest::update(&mut hasher, b"KeygenMsg1");
-    sha2::Digest::update(&mut hasher, session_id.as_ref());
-    sha2::Digest::update(&mut hasher, commitment.as_ref());
-
-    hasher
-}
-
-fn validate_pubkeys(
-    pubkeys: &[PartyPublicKeys],
-    n: u8,
-    my_party_id: u8,
-    my_pks: &PartyPublicKeys,
-) -> Result<(), KeygenError> {
-    if pubkeys.len() != n as usize {
-        return Err(KeygenError::InvalidMessageLength);
-    }
-
-    let expected_pks = &pubkeys[my_party_id as usize];
-
-    if expected_pks != my_pks {
-        return Err(KeygenError::InvalidParticipantSet);
-    }
-
-    Ok(())
 }
 
 fn validate_input_messages<M: BaseMessage>(
@@ -545,13 +512,13 @@ fn verfiy_dlog_proofs(
 
 #[cfg(test)]
 mod test {
-    use crate::keygen::utils::process_keygen;
+    use crate::common::utils::run_keygen;
 
     #[test]
     fn keygen() {
-        let _ = process_keygen::<3, 5>();
-        let _ = process_keygen::<2, 3>();
-        let _ = process_keygen::<5, 10>();
-        let _ = process_keygen::<9, 20>();
+        let _ = run_keygen(3, 5);
+        let _ = run_keygen(2, 3);
+        let _ = run_keygen(5, 10);
+        let _ = run_keygen(9, 20);
     }
 }

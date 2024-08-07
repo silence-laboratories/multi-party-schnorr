@@ -7,7 +7,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 use crate::{
     common::{
         get_lagrange_coeff,
-        utils::{EncryptedData, HashBytes, SessionId},
+        utils::{EncryptedScalar, HashBytes, SessionId},
         DLogProof,
     },
     impl_basemessage,
@@ -17,7 +17,8 @@ use super::KeyRefreshData;
 
 /// Type for the key generation protocol's message 1.
 ///
-#[derive(Hash)]
+#[derive(Hash, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeygenMsg1 {
     /// Participant Id of the sender
     pub from_party: u8,
@@ -45,7 +46,7 @@ pub struct KeygenMsg2 {
     pub big_a_i_poly: GroupPolynomial<EdwardsPoint>,
 
     /// Ciphertext list
-    pub c_i_list: Vec<EncryptedData>,
+    pub c_i_list: Vec<EncryptedScalar>,
 
     /// Participants dlog proof
     pub dlog_proofs_i: Vec<DLogProof>,

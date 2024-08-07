@@ -4,10 +4,8 @@ use sl_mpc_mate::{math::Polynomial, random_bytes};
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::common::PartyPublicKeys;
-
 /// Parameters for the keygen protocol. Constant across all rounds.
-#[derive(zeroize::Zeroize, zeroize::ZeroizeOnDrop, Clone)]
+#[derive(Clone)]
 pub struct KeygenParams {
     /// Number of parties in the keygen protocol.
     pub n: u8,
@@ -19,13 +17,9 @@ pub struct KeygenParams {
     /// Party's scalar.
     pub x_i: Scalar,
 
-    pub(crate) signing_key: ed25519_dalek::SecretKey,
-
     /// Encryption secret key
-    pub(crate) enc_secret_key: Scalar,
-    /// List of all parties' public keys
-    #[zeroize(skip)]
-    pub party_pubkeys_list: Vec<PartyPublicKeys>,
+    pub(crate) dec_key: crypto_box::SecretKey,
+    pub party_enc_keys: Vec<crypto_box::PublicKey>,
 }
 
 /// All random params needed for keygen
@@ -61,7 +55,8 @@ impl KeyEntropy {
 
     pub fn generate_refresh<R: CryptoRng + RngCore>(t: u8, n: u8, rng: &mut R) -> Self {
         let session_id = rng.gen();
-        let polynomial = Polynomial::random_with_zero(rng, (t - 1) as usize);
+        let mut polynomial = Polynomial::random(rng, (t - 1) as usize);
+        polynomial.reset_contant();
 
         KeyEntropy {
             t,
