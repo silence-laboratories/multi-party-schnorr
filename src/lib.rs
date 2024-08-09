@@ -5,7 +5,7 @@
 pub mod keygen;
 
 /// The `sign` module contains the signing protocol
-pub mod sign;
+// pub mod sign;
 
 /// Common utility functions and types
 pub mod common;

@@ -1,26 +1,19 @@
 use crypto_bigint::subtle::ConstantTimeEq;
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, EdwardsPoint, Scalar};
 use rand::{CryptoRng, RngCore};
+use serde::{Deserialize, Serialize};
 use sha2::{digest::Update, Digest, Sha256};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use super::utils::SessionId;
 
 /// Non-interactive Proof of knowledge of discrete logarithm with Fiat-Shamir transform.
-#[derive(Zeroize, ZeroizeOnDrop, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct DLogProof {
     /// Public point `t`.
     pub t: EdwardsPoint,
     /// Challenge response
     pub s: Scalar,
-}
-
-// TODO: Add DST for hashes
-impl std::hash::Hash for DLogProof {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.t.compress().as_bytes().hash(state);
-        self.s.as_bytes().hash(state);
-    }
 }
 
 impl DLogProof {

@@ -7,6 +7,9 @@ edition = "2021"
 
 [dependencies]
 zeroize = { version = "1.6.1", features = ["zeroize_derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_bytes = "0.11.15"
+
 ed25519-dalek = { version = "2.1.0", features = [
   "zeroize",
   "serde",
@@ -28,7 +31,7 @@ sha2 = "0.10.7"
 crypto_box = { version = "0.9.1", features = ["serde"] }
 ff = "0.13.0"
 rand_chacha = "0.3.1"
-bincode = "2.0.0-rc.3"
+bincode = "1"
 # FIXME: Remove this 
 sl-mpc-mate = { path = "../sl-crypto/crates/sl-mpc-mate" }
 # sl-mpc-mate = { git = "https://github.com/silence-laboratories/sl-crypto.git", branch = "feat/generic-curves" }

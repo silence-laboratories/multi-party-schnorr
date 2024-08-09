@@ -1,6 +1,7 @@
 use std::hash::Hash;
 
 use curve25519_dalek::{EdwardsPoint, Scalar};
+use serde::{Deserialize, Serialize};
 use sl_mpc_mate::math::GroupPolynomial;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -31,7 +32,7 @@ pub struct KeygenMsg1 {
 }
 
 /// Type for the key generation protocol's message 2.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct KeygenMsg2 {
     /// Participant Id of the sender
     pub from_party: u8,
@@ -43,7 +44,7 @@ pub struct KeygenMsg2 {
     pub r_i: [u8; 32],
 
     /// Participants Fik values
-    pub big_a_i_poly: GroupPolynomial<EdwardsPoint>,
+    pub big_a_i_poly: Vec<EdwardsPoint>,
 
     /// Ciphertext list
     pub c_i_list: Vec<EncryptedScalar>,
@@ -53,8 +54,7 @@ pub struct KeygenMsg2 {
 }
 
 /// Keyshare of a party.
-#[allow(unused)]
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Keyshare {
     /// Threshold value
     pub threshold: u8,
@@ -65,7 +65,7 @@ pub struct Keyshare {
     pub(crate) d_i: Scalar,
     /// Public key of the generated key.
     pub public_key: EdwardsPoint,
-    pub(crate) big_a_poly: GroupPolynomial<EdwardsPoint>,
+    pub(crate) big_a_poly: Vec<EdwardsPoint>,
 }
 
 impl Keyshare {

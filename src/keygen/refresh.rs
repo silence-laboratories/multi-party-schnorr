@@ -17,6 +17,7 @@ pub struct KeyRefreshData {
     // #[allow(unused)]
     // pub(crate) root_chain_code: [u8; 32],
 }
+
 impl KeyRefreshData {
     /// Create a new KeyRefreshData
     pub fn recovery_data_for_lost(
@@ -33,33 +34,35 @@ impl KeyRefreshData {
 
 #[cfg(test)]
 mod test {
+    use crate::{
+        common::utils::run_keygen,
+        keygen::utils::{run_recovery, run_refresh},
+    };
 
-    //FIXME: add this later
+    #[test]
+    fn refresh() {
+        let _ = run_refresh::<3, 5>();
+        let _ = run_refresh::<2, 3>();
+        let _ = run_refresh::<5, 10>();
+        let _ = run_refresh::<9, 20>();
+    }
 
-    // #[test]
-    // fn refresh() {
-    //     let _ = process_refresh::<3, 5>();
-    //     let _ = process_refresh::<2, 3>();
-    //     let _ = process_refresh::<5, 10>();
-    //     let _ = process_refresh::<9, 20>();
-    // }
+    #[test]
+    fn recovery() {
+        let keyshares = run_keygen::<3, 5>();
+        run_recovery::<3, 5>(&keyshares, vec![0]).unwrap();
+        run_recovery::<3, 5>(&keyshares, vec![1, 2]).unwrap();
+        run_recovery::<3, 5>(&keyshares, vec![3, 4]).unwrap();
+        run_recovery::<3, 5>(&keyshares, vec![2, 3]).unwrap();
+        run_recovery::<3, 5>(&keyshares, vec![4, 1]).unwrap();
+    }
 
-    // #[test]
-    // fn recovery() {
-    //     let keyshares = process_keygen::<3, 5>();
-    //     process_recovery::<3, 5>(&keyshares, vec![0]).unwrap();
-    //     process_recovery::<3, 5>(&keyshares, vec![1, 2]).unwrap();
-    //     process_recovery::<3, 5>(&keyshares, vec![3, 4]).unwrap();
-    //     process_recovery::<3, 5>(&keyshares, vec![2, 3]).unwrap();
-    //     process_recovery::<3, 5>(&keyshares, vec![4, 1]).unwrap();
-    // }
-
-    // #[test]
-    // #[should_panic(expected = "Error during key refresh or recovery protocol")]
-    // fn recovery_invalid() {
-    //     let keyshares = process_keygen::<3, 5>();
-    //     if let Err(e) = process_recovery::<3, 5>(&keyshares, vec![1, 2, 3]) {
-    //         panic!("{}", e);
-    //     }
-    // }
+    #[test]
+    #[should_panic(expected = "Error during key refresh or recovery protocol")]
+    fn recovery_invalid() {
+        let keyshares = run_keygen::<3, 5>();
+        if let Err(e) = run_recovery::<3, 5>(&keyshares, vec![1, 2, 3]) {
+            panic!("{}", e);
+        }
+    }
 }

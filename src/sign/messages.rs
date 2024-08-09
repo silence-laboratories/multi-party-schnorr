@@ -1,5 +1,6 @@
 use curve25519_dalek::{EdwardsPoint, Scalar};
 use ed25519_dalek::{Signature, SIGNATURE_LENGTH};
+use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{
@@ -8,13 +9,14 @@ use crate::{
 };
 
 /// Type for the sign gen message 1.
-#[derive(bincode::Encode, bincode::Decode, Clone, Zeroize, ZeroizeOnDrop)]
+#[derive(Serialize, Deserialize, Clone, Zeroize, ZeroizeOnDrop)]
 pub struct SignMsg1 {
     /// Participant Id of the sender
     pub from_party: u8,
     /// The index of the party in the public key list
     pub from_party_idx: u8,
     /// Signature
+    #[serde(with = "serde_bytes")]
     pub signature: [u8; SIGNATURE_LENGTH],
     /// Sesssion id
     pub session_id: SessionId,
@@ -23,7 +25,7 @@ pub struct SignMsg1 {
 }
 
 /// Type for the sign gen message 2.
-#[derive(Clone, Zeroize, ZeroizeOnDrop)]
+#[derive(Clone ]
 pub struct SignMsg2 {
     /// Participant Id of the sender
     pub from_party: u8,

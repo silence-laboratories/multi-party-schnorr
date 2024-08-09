@@ -11,7 +11,7 @@ use sha2::{digest::Update, Digest, Sha256, Sha512};
 use sl_mpc_mate::math::GroupPolynomial;
 
 use crate::common::{
-    traits::Round,
+    traits::{PersistentObj, Round},
     utils::{
         calculate_final_session_id, decrypt_message, encrypt_message, BaseMessage, EncryptedScalar,
         HashBytes, SessionId,
@@ -149,8 +149,8 @@ impl KeygenParty<R0> {
             state: R0,
         })
     }
-    pub fn encryption_key(&self) -> &crypto_box::PublicKey {
-        &self.params.dec_key.public_key()
+    pub fn encryption_key(&self) -> crypto_box::PublicKey {
+        self.params.dec_key.public_key()
     }
 }
 
@@ -182,10 +182,7 @@ impl Round for KeygenParty<R0> {
                     .evaluate_at(&Scalar::from(party_id + 1));
 
                 let enc_data = encrypt_message(
-                    (
-                        &crypto_box::SecretKey::from(self.params.dec_key),
-                        self.params.party_id,
-                    ),
+                    (&self.params.dec_key, self.params.party_id),
                     (&ek_i, party_id),
                     d_i.to_bytes(),
                     &mut rng,
@@ -282,7 +279,7 @@ impl Round for KeygenParty<R1> {
         let msg2 = KeygenMsg2 {
             session_id: final_sid,
             from_party: self.params.party_id,
-            big_a_i_poly: self.state.big_a_i,
+            big_a_i_poly: (*self.state.big_a_i).to_vec(),
             c_i_list: self.state.c_i_j,
             r_i: self.rand_params.r_i,
             dlog_proofs_i: dlog_proofs,
@@ -324,7 +321,6 @@ impl Round for KeygenParty<R2> {
             let commit_cond = bool::from(commit_hash.ct_eq(&commitment));
 
             // 11.6(b)-ii Verify DLog proofs
-            use sha2::digest::Update;
             // Verify DLog proofs.
             let dlog_sid = Sha256::new()
                 .chain(b"SL-EDDSA-DLOG-PROOF")
@@ -354,14 +350,10 @@ impl Round for KeygenParty<R2> {
                 let encrypted_d_i = &msg.c_i_list[self.params.party_id as usize];
                 let sender_pubkey = &self.params.party_enc_keys[msg.party_id() as usize];
 
-                let d_i_bytes = decrypt_message(
-                    &SecretKey::from(self.params.dec_key),
-                    sender_pubkey,
-                    encrypted_d_i,
-                )
-                .ok_or(KeygenError::DecryptionError)?
-                .try_into()
-                .map_err(|_| KeygenError::InvalidDiPlaintext)?;
+                let d_i_bytes = decrypt_message(&self.params.dec_key, sender_pubkey, encrypted_d_i)
+                    .ok_or(KeygenError::DecryptionError)?
+                    .try_into()
+                    .map_err(|_| KeygenError::InvalidDiPlaintext)?;
 
                 let d_i = Scalar::from_canonical_bytes(d_i_bytes);
 
@@ -377,7 +369,7 @@ impl Round for KeygenParty<R2> {
         let d_i_share = d_i_vals.iter().sum();
 
         let empty_poly = (0..self.params.t)
-            .map(|_| EdwardsPoint::identity().into())
+            .map(|_| EdwardsPoint::identity())
             .collect();
 
         let mut big_a_poly = GroupPolynomial::new(empty_poly);
@@ -388,22 +380,20 @@ impl Round for KeygenParty<R2> {
             if let Some(ref data) = self.key_refresh_data {
                 is_lost = data.lost_keyshare_party_ids.contains(&msg.party_id());
             }
-            let is_identity = msg.big_a_i_poly.get_constant() == EdwardsPoint::identity();
+            let is_identity = msg.big_a_i_poly[0] == EdwardsPoint::identity();
 
             if (is_lost && !is_identity) || (!is_lost && is_identity) {
                 return Err(KeygenError::InvalidRefresh);
             }
-        }
 
-        for msg in &messages {
             // 11.6(d)
             big_a_poly.add_mut(&msg.big_a_i_poly);
 
             // 11.6(e)
             let d_i = d_i_vals[msg.party_id() as usize];
             let expected_point = EdwardsPoint::mul_base(&d_i);
-            let calc_point = msg
-                .big_a_i_poly
+            // FIXME: Remove clone
+            let calc_point = GroupPolynomial::new(msg.big_a_i_poly.clone())
                 .evaluate_at(&Scalar::from(self.params.party_id + 1));
 
             if !bool::from(expected_point.ct_eq(&calc_point)) {
@@ -436,7 +426,7 @@ impl Round for KeygenParty<R2> {
             threshold: self.params.t,
             total_parties: self.params.n,
             party_id: self.params.party_id,
-            big_a_poly,
+            big_a_poly: (*big_a_poly).to_vec(),
             d_i: d_i_share,
             public_key,
         };
@@ -446,20 +436,20 @@ impl Round for KeygenParty<R2> {
 fn hash_commitment(
     session_id: SessionId,
     party_id: u8,
-    big_f_i_vec: &GroupPolynomial<EdwardsPoint>,
+    big_f_i_vec: &[EdwardsPoint],
     ciphertexts: &[EncryptedScalar],
     r_i: &[u8; 32],
 ) -> HashBytes {
     let mut hasher = Sha256::new()
         .chain_update(b"SL-Keygen-Commitment")
         .chain_update(session_id.as_ref())
-        .chain_update(&party_id.to_be_bytes());
+        .chain_update(party_id.to_be_bytes());
     for point in big_f_i_vec.iter() {
         sha2::Digest::update(&mut hasher, point.compress().as_bytes());
     }
     for c in ciphertexts {
-        c.hash(&mut hasher);
-        // sha2::Digest::update(&mut hasher, c.as_bytes());
+        // FIXME: Unwrap okay?
+        sha2::Digest::update(&mut hasher, c.to_bytes().unwrap());
     }
     sha2::Digest::update(&mut hasher, r_i);
     hasher.finalize().into()
@@ -516,9 +506,9 @@ mod test {
 
     #[test]
     fn keygen() {
-        let _ = run_keygen(3, 5);
-        let _ = run_keygen(2, 3);
-        let _ = run_keygen(5, 10);
-        let _ = run_keygen(9, 20);
+        run_keygen::<3, 5>();
+        run_keygen::<2, 3>();
+        run_keygen::<5, 10>();
+        run_keygen::<9, 20>();
     }
 }

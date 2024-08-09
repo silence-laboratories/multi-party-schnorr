@@ -12,17 +12,18 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use sha2::{Digest, Sha256};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::keygen::{utils::setup_keygen, KeygenParty};
+use crate::keygen::{utils::setup_keygen, KeygenParty, Keyshare};
 
 use super::traits::Round;
 
 // Encryption is done inplace, so the size of the ciphertext is the size of the message plus the tag size.
 pub const SCALAR_CIPHERTEXT_SIZE: usize = 32 + <SalsaBox as AeadCore>::TagSize::USIZE;
 
-#[derive(Hash, Zeroize, ZeroizeOnDrop, Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct EncryptedScalar {
     pub sender_pid: u8,
     pub receiver_pid: u8,
+    #[serde(with = "serde_bytes")]
     pub ciphertext: [u8; SCALAR_CIPHERTEXT_SIZE],
     // Size of the nonce is 24
     pub nonce: [u8; <SalsaBox as AeadCore>::NonceSize::USIZE],
@@ -296,10 +297,12 @@ where
 }
 
 /// Utility function to run the keygen protocol.
-pub fn run_keygen(t: u8, n: u8) {
-    let mut rng = rand::thread_rng();
-    let actors = setup_keygen(t, n).unwrap();
+pub fn run_keygen<const T: usize, const N: usize>() -> [Keyshare; N] {
+    let actors = setup_keygen(T as u8, N as u8).unwrap();
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, ()).into_iter().unzip();
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
-    let keyshare = run_round(actors, msgs);
+    run_round(actors, msgs)
+        .try_into()
+        .map_err(|_| panic!("Failed to convert keyshares"))
+        .unwrap()
 }

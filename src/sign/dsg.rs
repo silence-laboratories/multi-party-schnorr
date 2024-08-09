@@ -31,7 +31,6 @@ pub struct SignerParty<T> {
 }
 
 /// Initial state of a round based protocol.
-#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
 pub struct R0;
 
 /// Round 1 state of Signer party
