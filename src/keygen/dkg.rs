@@ -1,9 +1,10 @@
 use crypto_bigint::subtle::ConstantTimeEq;
 use crypto_box::{PublicKey, SecretKey};
 use curve25519_dalek::{traits::Identity, EdwardsPoint, Scalar};
+use elliptic_curve::{group::GroupEncoding, Group};
 use std::hash::Hash;
 
-use ff::Field;
+use ff::{Field, PrimeField};
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -11,7 +12,7 @@ use sha2::{digest::Update, Digest, Sha256, Sha512};
 use sl_mpc_mate::math::GroupPolynomial;
 
 use crate::common::{
-    traits::{PersistentObj, Round},
+    traits::{GroupElem, PersistentObj, Round, ScalarReduce},
     utils::{
         calculate_final_session_id, decrypt_message, encrypt_message, BaseMessage, EncryptedScalar,
         HashBytes, SessionId,
@@ -29,21 +30,25 @@ pub const DKG_LABEL: &[u8] = b"SilenceLaboratories-EDDSA-DKG";
 
 /// Keygen party
 /// The keygen party is a state machine that implements the keygen protocol.
-// #[derive(Clone, bincode::Encode, bincode::Decode)]
-pub struct KeygenParty<T> {
-    params: KeygenParams,
-    rand_params: KeyEntropy,
+pub struct KeygenParty<T, G>
+where
+    G: Group,
+{
+    params: KeygenParams<G>,
+    rand_params: KeyEntropy<G>,
     seed: [u8; 32],
     state: T,
-    key_refresh_data: Option<KeyRefreshData>,
+    key_refresh_data: Option<KeyRefreshData<G>>,
 }
 
 pub struct R0;
 
 /// State of a keygen party after receiving public keys of all parties and generating the first message.
-// #[derive(Clone, bincode::Encode, bincode::Decode)]
-pub struct R1 {
-    big_a_i: GroupPolynomial<EdwardsPoint>,
+pub struct R1<G>
+where
+    G: Group + GroupEncoding,
+{
+    big_a_i: GroupPolynomial<G>,
     c_i_j: Vec<EncryptedScalar>,
     commitment: HashBytes,
 }
@@ -67,7 +72,10 @@ fn validate_input(t: u8, n: u8, party_id: u8) -> Result<(), KeygenError> {
     Ok(())
 }
 
-impl KeygenParty<R0> {
+impl<G> KeygenParty<R0, G>
+where
+    G: Group,
+{
     /// Create a new keygen party.
     pub fn new(
         t: u8,
@@ -75,7 +83,7 @@ impl KeygenParty<R0> {
         party_id: u8,
         decryption_key: SecretKey,
         encyption_keys: Vec<PublicKey>,
-        refresh_data: Option<KeyRefreshData>,
+        refresh_data: Option<KeyRefreshData<G>>,
         seed: [u8; 32],
     ) -> Result<Self, KeygenError> {
         let mut rng = ChaCha20Rng::from_seed(seed);
@@ -106,8 +114,8 @@ impl KeygenParty<R0> {
         party_id: u8,
         dec_key: crypto_box::SecretKey,
         party_enc_keys: Vec<PublicKey>,
-        rand_params: KeyEntropy,
-        key_refresh_data: Option<KeyRefreshData>,
+        rand_params: KeyEntropy<G>,
+        key_refresh_data: Option<KeyRefreshData<G>>,
         seed: [u8; 32],
     ) -> Result<Self, KeygenError> {
         validate_input(t, n, party_id)?;
@@ -121,13 +129,13 @@ impl KeygenParty<R0> {
         // Validate refresh data
         if let Some(ref v) = key_refresh_data {
             let is_lost = v.lost_keyshare_party_ids.contains(&party_id);
-            let cond1 = v.expected_public_key == EdwardsPoint::identity();
+            let cond1 = v.expected_public_key == G::identity();
             let cond2 = v.lost_keyshare_party_ids.len() > (n - t).into();
             let cond3 = rand_params.polynomial.get_constant() != &v.d_i_0;
             let cond4 = if is_lost {
-                v.d_i_0 != Scalar::ZERO
+                v.d_i_0 != G::Scalar::ZERO
             } else {
-                v.d_i_0 == Scalar::ZERO
+                v.d_i_0 == G::Scalar::ZERO
             };
             if cond1 || cond2 || cond3 || cond4 {
                 return Err(KeygenError::InvalidRefresh);
@@ -139,7 +147,7 @@ impl KeygenParty<R0> {
                 t,
                 n,
                 party_id,
-                x_i: Scalar::from(party_id + 1),
+                x_i: G::Scalar::from((party_id + 1) as u64),
                 dec_key,
                 party_enc_keys,
             },
@@ -156,10 +164,10 @@ impl KeygenParty<R0> {
 
 // Protocol 11 from https://eprint.iacr.org/2022/374.pdf
 // Simple Three-Round Multiparty Schnorr Signing with Full Simulatability
-impl Round for KeygenParty<R0> {
+impl<G: GroupElem> Round for KeygenParty<R0, G> {
     type Input = ();
 
-    type Output = Result<(KeygenParty<R1>, KeygenMsg1), KeygenError>;
+    type Output = Result<(KeygenParty<R1<G>, G>, KeygenMsg1), KeygenError>;
 
     /// Protocol 11, step 2. From https://eprint.iacr.org/2022/374.pdf.
     fn process(self, _: ()) -> Self::Output {
@@ -179,12 +187,12 @@ impl Round for KeygenParty<R0> {
                 let d_i = self
                     .rand_params
                     .polynomial
-                    .evaluate_at(&Scalar::from(party_id + 1));
+                    .evaluate_at(&G::Scalar::from((party_id + 1) as u64));
 
-                let enc_data = encrypt_message(
+                let enc_data = encrypt_message::<_, G>(
                     (&self.params.dec_key, self.params.party_id),
                     (&ek_i, party_id),
-                    d_i.to_bytes(),
+                    d_i,
                     &mut rng,
                 )
                 .ok_or(KeygenError::EncryptionError)?;
@@ -225,10 +233,14 @@ impl Round for KeygenParty<R0> {
     }
 }
 
-impl Round for KeygenParty<R1> {
+impl<G> Round for KeygenParty<R1<G>, G>
+where
+    G: GroupElem,
+    G::Scalar: ScalarReduce,
+{
     type Input = Vec<KeygenMsg1>;
 
-    type Output = Result<(KeygenParty<R2>, KeygenMsg2), KeygenError>;
+    type Output = Result<(KeygenParty<R2, G>, KeygenMsg2<G>), KeygenError>;
 
     fn process(self, messages: Self::Input) -> Self::Output {
         let n = self.params.n as usize;
@@ -272,7 +284,7 @@ impl Round for KeygenParty<R1> {
             .rand_params
             .polynomial
             .iter()
-            .map(|f_i| DLogProof::prove(&dlog_sid, f_i, &mut rng))
+            .map(|f_i| DLogProof::<G>::prove(&dlog_sid, f_i, &mut rng))
             .collect::<Vec<_>>();
 
         // 11.4(d)
@@ -301,10 +313,14 @@ impl Round for KeygenParty<R1> {
     }
 }
 
-impl Round for KeygenParty<R2> {
-    type Input = Vec<KeygenMsg2>;
+impl<G> Round for KeygenParty<R2, G>
+where
+    G: GroupElem,
+    G::Scalar: ScalarReduce,
+{
+    type Input = Vec<KeygenMsg2<G>>;
 
-    type Output = Result<Keyshare, KeygenError>;
+    type Output = Result<Keyshare<G>, KeygenError>;
 
     fn process(self, messages: Self::Input) -> Self::Output {
         let messages =
@@ -351,12 +367,13 @@ impl Round for KeygenParty<R2> {
                 let sender_pubkey = &self.params.party_enc_keys[msg.party_id() as usize];
 
                 let d_i_bytes = decrypt_message(&self.params.dec_key, sender_pubkey, encrypted_d_i)
-                    .ok_or(KeygenError::DecryptionError)?
-                    .try_into()
-                    .map_err(|_| KeygenError::InvalidDiPlaintext)?;
+                    .ok_or(KeygenError::DecryptionError)?;
 
-                let d_i = Scalar::from_canonical_bytes(d_i_bytes);
+                // Decode the scalar from the bytes.
+                let mut encoding = <G::Scalar as PrimeField>::Repr::default();
+                encoding.as_mut().copy_from_slice(&d_i_bytes);
 
+                let d_i = G::Scalar::from_repr(encoding);
                 if d_i.is_none().into() {
                     return Err(KeygenError::InvalidDiPlaintext);
                 }
@@ -368,9 +385,7 @@ impl Round for KeygenParty<R2> {
         // 11.6(c)
         let d_i_share = d_i_vals.iter().sum();
 
-        let empty_poly = (0..self.params.t)
-            .map(|_| EdwardsPoint::identity())
-            .collect();
+        let empty_poly = (0..self.params.t).map(|_| G::identity()).collect();
 
         let mut big_a_poly = GroupPolynomial::new(empty_poly);
 
@@ -380,7 +395,7 @@ impl Round for KeygenParty<R2> {
             if let Some(ref data) = self.key_refresh_data {
                 is_lost = data.lost_keyshare_party_ids.contains(&msg.party_id());
             }
-            let is_identity = msg.big_a_i_poly[0] == EdwardsPoint::identity();
+            let is_identity = msg.big_a_i_poly[0] == G::identity();
 
             if (is_lost && !is_identity) || (!is_lost && is_identity) {
                 return Err(KeygenError::InvalidRefresh);
@@ -391,10 +406,11 @@ impl Round for KeygenParty<R2> {
 
             // 11.6(e)
             let d_i = d_i_vals[msg.party_id() as usize];
-            let expected_point = EdwardsPoint::mul_base(&d_i);
+            // let expected_point = EdwardsPoint::mul_base(&d_i);
+            let expected_point = G::generator() * &d_i;
             // FIXME: Remove clone
             let calc_point = GroupPolynomial::new(msg.big_a_i_poly.clone())
-                .evaluate_at(&Scalar::from(self.params.party_id + 1));
+                .evaluate_at(&G::Scalar::from((self.params.party_id + 1) as u64));
 
             if !bool::from(expected_point.ct_eq(&calc_point)) {
                 return Err(KeygenError::Abort(
@@ -406,8 +422,10 @@ impl Round for KeygenParty<R2> {
         let public_key = big_a_poly.get_constant();
 
         // 11.6(e)
-        let expected_point = EdwardsPoint::mul_base(&d_i_share);
-        let calc_point = big_a_poly.evaluate_at(&Scalar::from(self.params.party_id + 1));
+        // let expected_point = EdwardsPoint::mul_base(&d_i_share);
+        let expected_point = G::generator() * &d_i_share;
+        let calc_point =
+            big_a_poly.evaluate_at(&G::Scalar::from((self.params.party_id + 1) as u64));
 
         if !bool::from(expected_point.ct_eq(&calc_point)) {
             return Err(KeygenError::Abort(
@@ -433,10 +451,10 @@ impl Round for KeygenParty<R2> {
         Ok(keyshare)
     }
 }
-fn hash_commitment(
+fn hash_commitment<G: GroupElem>(
     session_id: SessionId,
     party_id: u8,
-    big_f_i_vec: &[EdwardsPoint],
+    big_f_i_vec: &[G],
     ciphertexts: &[EncryptedScalar],
     r_i: &[u8; 32],
 ) -> HashBytes {
@@ -445,7 +463,7 @@ fn hash_commitment(
         .chain_update(session_id.as_ref())
         .chain_update(party_id.to_be_bytes());
     for point in big_f_i_vec.iter() {
-        sha2::Digest::update(&mut hasher, point.compress().as_bytes());
+        sha2::Digest::update(&mut hasher, point.to_bytes());
     }
     for c in ciphertexts {
         // FIXME: Unwrap okay?
@@ -481,12 +499,15 @@ fn validate_input_messages<M: BaseMessage>(
         .then_some(messages)
         .ok_or(KeygenError::InvalidParticipantSet)
 }
-fn verfiy_dlog_proofs(
-    proofs: &[DLogProof],
-    points: &[EdwardsPoint],
+fn verfiy_dlog_proofs<G: GroupElem>(
+    proofs: &[DLogProof<G>],
+    points: &[G],
     dlog_sid: &SessionId,
     threshold: u8,
-) -> bool {
+) -> bool
+where
+    G::Scalar: ScalarReduce,
+{
     let mut valid = true;
     if proofs.len() != points.len() || proofs.len() != threshold as usize {
         valid = false;
@@ -503,12 +524,13 @@ fn verfiy_dlog_proofs(
 #[cfg(test)]
 mod test {
     use crate::common::utils::run_keygen;
+    use curve25519_dalek::EdwardsPoint;
 
     #[test]
     fn keygen() {
-        run_keygen::<3, 5>();
-        run_keygen::<2, 3>();
-        run_keygen::<5, 10>();
-        run_keygen::<9, 20>();
+        run_keygen::<3, 5, EdwardsPoint>();
+        run_keygen::<2, 3, EdwardsPoint>();
+        run_keygen::<5, 10, EdwardsPoint>();
+        run_keygen::<9, 20, EdwardsPoint>();
     }
 }

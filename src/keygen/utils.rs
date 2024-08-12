@@ -1,10 +1,11 @@
 use curve25519_dalek::{traits::Identity, EdwardsPoint, Scalar};
+use elliptic_curve::Group;
 use ff::Field;
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::common::_get_lagrange_coeff_list;
-use crate::common::traits::Round;
+use crate::common::traits::{GroupElem, Round, ScalarReduce};
 use crate::common::utils::{generate_pki, run_keygen, run_round};
 
 use super::KeyRefreshData;
@@ -12,7 +13,7 @@ use super::R0;
 use super::R1;
 use super::{messages::Keyshare, KeygenError, KeygenParty};
 
-pub fn setup_keygen(t: u8, n: u8) -> Result<Vec<KeygenParty<R0>>, KeygenError> {
+pub fn setup_keygen<G: Group>(t: u8, n: u8) -> Result<Vec<KeygenParty<R0, G>>, KeygenError> {
     let mut rng = rand::thread_rng();
     // Initializing the keygen for each party.
     let (party_key_list, party_pubkey_list) = generate_pki(n.into(), &mut rng);
@@ -34,9 +35,12 @@ pub fn setup_keygen(t: u8, n: u8) -> Result<Vec<KeygenParty<R0>>, KeygenError> {
     Ok(actors)
 }
 
-pub fn process_refresh<const T: usize, const N: usize>(
-    shares: [Keyshare; N],
-) -> Result<[Keyshare; N], KeygenError> {
+pub fn process_refresh<const T: usize, const N: usize, G: GroupElem>(
+    shares: [Keyshare<G>; N],
+) -> Result<[Keyshare<G>; N], KeygenError>
+where
+    G::Scalar: ScalarReduce,
+{
     let mut rng = rand::thread_rng();
     let (party_key_list, party_pubkey_list) = generate_pki(N, &mut rng);
 
@@ -68,16 +72,22 @@ pub fn process_refresh<const T: usize, const N: usize>(
         .unwrap())
 }
 
-pub fn run_refresh<const T: usize, const N: usize>() -> Result<(), KeygenError> {
-    let shares = run_keygen::<T, N>();
-    process_refresh::<T, N>(shares)?;
+pub fn run_refresh<const T: usize, const N: usize, G: GroupElem>() -> Result<(), KeygenError>
+where
+    G::Scalar: ScalarReduce,
+{
+    let shares = run_keygen::<T, N, G>();
+    process_refresh::<T, N, G>(shares)?;
     Ok(())
 }
 //
-pub fn run_recovery<const T: usize, const N: usize>(
-    keyshares: &[Keyshare],
+pub fn run_recovery<const T: usize, const N: usize, G: GroupElem>(
+    keyshares: &[Keyshare<G>],
     lost_party_ids: Vec<u8>,
-) -> Result<(), KeygenError> {
+) -> Result<(), KeygenError>
+where
+    G::Scalar: ScalarReduce,
+{
     let mut rng = rand::thread_rng();
     let (party_key_list, party_pubkey_list) = generate_pki(N, &mut rng);
 
@@ -108,36 +118,36 @@ pub fn run_recovery<const T: usize, const N: usize>(
     Ok(())
 }
 
-pub(crate) fn _check_secret_recovery<'a>(
-    big_a_poly: &'a [EdwardsPoint],
-    public_key: &'a EdwardsPoint,
-    total_parties: u8,
-) -> Result<(), KeygenError> {
-    // TODO: Avoid allocation here
-    let party_points = (0..total_parties)
-        .map(|i| Scalar::from((i + 1) as u64))
-        .collect::<Vec<_>>();
-
-    let evaluate = |poly: &[EdwardsPoint], point: Scalar| {
-        (0..poly.len())
-            .map(|i| poly[i] * point.pow_vartime([i as u64]))
-            .fold(EdwardsPoint::identity(), |acc, point| acc + point)
-    };
-
-    let coeff_vector = _get_lagrange_coeff_list(&party_points);
-    let big_s_list = party_points
-        .iter()
-        .map(|point| evaluate(big_a_poly, *point));
-
-    let public_key_point = big_s_list
-        .zip(coeff_vector.iter())
-        .fold(EdwardsPoint::identity(), |acc, (point, betta_i)| {
-            acc + point * betta_i
-        });
-
-    (public_key == &public_key_point)
-        .then_some(())
-        .ok_or(KeygenError::InvalidRefresh)?;
-
-    Ok(())
-}
+// pub(crate) fn _check_secret_recovery<'a>(
+//     big_a_poly: &'a [EdwardsPoint],
+//     public_key: &'a EdwardsPoint,
+//     total_parties: u8,
+// ) -> Result<(), KeygenError> {
+//     // TODO: Avoid allocation here
+//     let party_points = (0..total_parties)
+//         .map(|i| Scalar::from((i + 1) as u64))
+//         .collect::<Vec<_>>();
+//
+//     let evaluate = |poly: &[EdwardsPoint], point: Scalar| {
+//         (0..poly.len())
+//             .map(|i| poly[i] * point.pow_vartime([i as u64]))
+//             .fold(EdwardsPoint::identity(), |acc, point| acc + point)
+//     };
+//
+//     let coeff_vector = _get_lagrange_coeff_list(&party_points);
+//     let big_s_list = party_points
+//         .iter()
+//         .map(|point| evaluate(big_a_poly, *point));
+//
+//     let public_key_point = big_s_list
+//         .zip(coeff_vector.iter())
+//         .fold(EdwardsPoint::identity(), |acc, (point, betta_i)| {
+//             acc + point * betta_i
+//         });
+//
+//     (public_key == &public_key_point)
+//         .then_some(())
+//         .ok_or(KeygenError::InvalidRefresh)?;
+//
+//     Ok(())
+// }

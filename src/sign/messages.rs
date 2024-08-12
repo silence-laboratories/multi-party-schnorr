@@ -25,7 +25,7 @@ pub struct SignMsg1 {
 }
 
 /// Type for the sign gen message 2.
-#[derive(Clone ]
+#[derive(Clone)]
 pub struct SignMsg2 {
     /// Participant Id of the sender
     pub from_party: u8,

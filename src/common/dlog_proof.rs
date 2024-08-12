@@ -1,61 +1,70 @@
 use crypto_bigint::subtle::ConstantTimeEq;
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, EdwardsPoint, Scalar};
+use ff::{Field, PrimeField};
 use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use sha2::{digest::Update, Digest, Sha256};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::utils::SessionId;
+use super::{
+    traits::{GroupElem, ScalarReduce},
+    utils::SessionId,
+};
 
 /// Non-interactive Proof of knowledge of discrete logarithm with Fiat-Shamir transform.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct DLogProof {
+pub struct DLogProof<G: GroupElem> {
     /// Public point `t`.
-    pub t: EdwardsPoint,
+    pub t: G,
     /// Challenge response
-    pub s: Scalar,
+    pub s: G::Scalar,
 }
 
-impl DLogProof {
+impl<G: GroupElem> DLogProof<G>
+where
+    G: ConstantTimeEq,
+    G::Scalar: ScalarReduce,
+{
     /// Prove knowledge of discrete logarithm.
-    pub fn prove<R: CryptoRng + RngCore>(session_id: &SessionId, x: &Scalar, rng: &mut R) -> Self {
-        let r = Scalar::random(rng);
-        let t = EdwardsPoint::mul_base(&r);
-        let y = EdwardsPoint::mul_base(x);
+    pub fn prove<R: CryptoRng + RngCore>(
+        session_id: &SessionId,
+        x: &G::Scalar,
+        rng: &mut R,
+    ) -> Self {
+        let r = <G::Scalar as Field>::random(rng);
+        let t = G::generator() * &r;
+        let y = G::generator() * x;
         let c = Self::fiat_shamir(session_id, &y, &t);
 
         let s = r + c * x;
 
-        Self {
-            t: t.into(),
-            s: s.into(),
-        }
+        Self { t, s }
     }
 
     /// Verify knowledge of discrete logarithm.
-    pub fn verify(&self, session_id: &SessionId, y: &EdwardsPoint) -> bool {
+    pub fn verify(&self, session_id: &SessionId, y: &G) -> bool {
         let c = Self::fiat_shamir(session_id, y, &self.t);
-        let lhs = EdwardsPoint::mul_base(&self.s);
-        let rhs = self.t + y * c;
+        let lhs = G::generator() * &self.s;
+        let rhs = self.t + *y * c;
 
         lhs.ct_eq(&rhs).into()
     }
 
     /// Get fiat-shamir challenge for Discrete log proof.
-    pub fn fiat_shamir(session_id: &SessionId, y: &EdwardsPoint, t: &EdwardsPoint) -> Scalar {
+    pub fn fiat_shamir(session_id: &SessionId, y: &G, t: &G) -> G::Scalar {
         let h = Sha256::new()
             .chain(b"DLogProof-Challenge")
             .chain(session_id.as_ref())
             .chain(b"y")
-            .chain(y.compress().as_bytes())
+            .chain(y.to_bytes())
             .chain(b"t")
-            .chain(t.compress().as_bytes())
+            .chain(t.to_bytes())
             .chain(b"base-point")
-            .chain(ED25519_BASEPOINT_POINT.compress().as_bytes());
+            .chain(G::generator().to_bytes());
 
         let bytes = h.finalize().into();
 
-        Scalar::from_bytes_mod_order(bytes)
+        G::Scalar::reduce_from_bytes(&bytes)
     }
 }
 

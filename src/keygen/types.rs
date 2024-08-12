@@ -1,4 +1,5 @@
 use curve25519_dalek::{scalar::Scalar, EdwardsPoint};
+use elliptic_curve::Group;
 use rand::{CryptoRng, Rng, RngCore};
 use sl_mpc_mate::{math::Polynomial, random_bytes};
 use thiserror::Error;
@@ -6,7 +7,10 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// Parameters for the keygen protocol. Constant across all rounds.
 #[derive(Clone)]
-pub struct KeygenParams {
+pub struct KeygenParams<G>
+where
+    G: Group,
+{
     /// Number of parties in the keygen protocol.
     pub n: u8,
     /// Threshold for the keygen protocol.
@@ -15,7 +19,7 @@ pub struct KeygenParams {
     pub party_id: u8,
 
     /// Party's scalar.
-    pub x_i: Scalar,
+    pub x_i: G::Scalar,
 
     /// Encryption secret key
     pub(crate) dec_key: crypto_box::SecretKey,
@@ -23,19 +27,25 @@ pub struct KeygenParams {
 }
 
 /// All random params needed for keygen
-pub struct KeyEntropy {
+pub struct KeyEntropy<G>
+where
+    G: Group,
+{
     /// Threshold for the keygen protocol.
     pub t: u8,
     /// Number of parties in the keygen protocol.
     pub n: u8,
     /// Session id for the keygen protocol,
     pub session_id: [u8; 32],
-    pub(crate) polynomial: Polynomial<EdwardsPoint>,
+    pub(crate) polynomial: Polynomial<G>,
     /// Random bytes for the keygen protocol.
     pub(crate) r_i: [u8; 32],
 }
 
-impl KeyEntropy {
+impl<G> KeyEntropy<G>
+where
+    G: Group,
+{
     /// Generate a new set of random params
     pub fn generate<R: CryptoRng + RngCore>(t: u8, n: u8, rng: &mut R) -> Self {
         // 11.2(a)

@@ -7,6 +7,8 @@ use crypto_bigint::generic_array::typenum::Unsigned;
 use crypto_bigint::{generic_array::GenericArray, rand_core::CryptoRngCore, Encoding, U256};
 use curve25519_dalek::Scalar;
 use ed25519_dalek::Signature;
+use elliptic_curve::{group::GroupEncoding, Group};
+use ff::PrimeField;
 use rand::{CryptoRng, Rng, RngCore};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use sha2::{Digest, Sha256};
@@ -14,7 +16,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::keygen::{utils::setup_keygen, KeygenParty, Keyshare};
 
-use super::traits::Round;
+use super::traits::{GroupElem, Round, ScalarReduce};
 
 // Encryption is done inplace, so the size of the ciphertext is the size of the message plus the tag size.
 pub const SCALAR_CIPHERTEXT_SIZE: usize = 32 + <SalsaBox as AeadCore>::TagSize::USIZE;
@@ -105,16 +107,20 @@ pub fn calculate_final_session_id(
     hasher.finalize().into()
 }
 
-pub fn encrypt_message<R: CryptoRngCore>(
+pub fn encrypt_message<R: CryptoRngCore, G: GroupElem>(
     sender_secret_info: (&SecretKey, u8),
     receiver_public_info: (&PublicKey, u8),
-    message: [u8; 32],
+    message: G::Scalar,
     rng: &mut R,
 ) -> Option<EncryptedScalar> {
+    // FIXME: Handle this better
+    if std::mem::size_of::<<G::Scalar as PrimeField>::Repr>() != 32 {
+        panic!("We don't support scalars of size other than 32 bytes!");
+    }
     let sender_box = SalsaBox::new(receiver_public_info.0, sender_secret_info.0);
     let nonce = SalsaBox::generate_nonce(rng);
     sender_box
-        .encrypt(&nonce, message.as_ref())
+        .encrypt(&nonce, message.to_repr().as_ref())
         .ok()
         .and_then(|data| {
             Some(EncryptedScalar::new(
@@ -297,7 +303,10 @@ where
 }
 
 /// Utility function to run the keygen protocol.
-pub fn run_keygen<const T: usize, const N: usize>() -> [Keyshare; N] {
+pub fn run_keygen<const T: usize, const N: usize, G: GroupElem>() -> [Keyshare<G>; N]
+where
+    G::Scalar: ScalarReduce,
+{
     let actors = setup_keygen(T as u8, N as u8).unwrap();
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, ()).into_iter().unzip();
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();

@@ -11,6 +11,10 @@ pub use math::*;
 use rand::{CryptoRng, RngCore};
 
 pub mod traits {
+    use crypto_bigint::{generic_array::GenericArray, subtle::ConstantTimeEq};
+    use elliptic_curve::{group::GroupEncoding, ops::Reduce, Group};
+    use ff::PrimeField;
+    use k256::U256;
     use serde::{de::DeserializeOwned, Serialize};
 
     /// Trait that defines a state transition for any round based protocol.
@@ -42,6 +46,31 @@ pub mod traits {
 
         fn from_bytes(bytes: &[u8]) -> Option<Self> {
             bincode::deserialize(bytes).ok()
+        }
+    }
+
+    pub trait GroupElem: Group + GroupEncoding + ConstantTimeEq {}
+
+    impl<G> GroupElem for G
+    where
+        G: Group + GroupEncoding + ConstantTimeEq,
+        G::Scalar: ScalarReduce,
+    {
+    }
+
+    /// Reduce (little endian) bytes to a scalar.
+    pub trait ScalarReduce {
+        fn reduce_from_bytes(bytes: &[u8; 32]) -> Self;
+    }
+
+    impl ScalarReduce for curve25519_dalek::Scalar {
+        fn reduce_from_bytes(bytes: &[u8; 32]) -> Self {
+            Self::from_bytes_mod_order(*bytes)
+        }
+    }
+    impl ScalarReduce for k256::Scalar {
+        fn reduce_from_bytes(bytes: &[u8; 32]) -> Self {
+            <Self as Reduce<U256>>::reduce(U256::from_le_slice(bytes))
         }
     }
 }
