@@ -1,32 +1,27 @@
 use std::time::Instant;
 
+use curve25519_dalek::EdwardsPoint;
 use multi_party_schnorr::{
-    common::{
-        traits::Round,
-        utils::{cooridinator::recv_broadcast, run_round},
-    },
+    common::utils::run_round,
     keygen::{utils::setup_keygen, Keyshare},
 };
-
-use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
 fn main() {
     const T: usize = 2;
     const N: usize = 3;
     let start = Instant::now();
-    let (parties, mut coord) = setup_keygen::<T, N>().unwrap();
-    let parties1 = run_round(&mut coord, parties, 0);
-    let msgs = recv_broadcast(&mut coord, 1);
 
-    let keyshares: Vec<Keyshare> = parties1
-        .into_par_iter()
-        .map(|actor| actor.process(msgs.clone()).unwrap())
-        .collect();
+    // Setup keygen, create the encryption keys for each party
+    let parties = setup_keygen(T as u8, N as u8).unwrap();
 
-    let keyshares: [Keyshare; N] = keyshares
-        .try_into()
-        .map_err(|_| "Failed to convert keyshares to array")
-        .unwrap();
+    // Run Round 1
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+
+    // Run Round 2
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+
+    // Run Round 3
+    let keyshares: Vec<Keyshare<EdwardsPoint>> = run_round(parties, msgs);
 
     println!("Time elapsed: {:?}", start.elapsed());
 
