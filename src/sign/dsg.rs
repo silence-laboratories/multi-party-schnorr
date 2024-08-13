@@ -3,6 +3,8 @@ use std::collections::HashSet;
 use crypto_bigint::subtle::ConstantTimeEq;
 use curve25519_dalek::{traits::IsIdentity, EdwardsPoint, Scalar};
 use ed25519_dalek::{DigestSigner, DigestVerifier, Signature, SigningKey, Verifier, VerifyingKey};
+use elliptic_curve::{group::GroupEncoding, Group};
+use ff::PrimeField;
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256, Sha512};
@@ -10,7 +12,7 @@ use sha2::{Digest, Sha256, Sha512};
 use crate::{
     common::{
         get_lagrange_coeff,
-        traits::Round,
+        traits::{GroupElem, GroupVerifier, Round, ScalarReduce},
         utils::{calculate_final_session_id, BaseMessage, HashBytes, SessionId},
         DLogProof,
     },
@@ -19,13 +21,14 @@ use crate::{
 
 use super::{
     messages::{SignComplete, SignMsg1, SignMsg2, SignMsg3},
-    types::{SignEntropy, SignError, SignParams},
+    types::{SignEntropy, SignError},
 };
 
 /// Signer party
-pub struct SignerParty<T> {
-    params: SignParams,
-    rand_params: SignEntropy,
+pub struct SignerParty<T, G: Group> {
+    party_id: u8,
+    keyshare: Keyshare<G>,
+    rand_params: SignEntropy<G>,
     seed: [u8; 32],
     state: T,
 }
@@ -34,105 +37,72 @@ pub struct SignerParty<T> {
 pub struct R0;
 
 /// Round 1 state of Signer party
-pub struct R1 {
-    big_r_i: EdwardsPoint,
+pub struct R1<G> {
+    big_r_i: G,
 }
 
 /// Round 2 state of Signer party
 /// State before processing all SignMsg2 messages
-pub struct R2 {
+pub struct R2<G> {
     final_session_id: SessionId,
-    big_r_i: EdwardsPoint,
+    big_r_i: G,
     commitment_list: Vec<[u8; 32]>,
     sid_list: Vec<SessionId>,
-    party_id_to_idx: Vec<(u8, u8)>,
+    pid_list: Vec<u8>,
 }
 
 /// State of Signer party after processing all SignMsg2 messages.
 /// Party is ready to sign a message
-pub struct SignReady {
+pub struct SignReady<G: Group> {
     final_session_id: SessionId,
-    big_r: [u8; 32],
-    d_i: Scalar,
-    party_id_to_idx: Vec<(u8, u8)>,
+    big_r: G,
+    d_i: G::Scalar,
+    // party_id_to_idx: Vec<(u8, u8)>,
 }
 /// State of Signer party after processing all SignMsg3 messages
-pub struct PartialSign {
+pub struct PartialSign<G: Group> {
     final_session_id: SessionId,
-    big_r: [u8; 32],
-    s_i: Scalar,
+    big_r: G,
+    s_i: G::Scalar,
     msg_to_sign: Vec<u8>,
-    party_id_to_idx: Vec<(u8, u8)>,
 }
 
-impl SignerParty<R0> {
+impl<G: Group> SignerParty<R0, G> {
     /// Create a new signer party with the given keyshare
-    pub fn new<R: CryptoRng + RngCore>(
-        keyshare: Keyshare,
-        signing_key: SigningKey,
-        party_pubkeys: Vec<VerifyingKey>,
-        rng: &mut R,
-    ) -> Result<Self, SignError> {
-        let my_pk = &signing_key.verifying_key();
-        let my_party_idx = party_pubkeys
-            .iter()
-            .position(|key| key == my_pk)
-            .ok_or(SignError::PartyKeyNotFound)?;
-
-        if party_pubkeys.len() < keyshare.threshold.into() {
-            return Err(SignError::InvalidMsgCount);
-        }
-
-        Ok(Self {
-            params: SignParams {
-                party_id: keyshare.party_id,
-                party_index: my_party_idx as u8,
-                keyshare,
-                signing_key,
-                party_pubkeys,
-            },
+    pub fn new<R: CryptoRng + RngCore>(keyshare: Keyshare<G>, rng: &mut R) -> Self {
+        Self {
+            party_id: keyshare.party_id,
+            keyshare,
             rand_params: SignEntropy::generate(rng),
             seed: rng.gen(),
             state: R0,
-        })
-    }
-    /// Get the public keys of the signer party
-    pub fn get_public_keys(&self) -> VerifyingKey {
-        self.params.signing_key.verifying_key()
+        }
     }
 }
 
-impl Round for SignerParty<R0> {
+impl<G: Group + GroupEncoding> Round for SignerParty<R0, G> {
     type Input = ();
 
-    type Output = Result<(SignerParty<R1>, SignMsg1), SignError>;
+    type Output = Result<(SignerParty<R1<G>, G>, SignMsg1), SignError>;
 
     fn process(self, _: ()) -> Self::Output {
-        let big_r_i = EdwardsPoint::mul_base(&self.rand_params.k_i);
+        let big_r_i = G::generator() * self.rand_params.k_i;
         let commitment_r_i = hash_commitment_r_i(
             &self.rand_params.session_id,
-            self.params.party_id,
+            self.party_id,
             &big_r_i,
             &self.rand_params.blind_factor,
         );
 
-        let msg_hash = digest_msg_1(
-            self.rand_params.session_id,
-            self.params.keyshare.party_id,
-            commitment_r_i,
-        );
-
-        let signature = self.params.signing_key.sign_digest(msg_hash);
         let msg1 = SignMsg1 {
-            from_party: self.params.keyshare.party_id,
-            from_party_idx: self.params.party_index,
-            signature: signature.to_bytes(),
+            from_party: self.keyshare.party_id,
             session_id: self.rand_params.session_id,
             commitment_r_i,
         };
 
         let next_state = SignerParty {
-            params: self.params,
+            party_id: self.party_id,
+            keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: R1 { big_r_i },
             seed: self.seed,
@@ -142,54 +112,34 @@ impl Round for SignerParty<R0> {
     }
 }
 
-impl Round for SignerParty<R1> {
+impl<G: GroupElem> Round for SignerParty<R1<G>, G>
+where
+    G: ConstantTimeEq,
+    G::Scalar: ScalarReduce<[u8; 32]>,
+{
     type Input = Vec<SignMsg1>;
 
-    type Output = Result<(SignerParty<R2>, SignMsg2), SignError>;
+    type Output = Result<(SignerParty<R2<G>, G>, SignMsg2<G>), SignError>;
 
-    fn process(self, messages: Self::Input) -> Self::Output {
-        let mut party_id_to_idx = messages
-            .iter()
-            .map(|msg| (msg.from_party, msg.from_party_idx))
-            .collect::<Vec<_>>();
+    fn process(self, mut msgs: Self::Input) -> Self::Output {
+        let mut commitment_list = Vec::with_capacity(self.keyshare.threshold as usize);
+        let mut sid_list = Vec::with_capacity(self.keyshare.threshold as usize);
+        let mut party_ids = Vec::with_capacity(self.keyshare.threshold as usize);
+        msgs.sort_by_key(|m| m.party_id());
 
-        party_id_to_idx.sort_by_key(|msg| msg.0);
-
-        let msgs =
-            validate_input_messages(messages, self.params.keyshare.threshold, &party_id_to_idx)?;
-
-        let mut commitment_list = Vec::with_capacity(self.params.keyshare.threshold as usize);
-        let mut sid_list = Vec::with_capacity(self.params.keyshare.threshold as usize);
         for msg in msgs {
             commitment_list.push(msg.commitment_r_i);
             sid_list.push(msg.session_id);
-
-            // Skip if the message is from self
-            if msg.from_party == self.params.keyshare.party_id {
-                continue;
-            }
-
-            let party_idx = party_id_to_idx
-                .iter()
-                .find(|(pid, _)| pid == &msg.from_party)
-                .map(|(_, pidx)| pidx)
-                .unwrap();
-
-            let verify_key = self.params.party_pubkeys[*party_idx as usize];
-
-            let msg_hash = digest_msg_1(msg.session_id, msg.from_party, msg.commitment_r_i);
-
-            verify_key.verify_digest(msg_hash, &Signature::from(msg.signature))?;
+            party_ids.push(msg.from_party);
         }
 
-        let party_ids = party_id_to_idx.iter().map(|(pid, _)| *pid);
-        let final_sid = calculate_final_session_id(party_ids, &sid_list);
+        let final_sid = calculate_final_session_id(party_ids.iter().copied(), &sid_list);
 
         use sha2::digest::Update;
         let dlog_sid = Sha256::new()
             .chain(b"SL-EDDSA-SIGN")
             .chain(final_sid.as_ref())
-            .chain((self.params.party_id as u32).to_be_bytes())
+            .chain((self.party_id as u32).to_be_bytes())
             .chain(b"DLOG-SID")
             .finalize()
             .into();
@@ -197,18 +147,8 @@ impl Round for SignerParty<R1> {
         let mut rng = ChaCha20Rng::from_seed(self.seed);
         let dlog_proof = DLogProof::prove(&dlog_sid, &self.rand_params.k_i, &mut rng);
 
-        let msg_hash = digest_msg_2(
-            &final_sid,
-            &commitment_list,
-            &self.state.big_r_i,
-            &self.rand_params.blind_factor,
-        );
-
-        let signature = self.params.signing_key.sign_digest(msg_hash);
-
         let msg2 = SignMsg2 {
-            from_party: self.params.keyshare.party_id,
-            signature: signature.to_bytes(),
+            from_party: self.keyshare.party_id,
             session_id: final_sid,
             dlog_proof,
             blind_factor: self.rand_params.blind_factor,
@@ -216,14 +156,15 @@ impl Round for SignerParty<R1> {
         };
 
         let next = SignerParty {
-            params: self.params,
+            party_id: self.party_id,
+            keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: R2 {
                 final_session_id: final_sid,
                 commitment_list,
                 sid_list,
                 big_r_i: self.state.big_r_i,
-                party_id_to_idx,
+                pid_list: party_ids,
             },
             seed: rng.gen(),
         };
@@ -232,46 +173,24 @@ impl Round for SignerParty<R1> {
     }
 }
 
-impl Round for SignerParty<R2> {
-    type Input = Vec<SignMsg2>;
+impl<G: GroupElem> Round for SignerParty<R2<G>, G>
+where
+    G: ConstantTimeEq,
+    G::Scalar: ScalarReduce<[u8; 32]>,
+{
+    type Input = Vec<SignMsg2<G>>;
 
-    type Output = Result<SignerParty<SignReady>, SignError>;
+    type Output = Result<SignerParty<SignReady<G>, G>, SignError>;
 
-    fn process(self, messages: Self::Input) -> Self::Output {
-        //  self._check_messages_len_and_set_of_participants(messages)
-        let msgs = validate_input_messages(
-            messages,
-            self.params.keyshare.threshold,
-            &self.state.party_id_to_idx,
-        )?;
-
+    fn process(self, msgs: Self::Input) -> Self::Output {
         let mut big_r_i = self.state.big_r_i;
 
         for (idx, msg) in msgs.iter().enumerate() {
-            if msg.from_party == self.params.keyshare.party_id {
+            if msg.from_party == self.keyshare.party_id {
                 continue;
             }
 
-            let party_idx = self
-                .state
-                .party_id_to_idx
-                .iter()
-                .find(|(pid, _)| pid == &msg.from_party)
-                .map(|(_, pidx)| pidx)
-                .unwrap();
-
-            let verify_key = self.params.party_pubkeys[*party_idx as usize];
-
-            let msg_hash = digest_msg_2(
-                &self.state.final_session_id,
-                &self.state.commitment_list,
-                &msg.big_r_i,
-                &msg.blind_factor,
-            );
-
-            verify_key.verify_digest(msg_hash, &Signature::from(msg.signature))?;
-
-            if msg.big_r_i.is_identity() {
+            if msg.big_r_i.is_identity().into() {
                 return Err(SignError::InvalidBigRi);
             }
 
@@ -304,20 +223,19 @@ impl Round for SignerParty<R2> {
             big_r_i += msg.big_r_i;
         }
 
-        let big_r = big_r_i.compress();
-        let party_ids = self.state.party_id_to_idx.iter().map(|(pid, _)| *pid);
-        let coeff = get_lagrange_coeff(&self.params.keyshare.party_id, party_ids);
+        // FIXME: do we need copied?
+        let coeff = get_lagrange_coeff::<G>(&self.party_id, self.state.pid_list.iter().copied());
 
-        let d_i = coeff * self.params.keyshare.d_i;
+        let d_i = coeff * self.keyshare.d_i;
 
         let next = SignerParty {
-            params: self.params,
+            party_id: self.party_id,
+            keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: SignReady {
                 final_session_id: self.state.final_session_id,
-                big_r: big_r.as_bytes().to_owned(),
+                big_r: big_r_i,
                 d_i,
-                party_id_to_idx: self.state.party_id_to_idx,
             },
             seed: self.seed,
         };
@@ -326,21 +244,69 @@ impl Round for SignerParty<R2> {
     }
 }
 
-impl Round for SignerParty<SignReady> {
+#[cfg(not(target_feature = "secp256k1"))]
+impl<G: Group + GroupEncoding> Round for SignerParty<SignReady<G>, G>
+where
+    G::Scalar: ScalarReduce<[u8; 64]>,
+{
     type Input = Vec<u8>;
 
-    type Output = Result<(SignerParty<PartialSign>, SignMsg3), SignError>;
+    type Output = Result<(SignerParty<PartialSign<G>, G>, SignMsg3<G>), SignError>;
 
+    /// The signer party processes the message to sign and returns the partial signature
+    /// # Arguments
+    /// * `msg_to_sign` - The message to sign in bytes
     fn process(self, msg_to_sign: Self::Input) -> Self::Output {
-        let big_a = self.params.keyshare.public_key.compress().to_bytes();
+        let big_a = self.keyshare.public_key.to_bytes();
 
         use sha2::digest::Update;
         let digest = Sha512::new()
-            .chain(self.state.big_r)
+            .chain(self.state.big_r.to_bytes())
             .chain(big_a)
             .chain(&msg_to_sign);
 
-        let e = Scalar::from_hash(digest);
+        let e = G::Scalar::reduce_from_bytes(&digest.finalize().into());
+        let s_i = self.rand_params.k_i + self.state.d_i * e;
+
+        let msg3 = SignMsg3 {
+            from_party: self.keyshare.party_id,
+            session_id: self.state.final_session_id,
+            s_i,
+        };
+
+        let next = SignerParty {
+            party_id: self.party_id,
+            keyshare: self.keyshare,
+            rand_params: self.rand_params,
+            state: PartialSign {
+                final_session_id: self.state.final_session_id,
+                big_r: self.state.big_r,
+                s_i,
+                msg_to_sign,
+            },
+            seed: self.seed,
+        };
+
+        Ok((next, msg3))
+    }
+}
+
+#[cfg(target_feature = "secp256k1")]
+impl<G: Group + GroupEncoding> Round for SignerParty<SignReady<G>, G>
+where
+    G::Scalar: ScalarReduce<[u8; 32]>,
+{
+    type Input = [u8; 32];
+
+    type Output = Result<(SignerParty<PartialSign, G>, SignMsg3<G>), SignError>;
+
+    /// The signer party processes the message to sign and returns the partial signature
+    /// # Arguments
+    /// * `msg_hash` - 32 bytes hash of the message to sign. It must be the output of a secure hash function.
+    fn process(self, msg_hash: Self::Input) -> Self::Output {
+        let big_a = self.keyshare.public_key.to_bytes();
+
+        let e = G::Scalar::reduce_from_bytes(&msg_hash);
         let s_i = self.rand_params.k_i + self.state.d_i * e;
 
         let msg_hash_3 = digest_msg_3(&self.state.final_session_id, &s_i);
@@ -348,14 +314,15 @@ impl Round for SignerParty<SignReady> {
         let signature = self.params.signing_key.sign_digest(msg_hash_3);
 
         let msg3 = SignMsg3 {
-            from_party: self.params.keyshare.party_id,
+            from_party: self.keyshare.party_id,
             session_id: self.state.final_session_id,
             s_i,
             signature: signature.to_bytes(),
         };
 
         let next = SignerParty {
-            params: self.params,
+            party_id: self.party_id,
+            keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: PartialSign {
                 final_session_id: self.state.final_session_id,
@@ -371,78 +338,52 @@ impl Round for SignerParty<SignReady> {
     }
 }
 
-impl Round for SignerParty<PartialSign> {
-    type Input = Vec<SignMsg3>;
+impl<G: GroupElem + GroupVerifier> Round for SignerParty<PartialSign<G>, G> {
+    type Input = Vec<SignMsg3<G>>;
 
-    type Output = Result<(ed25519_dalek::Signature, SignComplete), SignError>;
+    type Output = Result<([u8; 64], SignComplete), SignError>;
 
     fn process(self, messages: Self::Input) -> Self::Output {
-        let messages = validate_input_messages(
-            messages,
-            self.params.keyshare.threshold,
-            &self.state.party_id_to_idx,
-        )?;
-
         let mut s = self.state.s_i;
 
         for msg in messages {
-            if msg.from_party == self.params.keyshare.party_id {
+            if msg.from_party == self.keyshare.party_id {
                 continue;
             }
-
-            let party_idx = self
-                .state
-                .party_id_to_idx
-                .iter()
-                .find(|(pid, _)| pid == &msg.from_party)
-                .map(|(_, pidx)| pidx)
-                .unwrap();
-
-            let verify_key = self.params.party_pubkeys[*party_idx as usize];
-
-            let msg_hash_3 = digest_msg_3(&self.state.final_session_id, &msg.s_i);
-
-            verify_key.verify_digest(msg_hash_3, &Signature::from(msg.signature))?;
 
             s += msg.s_i;
         }
 
-        let sig: [u8; 64] = [self.state.big_r, s.to_bytes()]
+        let signature: [u8; 64] = [self.state.big_r.to_bytes().as_ref(), s.to_repr().as_ref()]
             .concat()
             .try_into()
             .expect("Sign must be 64 bytes");
 
-        let public_key =
-            VerifyingKey::from_bytes(self.params.keyshare.public_key.compress().as_bytes())
-                .unwrap();
-
-        let signature = ed25519_dalek::Signature::from_bytes(&sig);
-
-        public_key
-            .verify(&self.state.msg_to_sign, &signature)
-            .expect("Invalid signature");
+        self.keyshare
+            .public_key
+            .verify(&signature, &self.state.msg_to_sign)?;
 
         let sign_complete = SignComplete {
-            from_party: self.params.keyshare.party_id,
+            from_party: self.keyshare.party_id,
             session_id: self.state.final_session_id,
-            signature: signature.to_bytes(),
+            signature,
         };
 
         Ok((signature, sign_complete))
     }
 }
 
-fn hash_commitment_r_i(
+fn hash_commitment_r_i<G: Group + GroupEncoding>(
     session_id: &SessionId,
     party_id: u8,
-    big_r_i: &EdwardsPoint,
+    big_r_i: &G,
     blind_factor: &[u8; 32],
 ) -> HashBytes {
     use sha2::digest::Update;
     Sha256::new()
         .chain(session_id.as_ref())
         .chain((party_id as u32).to_be_bytes())
-        .chain(big_r_i.compress().to_bytes())
+        .chain(big_r_i.to_bytes())
         .chain(blind_factor)
         .finalize()
         .into()
@@ -512,14 +453,13 @@ fn validate_input_messages<M: BaseMessage>(
     Ok(msgs)
 }
 
-fn verify_commitment_r_i(
+fn verify_commitment_r_i<G: Group + GroupEncoding>(
     sid: &SessionId,
     pid: u8,
-    big_r_i: &EdwardsPoint,
+    big_r_i: &G,
     blind_factor: &[u8; 32],
     commitment: &HashBytes,
 ) -> bool {
     let compare_commitment = hash_commitment_r_i(sid, pid, big_r_i, blind_factor);
-
     commitment.ct_eq(&compare_commitment).into()
 }

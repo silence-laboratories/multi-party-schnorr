@@ -1,35 +1,25 @@
 use curve25519_dalek::Scalar;
 use ed25519_dalek::{SigningKey, VerifyingKey};
+use elliptic_curve::{group::GroupEncoding, Group};
+use ff::Field;
 use rand::{CryptoRng, Rng, RngCore};
 use thiserror::Error;
 
 use crate::{common::utils::SessionId, keygen::Keyshare};
 
-/// Parameters for the sign protocol. Constant across all rounds.
-pub struct SignParams {
-    /// The party's id
-    pub party_id: u8,
-    /// Party's index in pubkey list
-    pub party_index: u8,
-    pub(crate) keyshare: Keyshare,
-    pub(crate) signing_key: SigningKey,
-    /// List of all parties' public keys
-    pub party_pubkeys: Vec<VerifyingKey>,
-}
-
 /// All random params needed for sign protocol
-pub struct SignEntropy {
+pub struct SignEntropy<G: Group> {
     pub(crate) session_id: SessionId,
-    pub(crate) k_i: Scalar,
+    pub(crate) k_i: G::Scalar,
     pub(crate) blind_factor: [u8; 32],
 }
-impl SignEntropy {
+impl<G: Group> SignEntropy<G> {
     /// Generate all the random values used in the sign protocol
     pub fn generate<R: CryptoRng + RngCore>(rng: &mut R) -> Self {
         Self {
             session_id: rng.gen(),
-            k_i: Scalar::random(rng),
             blind_factor: rng.gen(),
+            k_i: <G::Scalar as Field>::random(rng),
         }
     }
 }

@@ -1,7 +1,7 @@
 use curve25519_dalek::{traits::Identity, EdwardsPoint, Scalar};
 use elliptic_curve::Group;
 use ff::Field;
-use rand::Rng;
+use rand::{CryptoRng, Rng, RngCore};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::common::_get_lagrange_coeff_list;
@@ -39,29 +39,10 @@ pub fn process_refresh<const T: usize, const N: usize, G: GroupElem>(
     shares: [Keyshare<G>; N],
 ) -> Result<[Keyshare<G>; N], KeygenError>
 where
-    G::Scalar: ScalarReduce,
+    G::Scalar: ScalarReduce<[u8; 32]>,
 {
     let mut rng = rand::thread_rng();
-    let (party_key_list, party_pubkey_list) = generate_pki(N, &mut rng);
-
-    // Start refresh protocol
-    let parties0 = shares
-        .iter()
-        .zip(party_key_list)
-        .map(|(keyshare, party_key)| {
-            let data = keyshare.get_refresh_data();
-            KeygenParty::new(
-                T as u8,
-                N as u8,
-                keyshare.party_id,
-                party_key,
-                party_pubkey_list.clone(),
-                Some(data),
-                rng.gen(),
-            )
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
+    let parties0 = setup_refresh(&shares, &mut rng)?;
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties0, ()).into_iter().unzip();
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
     let new_shares = run_round(actors, msgs);
@@ -72,9 +53,33 @@ where
         .unwrap())
 }
 
+pub fn setup_refresh<R: CryptoRng + RngCore, G: GroupElem>(
+    shares: &[Keyshare<G>],
+    rng: &mut R,
+) -> Result<Vec<KeygenParty<R0, G>>, KeygenError> {
+    let (party_key_list, party_pubkey_list) = generate_pki(shares.len(), rng);
+    let parties0 = shares
+        .iter()
+        .zip(party_key_list)
+        .map(|(keyshare, party_key)| {
+            let data = keyshare.get_refresh_data();
+            KeygenParty::new(
+                keyshare.threshold,
+                keyshare.total_parties,
+                keyshare.party_id,
+                party_key,
+                party_pubkey_list.clone(),
+                Some(data),
+                rng.gen(),
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(parties0)
+}
+
 pub fn run_refresh<const T: usize, const N: usize, G: GroupElem>() -> Result<(), KeygenError>
 where
-    G::Scalar: ScalarReduce,
+    G::Scalar: ScalarReduce<[u8; 32]>,
 {
     let shares = run_keygen::<T, N, G>();
     process_refresh::<T, N, G>(shares)?;
@@ -86,7 +91,7 @@ pub fn run_recovery<const T: usize, const N: usize, G: GroupElem>(
     lost_party_ids: Vec<u8>,
 ) -> Result<(), KeygenError>
 where
-    G::Scalar: ScalarReduce,
+    G::Scalar: ScalarReduce<[u8; 32]>,
 {
     let mut rng = rand::thread_rng();
     let (party_key_list, party_pubkey_list) = generate_pki(N, &mut rng);

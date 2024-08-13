@@ -1,82 +1,54 @@
 use std::time::Instant;
 
+use curve25519_dalek::EdwardsPoint;
+use elliptic_curve::Group;
+use k256::elliptic_curve::group::GroupEncoding;
+use k256::ProjectivePoint;
 use multi_party_schnorr::{
-    common::{
-        traits::{PersistentObj, Round},
-        utils::{
-            cooridinator::{recv_broadcast, Coordinator},
-            generate_pki, run_round,
-        },
+    common::utils::{run_keygen, run_round},
+    keygen::{
+        utils::{setup_keygen, setup_refresh},
+        KeygenMsg2, Keyshare,
     },
-    keygen::{utils::process_keygen, KeygenParty, Keyshare},
 };
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const N: usize = 5;
-    const T: usize = 3;
+fn main() {
+    const T: usize = 2;
+    const N: usize = 3;
 
-    // Generate some keyshares
-    let keyshares = process_keygen::<T, N>();
     let mut rng = rand::thread_rng();
+    // Perform keygen to generate keyshares
+    let shares = run_keygen::<T, N, EdwardsPoint>();
 
     let start = Instant::now();
-    let (party_pubkey_list, party_key_list) = generate_pki(N, &mut rng);
+    // Setup the refresh protocol, initialize parties.
+    let parties0 = setup_refresh(&shares, &mut rng).unwrap();
 
-    // Start refresh protocol
-    let parties0 = keyshares
-        .iter()
-        .zip(party_key_list)
-        .map(|(keyshare, party_key)| {
-            let data = keyshare.get_refresh_data();
-            KeygenParty::new(
-                T as u8,
-                N as u8,
-                keyshare.party_id,
-                &party_key,
-                party_pubkey_list.clone(),
-                Some(data),
-                &mut rng,
-            )
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    // Locally running keygen refresh protocol
+    // Run Round 1
+    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties0, ()).into_iter().unzip();
 
-    let mut coord = Coordinator::new(N as u8, 2);
-    let parties1 = parties0
-        .into_iter()
-        .map(|party| {
-            let (p, msg) = party.process(()).unwrap();
-            coord.send(0, msg.to_bytes().unwrap()).unwrap();
-            p
-        })
-        .collect();
+    // Run Round 2
+    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
 
-    let parties2 = run_round(&mut coord, parties1, 0);
+    // Run Round 3
+    let new_shares = run_round(actors, msgs);
 
-    let msgs = recv_broadcast(&mut coord, 1);
-    let new_keyshares: Vec<Keyshare> = parties2
-        .into_par_iter()
-        .map(|actor| actor.process(msgs.clone()).unwrap())
-        .collect();
+    println!("Time elapsed: {:?}", start.elapsed());
 
-    println!("Time taken: {:?}", start.elapsed());
-
-    println!("Previous keyshare public keys------------------");
-    for (i, keyshare) in keyshares.iter().enumerate() {
+    for (i, keyshare) in new_shares.iter().enumerate() {
         println!(
-            "Party-{}'s keyshare: {}",
+            "Party-{}'s old keyshare: {}",
             i,
-            bs58::encode(keyshare.public_key.compress().as_bytes()).into_string()
+            bs58::encode(keyshare.public_key.to_bytes()).into_string()
         );
     }
-    println!("Refreshed keyshare public keys (must be the same)------------------");
 
-    for (i, keyshares) in new_keyshares.iter().enumerate() {
+    for (i, new_share) in new_shares.iter().enumerate() {
         println!(
-            "Party-{}'s keyshare: {}",
+            "Party-{}'s refreshed keyshare: {}",
             i,
-            bs58::encode(keyshares.public_key.compress().as_bytes()).into_string()
+            bs58::encode(new_share.public_key.to_bytes()).into_string()
         );
     }
-    Ok(())
 }

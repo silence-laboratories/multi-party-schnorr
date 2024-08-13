@@ -2,6 +2,7 @@ use crypto_bigint::subtle::ConstantTimeEq;
 use crypto_box::{PublicKey, SecretKey};
 use curve25519_dalek::{traits::Identity, EdwardsPoint, Scalar};
 use elliptic_curve::{group::GroupEncoding, Group};
+use k256::ProjectivePoint;
 use std::hash::Hash;
 
 use ff::{Field, PrimeField};
@@ -12,7 +13,7 @@ use sha2::{digest::Update, Digest, Sha256, Sha512};
 use sl_mpc_mate::math::GroupPolynomial;
 
 use crate::common::{
-    traits::{GroupElem, PersistentObj, Round, ScalarReduce},
+    traits::{GroupElem, Round, ScalarReduce},
     utils::{
         calculate_final_session_id, decrypt_message, encrypt_message, BaseMessage, EncryptedScalar,
         HashBytes, SessionId,
@@ -26,7 +27,7 @@ use super::{
 };
 
 /// LABEL for the keygen protocol
-pub const DKG_LABEL: &[u8] = b"SilenceLaboratories-EDDSA-DKG";
+pub const DKG_LABEL: &[u8] = b"SilenceLaboratories-Schnorr-DKG";
 
 /// Keygen party
 /// The keygen party is a state machine that implements the keygen protocol.
@@ -236,7 +237,7 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
 impl<G> Round for KeygenParty<R1<G>, G>
 where
     G: GroupElem,
-    G::Scalar: ScalarReduce,
+    G::Scalar: ScalarReduce<[u8; 32]>,
 {
     type Input = Vec<KeygenMsg1>;
 
@@ -316,7 +317,7 @@ where
 impl<G> Round for KeygenParty<R2, G>
 where
     G: GroupElem,
-    G::Scalar: ScalarReduce,
+    G::Scalar: ScalarReduce<[u8; 32]>,
 {
     type Input = Vec<KeygenMsg2<G>>;
 
@@ -467,7 +468,7 @@ fn hash_commitment<G: GroupElem>(
     }
     for c in ciphertexts {
         // FIXME: Unwrap okay?
-        sha2::Digest::update(&mut hasher, c.to_bytes().unwrap());
+        sha2::Digest::update(&mut hasher, bytemuck::bytes_of(c));
     }
     sha2::Digest::update(&mut hasher, r_i);
     hasher.finalize().into()
@@ -506,7 +507,7 @@ fn verfiy_dlog_proofs<G: GroupElem>(
     threshold: u8,
 ) -> bool
 where
-    G::Scalar: ScalarReduce,
+    G::Scalar: ScalarReduce<[u8; 32]>,
 {
     let mut valid = true;
     if proofs.len() != points.len() || proofs.len() != threshold as usize {

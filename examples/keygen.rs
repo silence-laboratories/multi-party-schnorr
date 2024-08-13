@@ -1,9 +1,12 @@
 use std::time::Instant;
 
 use curve25519_dalek::EdwardsPoint;
+use elliptic_curve::Group;
+use k256::elliptic_curve::group::GroupEncoding;
+use k256::ProjectivePoint;
 use multi_party_schnorr::{
     common::utils::run_round,
-    keygen::{utils::setup_keygen, Keyshare},
+    keygen::{utils::setup_keygen, KeygenMsg2, Keyshare},
 };
 
 fn main() {
@@ -14,6 +17,7 @@ fn main() {
     // Setup keygen, create the encryption keys for each party
     let parties = setup_keygen(T as u8, N as u8).unwrap();
 
+    // Locally run the keygen protocol
     // Run Round 1
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
 
@@ -21,7 +25,7 @@ fn main() {
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
 
     // Run Round 3
-    let keyshares: Vec<Keyshare<EdwardsPoint>> = run_round(parties, msgs);
+    let keyshares: Vec<Keyshare<ProjectivePoint>> = run_round(parties, msgs);
 
     println!("Time elapsed: {:?}", start.elapsed());
 
@@ -29,7 +33,7 @@ fn main() {
         println!(
             "Party-{}'s keyshare: {}",
             i,
-            bs58::encode(keyshare.public_key.compress().as_bytes()).into_string()
+            bs58::encode(keyshare.public_key.to_bytes()).into_string()
         );
     }
 }

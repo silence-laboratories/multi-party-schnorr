@@ -6,7 +6,7 @@ use crypto_box::{
 use crypto_bigint::generic_array::typenum::Unsigned;
 use crypto_bigint::{generic_array::GenericArray, rand_core::CryptoRngCore, Encoding, U256};
 use curve25519_dalek::Scalar;
-use ed25519_dalek::Signature;
+use ed25519_dalek::{Signature, Verifier};
 use elliptic_curve::{group::GroupEncoding, Group};
 use ff::PrimeField;
 use rand::{CryptoRng, Rng, RngCore};
@@ -21,7 +21,16 @@ use super::traits::{GroupElem, Round, ScalarReduce};
 // Encryption is done inplace, so the size of the ciphertext is the size of the message plus the tag size.
 pub const SCALAR_CIPHERTEXT_SIZE: usize = 32 + <SalsaBox as AeadCore>::TagSize::USIZE;
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    bytemuck::AnyBitPattern,
+    bytemuck::NoUninit,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[repr(C)]
 pub struct EncryptedScalar {
     pub sender_pid: u8,
     pub receiver_pid: u8,
@@ -30,6 +39,8 @@ pub struct EncryptedScalar {
     // Size of the nonce is 24
     pub nonce: [u8; <SalsaBox as AeadCore>::NonceSize::USIZE],
 }
+
+const _: () = assert!(core::mem::align_of::<EncryptedScalar>() == 1);
 
 // Not using the SessionId type from sl_mpc_mate because it is not serializable.
 pub type SessionId = [u8; 32];
@@ -305,7 +316,7 @@ where
 /// Utility function to run the keygen protocol.
 pub fn run_keygen<const T: usize, const N: usize, G: GroupElem>() -> [Keyshare<G>; N]
 where
-    G::Scalar: ScalarReduce,
+    G::Scalar: ScalarReduce<[u8; 32]>,
 {
     let actors = setup_keygen(T as u8, N as u8).unwrap();
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, ()).into_iter().unzip();

@@ -1,35 +1,36 @@
 use crypto_bigint::subtle::ConstantTimeEq;
 use curve25519_dalek::{traits::Identity, EdwardsPoint, Scalar};
+use elliptic_curve::Group;
 use ff::Field;
 use sl_mpc_mate::math::factorial_range;
 
-use super::{traits::GroupElem, utils::ToCurveScalar};
+use super::utils::ToCurveScalar;
 
-/// Feldman verification
-pub fn feldman_verify(
-    u_i_k: &[EdwardsPoint],
-    x_i: &Scalar,
-    f_i_value: &Scalar,
-    g: &EdwardsPoint,
-) -> Option<bool> {
-    if u_i_k.is_empty() {
-        return None;
-    }
-
-    let mut point = EdwardsPoint::identity();
-
-    for (i, coeff) in u_i_k.iter().enumerate() {
-        // x_i^i mod p
-        let val = x_i.pow([i as u64]);
-
-        // x_i^i * coeff mod p
-        point += *coeff * val;
-    }
-
-    let expected_point = *g * f_i_value;
-
-    Some(point == expected_point)
-}
+// /// Feldman verification
+// pub fn feldman_verify(
+//     u_i_k: &[EdwardsPoint],
+//     x_i: &Scalar,
+//     f_i_value: &Scalar,
+//     g: &EdwardsPoint,
+// ) -> Option<bool> {
+//     if u_i_k.is_empty() {
+//         return None;
+//     }
+//
+//     let mut point = EdwardsPoint::identity();
+//
+//     for (i, coeff) in u_i_k.iter().enumerate() {
+//         // x_i^i mod p
+//         let val = x_i.pow([i as u64]);
+//
+//         // x_i^i * coeff mod p
+//         point += *coeff * val;
+//     }
+//
+//     let expected_point = *g * f_i_value;
+//
+//     Some(point == expected_point)
+// }
 
 /// Get the multipliers for the coefficients of the polynomial,
 /// given the x_i (point of evaluation),
@@ -52,7 +53,7 @@ pub fn polynomial_coeff_multipliers(x_i: &Scalar, n_i: usize, n: usize) -> Vec<S
     v
 }
 
-pub fn get_lagrange_coeff<G: GroupElem>(
+pub fn get_lagrange_coeff<G: Group>(
     my_party_id: &u8,
     party_ids: impl Iterator<Item = u8>,
 ) -> G::Scalar {

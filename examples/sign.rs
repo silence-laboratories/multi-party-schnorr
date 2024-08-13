@@ -1,78 +1,36 @@
-use ed25519_dalek::SigningKey;
-use multi_party_schnorr::common::traits::{PersistentObj, Round};
-use multi_party_schnorr::common::utils::cooridinator::{recv_broadcast, Coordinator};
-use multi_party_schnorr::common::utils::run_round;
-use multi_party_schnorr::{
-    keygen::utils::process_keygen,
-    sign::{messages::SignMsg2, SignerParty},
-};
-use rand::seq::IteratorRandom;
+use curve25519_dalek::EdwardsPoint;
+use k256::ProjectivePoint;
+use multi_party_schnorr::common::utils::{run_keygen, run_round};
+use multi_party_schnorr::sign::SignerParty;
 
 fn main() {
     const N: usize = 5;
     const T: usize = 3;
-    let keyshares = process_keygen::<T, N>();
+
+    let keyshares = run_keygen::<T, N, EdwardsPoint>();
     let mut rng = rand::thread_rng();
-
-    let subset = keyshares.into_iter().choose_multiple(&mut rng, T);
-    let mut coord = Coordinator::new(subset.len() as u8, 6);
-
-    let mut party_pubkey_list = vec![];
-    let party_key_list = (0..subset.len())
-        .map(|_| {
-            // Generate or load from persistent storage
-            // set of party's keys
-            let party_keys = SigningKey::generate(&mut rng);
-
-            // extract public keys
-            let actor_pubkeys = party_keys.verifying_key();
-            party_pubkey_list.push(actor_pubkeys);
-
-            party_keys
-        })
-        .collect::<Vec<_>>();
-
     let start = std::time::Instant::now();
-    let parties = subset
-        .into_iter()
-        .enumerate()
-        .map(|(idx, keyshare)| {
-            let s0 = SignerParty::new(
-                keyshare,
-                party_key_list[idx].clone(),
-                party_pubkey_list.clone(),
-                &mut rng,
-            )
-            .unwrap();
-            let (s1, msg1) = s0.process(()).unwrap();
-            coord.send(0, msg1.to_bytes().unwrap()).unwrap();
-            s1
-        })
+
+    let parties = keyshares
+        .iter()
+        .map(|keyshare| SignerParty::new(keyshare.clone(), &mut rng))
         .collect::<Vec<_>>();
 
-    let parties1 = run_round(&mut coord, parties, 0);
+    // Pre-Signature phase
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+    let ready_parties = run_round(parties, msgs);
 
-    let messages: Vec<SignMsg2> = recv_broadcast(&mut coord, 1);
+    // Signature phase
+    let msg = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+    let (parties, partial_sigs): (Vec<_>, Vec<_>) =
+        run_round(ready_parties, msg.into()).into_iter().unzip();
 
-    let ready_parties = parties1
-        .into_iter()
-        .map(|party| party.process(messages.clone()).unwrap())
-        .collect::<Vec<_>>();
+    let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
+        run_round(parties, partial_sigs).into_iter().unzip();
 
-    let message = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks.";
-
-    let partial_sign_parties = ready_parties
-        .into_iter()
-        .map(|party| {
-            let (p, m) = party.process(message.to_vec()).unwrap();
-            coord.send(2, m.to_bytes().unwrap()).unwrap();
-            p
-        })
-        .collect::<Vec<_>>();
-
-    let signatures = run_round(&mut coord, partial_sign_parties, 2);
     println!("Time: {:?}ms", start.elapsed());
     for sig in signatures {
-        println!("Signature: {}", bs58::encode(sig.to_bytes()).into_string())
+        println!("Signature: {}", bs58::encode(sig).into_string())
     }
 }

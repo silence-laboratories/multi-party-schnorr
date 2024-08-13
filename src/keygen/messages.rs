@@ -21,7 +21,8 @@ use super::KeyRefreshData;
 /// Type for the key generation protocol's message 1.
 ///
 #[derive(Hash, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(C)]
 pub struct KeygenMsg1 {
     /// Participant Id of the sender
     pub from_party: u8,
@@ -34,11 +35,11 @@ pub struct KeygenMsg1 {
 }
 
 /// Type for the key generation protocol's message 2.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeygenMsg2<G>
 where
     G: GroupElem,
-    G::Scalar: ScalarReduce,
+    G::Scalar: ScalarReduce<[u8; 32]>,
 {
     /// Participant Id of the sender
     pub from_party: u8,
@@ -56,6 +57,10 @@ where
     pub c_i_list: Vec<EncryptedScalar>,
 
     /// Participants dlog proof
+    #[serde(bound(
+        serialize = "G::Scalar: Serialize",
+        deserialize = "G::Scalar: Deserialize<'de>"
+    ))]
     pub dlog_proofs_i: Vec<DLogProof<G>>,
 }
 
@@ -79,7 +84,7 @@ where
 
 impl<G> Keyshare<G>
 where
-    G: GroupElem,
+    G: Group,
 {
     /// Start the key refresh protocol.
     /// This will return a [`KeyRefreshData`] instance which can be use to initialize the KeygenParty which can be driven
@@ -127,7 +132,7 @@ impl_basemessage!(KeygenMsg1);
 impl<G> crate::common::utils::BaseMessage for KeygenMsg2<G>
 where
     G: GroupElem,
-    G::Scalar: ScalarReduce,
+    G::Scalar: ScalarReduce<[u8; 32]>,
 {
     fn session_id(&self) -> &SessionId {
         &self.session_id

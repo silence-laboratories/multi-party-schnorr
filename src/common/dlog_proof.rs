@@ -23,7 +23,7 @@ pub struct DLogProof<G: GroupElem> {
 impl<G: GroupElem> DLogProof<G>
 where
     G: ConstantTimeEq,
-    G::Scalar: ScalarReduce,
+    G::Scalar: ScalarReduce<[u8; 32]>,
 {
     /// Prove knowledge of discrete logarithm.
     pub fn prove<R: CryptoRng + RngCore>(

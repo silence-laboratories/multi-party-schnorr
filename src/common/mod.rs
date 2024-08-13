@@ -3,6 +3,7 @@ mod math;
 // mod poly;
 /// Utility functions
 pub mod utils;
+use elliptic_curve::CurveArithmetic;
 
 pub use dlog_proof::*;
 use ed25519_dalek::{SigningKey, VerifyingKey};
@@ -12,9 +13,12 @@ use rand::{CryptoRng, RngCore};
 
 pub mod traits {
     use crypto_bigint::{generic_array::GenericArray, subtle::ConstantTimeEq};
+    use curve25519_dalek::EdwardsPoint;
+    use ed25519_dalek::Verifier;
+    use ed25519_dalek::{SignatureError, VerifyingKey};
     use elliptic_curve::{group::GroupEncoding, ops::Reduce, Group};
     use ff::PrimeField;
-    use k256::U256;
+    use k256::{ProjectivePoint, U256};
     use serde::{de::DeserializeOwned, Serialize};
 
     /// Trait that defines a state transition for any round based protocol.
@@ -27,50 +31,76 @@ pub mod traits {
         fn process(self, messages: Self::Input) -> Self::Output;
     }
 
-    pub trait PersistentObj {
-        type Repr: AsRef<[u8]>;
-        fn to_bytes(&self) -> Option<Self::Repr>;
-        fn from_bytes(bytes: &[u8]) -> Option<Self>
-        where
-            Self: Sized;
-    }
-
-    impl<T> PersistentObj for T
-    where
-        T: Serialize + DeserializeOwned,
-    {
-        type Repr = Vec<u8>;
-        fn to_bytes(&self) -> Option<Self::Repr> {
-            bincode::serialize(&self).ok()
-        }
-
-        fn from_bytes(bytes: &[u8]) -> Option<Self> {
-            bincode::deserialize(bytes).ok()
-        }
-    }
+    // pub trait PersistentObj {
+    //     type Repr: AsRef<[u8]>;
+    //     fn to_bytes(&self) -> Option<Self::Repr>;
+    //     fn from_bytes(bytes: &[u8]) -> Option<Self>
+    //     where
+    //         Self: Sized;
+    // }
+    //
+    // impl<T> PersistentObj for T
+    // where
+    //     T: Serialize + DeserializeOwned,
+    // {
+    //     type Repr = Vec<u8>;
+    //     fn to_bytes(&self) -> Option<Self::Repr> {
+    //         bincode::serialize(&self).ok()
+    //     }
+    //
+    //     fn from_bytes(bytes: &[u8]) -> Option<Self> {
+    //         bincode::deserialize(bytes).ok()
+    //     }
+    // }
 
     pub trait GroupElem: Group + GroupEncoding + ConstantTimeEq {}
 
     impl<G> GroupElem for G
     where
         G: Group + GroupEncoding + ConstantTimeEq,
-        G::Scalar: ScalarReduce,
+        G::Scalar: ScalarReduce<[u8; 32]>,
     {
+    }
+    pub trait GroupVerifier {
+        fn verify(&self, signature: &[u8; 64], msg: &[u8]) -> Result<(), SignatureError>;
     }
 
     /// Reduce (little endian) bytes to a scalar.
-    pub trait ScalarReduce {
-        fn reduce_from_bytes(bytes: &[u8; 32]) -> Self;
+    pub trait ScalarReduce<T> {
+        fn reduce_from_bytes(bytes: &T) -> Self;
     }
 
-    impl ScalarReduce for curve25519_dalek::Scalar {
+    impl ScalarReduce<[u8; 32]> for curve25519_dalek::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 32]) -> Self {
             Self::from_bytes_mod_order(*bytes)
         }
     }
-    impl ScalarReduce for k256::Scalar {
+
+    impl ScalarReduce<[u8; 64]> for curve25519_dalek::Scalar {
+        fn reduce_from_bytes(bytes: &[u8; 64]) -> Self {
+            Self::from_bytes_mod_order_wide(bytes)
+        }
+    }
+
+    impl ScalarReduce<[u8; 32]> for k256::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 32]) -> Self {
             <Self as Reduce<U256>>::reduce(U256::from_le_slice(bytes))
+        }
+    }
+
+    impl GroupVerifier for EdwardsPoint {
+        fn verify(&self, signature: &[u8; 64], msg: &[u8]) -> Result<(), SignatureError> {
+            let sig = ed25519_dalek::Signature::from_bytes(signature);
+            let vk = VerifyingKey::from_bytes(&self.to_bytes())?;
+            vk.verify(msg, &sig)
+        }
+    }
+
+    impl GroupVerifier for ProjectivePoint {
+        fn verify(&self, signature: &[u8; 64], msg: &[u8]) -> Result<(), SignatureError> {
+            let sig = k256::ecdsa::Signature::from_bytes(signature.into())?;
+            let vk = k256::ecdsa::VerifyingKey::from_affine(self.to_affine())?;
+            vk.verify(msg, &sig)
         }
     }
 }
