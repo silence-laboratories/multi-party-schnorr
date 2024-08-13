@@ -22,6 +22,7 @@ use super::KeyRefreshData;
 ///
 #[derive(Hash, Clone)]
 // #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Serialize, Deserialize)]
 #[repr(C)]
 pub struct KeygenMsg1 {
     /// Participant Id of the sender
@@ -79,6 +80,7 @@ where
     pub(crate) d_i: G::Scalar,
     /// Public key of the generated key.
     pub public_key: G,
+    pub key_id: [u8; 32],
     pub(crate) big_a_poly: Vec<G>,
 }
 

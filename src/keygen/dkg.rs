@@ -3,7 +3,7 @@ use crypto_box::{PublicKey, SecretKey};
 use curve25519_dalek::{traits::Identity, EdwardsPoint, Scalar};
 use elliptic_curve::{group::GroupEncoding, Group};
 use k256::ProjectivePoint;
-use std::hash::Hash;
+use std::{hash::Hash, sync::Arc};
 
 use ff::{Field, PrimeField};
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
@@ -82,7 +82,7 @@ where
         t: u8,
         n: u8,
         party_id: u8,
-        decryption_key: SecretKey,
+        decryption_key: Arc<SecretKey>,
         encyption_keys: Vec<PublicKey>,
         refresh_data: Option<KeyRefreshData<G>>,
         seed: [u8; 32],
@@ -113,7 +113,7 @@ where
         t: u8,
         n: u8,
         party_id: u8,
-        dec_key: crypto_box::SecretKey,
+        dec_key: Arc<crypto_box::SecretKey>,
         party_enc_keys: Vec<PublicKey>,
         rand_params: KeyEntropy<G>,
         key_refresh_data: Option<KeyRefreshData<G>>,
@@ -441,10 +441,12 @@ where
             }
         }
 
+        let key_id = sha2::Sha256::digest(public_key.to_bytes()).into();
         let keyshare = Keyshare {
             threshold: self.params.t,
             total_parties: self.params.n,
             party_id: self.params.party_id,
+            key_id,
             big_a_poly: (*big_a_poly).to_vec(),
             d_i: d_i_share,
             public_key,

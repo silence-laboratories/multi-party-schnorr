@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use curve25519_dalek::{scalar::Scalar, EdwardsPoint};
 use elliptic_curve::Group;
 use rand::{CryptoRng, Rng, RngCore};
@@ -22,7 +24,7 @@ where
     pub x_i: G::Scalar,
 
     /// Encryption secret key
-    pub(crate) dec_key: crypto_box::SecretKey,
+    pub(crate) dec_key: Arc<crypto_box::SecretKey>,
     pub party_enc_keys: Vec<crypto_box::PublicKey>,
 }
 
@@ -47,7 +49,11 @@ where
     G: Group,
 {
     /// Generate a new set of random params
-    pub fn generate<R: CryptoRng + RngCore>(t: u8, n: u8, rng: &mut R) -> Self {
+    pub fn generate<R: CryptoRng + RngCore>(
+        t: u8,
+        n: u8,
+        rng: &mut R,
+    ) -> Self {
         // 11.2(a)
         let session_id = rng.gen();
 
@@ -63,7 +69,11 @@ where
         }
     }
 
-    pub fn generate_refresh<R: CryptoRng + RngCore>(t: u8, n: u8, rng: &mut R) -> Self {
+    pub fn generate_refresh<R: CryptoRng + RngCore>(
+        t: u8,
+        n: u8,
+        rng: &mut R,
+    ) -> Self {
         let session_id = rng.gen();
         let mut polynomial = Polynomial::random(rng, (t - 1) as usize);
         polynomial.reset_contant();

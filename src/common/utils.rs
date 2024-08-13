@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crypto_box::{
     aead::{Aead, AeadCore},
     PublicKey, SalsaBox, SecretKey,
@@ -283,14 +285,14 @@ pub fn decrypt_message(
 pub fn generate_pki<R: CryptoRng + RngCore>(
     total_parties: usize,
     rng: &mut R,
-) -> (Vec<crypto_box::SecretKey>, Vec<crypto_box::PublicKey>) {
+) -> (Vec<Arc<crypto_box::SecretKey>>, Vec<crypto_box::PublicKey>) {
     let mut party_pubkey_list = vec![];
 
-    let party_key_list: Vec<crypto_box::SecretKey> = (0..total_parties)
+    let party_key_list: Vec<Arc<crypto_box::SecretKey>> = (0..total_parties)
         .map(|_| {
             let sk = crypto_box::SecretKey::generate(rng);
             party_pubkey_list.push(sk.public_key());
-            sk
+            Arc::new(sk)
         })
         .collect();
 
