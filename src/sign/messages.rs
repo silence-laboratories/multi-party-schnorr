@@ -25,19 +25,24 @@ pub struct SignMsg1 {
 }
 
 /// Type for the sign gen message 2.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SignMsg2<G: GroupElem> {
     /// Participant Id of the sender
     pub from_party: u8,
     /// Sesssion id
     pub session_id: SessionId,
     pub(crate) blind_factor: [u8; 32],
+
+    #[serde(bound(
+        serialize = "G::Scalar: Serialize",
+        deserialize = "G::Scalar: Deserialize<'de>"
+    ))]
     pub(crate) dlog_proof: DLogProof<G>,
     pub(crate) big_r_i: G,
 }
 
 /// Type for the sign gen message 3.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SignMsg3<G: Group> {
     /// Participant Id of the sender
     pub from_party: u8,

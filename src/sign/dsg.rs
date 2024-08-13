@@ -1,8 +1,11 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 use crypto_bigint::subtle::ConstantTimeEq;
 use curve25519_dalek::{traits::IsIdentity, EdwardsPoint, Scalar};
-use ed25519_dalek::{DigestSigner, DigestVerifier, Signature, SigningKey, Verifier, VerifyingKey};
+use ed25519_dalek::{
+    DigestSigner, DigestVerifier, Signature, SigningKey, Verifier,
+    VerifyingKey,
+};
 use elliptic_curve::{group::GroupEncoding, Group};
 use ff::PrimeField;
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
@@ -13,7 +16,9 @@ use crate::{
     common::{
         get_lagrange_coeff,
         traits::{GroupElem, GroupVerifier, Round, ScalarReduce},
-        utils::{calculate_final_session_id, BaseMessage, HashBytes, SessionId},
+        utils::{
+            calculate_final_session_id, BaseMessage, HashBytes, SessionId,
+        },
         DLogProof,
     },
     keygen::Keyshare,
@@ -27,7 +32,7 @@ use super::{
 /// Signer party
 pub struct SignerParty<T, G: Group> {
     party_id: u8,
-    keyshare: Keyshare<G>,
+    keyshare: Arc<Keyshare<G>>,
     rand_params: SignEntropy<G>,
     seed: [u8; 32],
     state: T,
@@ -69,7 +74,10 @@ pub struct PartialSign<G: Group> {
 
 impl<G: Group> SignerParty<R0, G> {
     /// Create a new signer party with the given keyshare
-    pub fn new<R: CryptoRng + RngCore>(keyshare: Keyshare<G>, rng: &mut R) -> Self {
+    pub fn new<R: CryptoRng + RngCore>(
+        keyshare: Arc<Keyshare<G>>,
+        rng: &mut R,
+    ) -> Self {
         Self {
             party_id: keyshare.party_id,
             keyshare,
@@ -122,9 +130,12 @@ where
     type Output = Result<(SignerParty<R2<G>, G>, SignMsg2<G>), SignError>;
 
     fn process(self, mut msgs: Self::Input) -> Self::Output {
-        let mut commitment_list = Vec::with_capacity(self.keyshare.threshold as usize);
-        let mut sid_list = Vec::with_capacity(self.keyshare.threshold as usize);
-        let mut party_ids = Vec::with_capacity(self.keyshare.threshold as usize);
+        let mut commitment_list =
+            Vec::with_capacity(self.keyshare.threshold as usize);
+        let mut sid_list =
+            Vec::with_capacity(self.keyshare.threshold as usize);
+        let mut party_ids =
+            Vec::with_capacity(self.keyshare.threshold as usize);
         msgs.sort_by_key(|m| m.party_id());
 
         for msg in msgs {
@@ -133,7 +144,8 @@ where
             party_ids.push(msg.from_party);
         }
 
-        let final_sid = calculate_final_session_id(party_ids.iter().copied(), &sid_list);
+        let final_sid =
+            calculate_final_session_id(party_ids.iter().copied(), &sid_list);
 
         use sha2::digest::Update;
         let dlog_sid = Sha256::new()
@@ -145,7 +157,8 @@ where
             .into();
 
         let mut rng = ChaCha20Rng::from_seed(self.seed);
-        let dlog_proof = DLogProof::prove(&dlog_sid, &self.rand_params.k_i, &mut rng);
+        let dlog_proof =
+            DLogProof::prove(&dlog_sid, &self.rand_params.k_i, &mut rng);
 
         let msg2 = SignMsg2 {
             from_party: self.keyshare.party_id,
@@ -224,7 +237,10 @@ where
         }
 
         // FIXME: do we need copied?
-        let coeff = get_lagrange_coeff::<G>(&self.party_id, self.state.pid_list.iter().copied());
+        let coeff = get_lagrange_coeff::<G>(
+            &self.party_id,
+            self.state.pid_list.iter().copied(),
+        );
 
         let d_i = coeff * self.keyshare.d_i;
 
@@ -251,7 +267,8 @@ where
 {
     type Input = Vec<u8>;
 
-    type Output = Result<(SignerParty<PartialSign<G>, G>, SignMsg3<G>), SignError>;
+    type Output =
+        Result<(SignerParty<PartialSign<G>, G>, SignMsg3<G>), SignError>;
 
     /// The signer party processes the message to sign and returns the partial signature
     /// # Arguments
@@ -298,7 +315,8 @@ where
 {
     type Input = [u8; 32];
 
-    type Output = Result<(SignerParty<PartialSign, G>, SignMsg3<G>), SignError>;
+    type Output =
+        Result<(SignerParty<PartialSign, G>, SignMsg3<G>), SignError>;
 
     /// The signer party processes the message to sign and returns the partial signature
     /// # Arguments
@@ -354,10 +372,11 @@ impl<G: GroupElem + GroupVerifier> Round for SignerParty<PartialSign<G>, G> {
             s += msg.s_i;
         }
 
-        let signature: [u8; 64] = [self.state.big_r.to_bytes().as_ref(), s.to_repr().as_ref()]
-            .concat()
-            .try_into()
-            .expect("Sign must be 64 bytes");
+        let signature: [u8; 64] =
+            [self.state.big_r.to_bytes().as_ref(), s.to_repr().as_ref()]
+                .concat()
+                .try_into()
+                .expect("Sign must be 64 bytes");
 
         self.keyshare
             .public_key
@@ -389,7 +408,11 @@ fn hash_commitment_r_i<G: Group + GroupEncoding>(
         .into()
 }
 
-fn digest_msg_1(sid: SessionId, pid: u8, commitment_r_i: HashBytes) -> Sha512 {
+fn digest_msg_1(
+    sid: SessionId,
+    pid: u8,
+    commitment_r_i: HashBytes,
+) -> Sha512 {
     use sha2::digest::Update;
     Sha512::new()
         .chain(b"SignMsg1")
@@ -460,6 +483,7 @@ fn verify_commitment_r_i<G: Group + GroupEncoding>(
     blind_factor: &[u8; 32],
     commitment: &HashBytes,
 ) -> bool {
-    let compare_commitment = hash_commitment_r_i(sid, pid, big_r_i, blind_factor);
+    let compare_commitment =
+        hash_commitment_r_i(sid, pid, big_r_i, blind_factor);
     commitment.ct_eq(&compare_commitment).into()
 }

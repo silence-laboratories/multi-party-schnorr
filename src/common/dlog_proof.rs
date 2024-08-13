@@ -1,5 +1,7 @@
 use crypto_bigint::subtle::ConstantTimeEq;
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, EdwardsPoint, Scalar};
+use curve25519_dalek::{
+    constants::ED25519_BASEPOINT_POINT, EdwardsPoint, Scalar,
+};
 use ff::{Field, PrimeField};
 use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
