@@ -13,7 +13,7 @@ fn main() {
 
     let parties = keyshares
         .iter()
-        .map(|keyshare| SignerParty::new(keyshare.clone(), &mut rng))
+        .map(|keyshare| SignerParty::new(keyshare.clone().into(), &mut rng))
         .collect::<Vec<_>>();
 
     // Pre-Signature phase
