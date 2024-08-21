@@ -40,7 +40,7 @@ rand_chacha = "0.3.1"
 bincode = "1"
 # FIXME: Remove this 
 # sl-mpc-mate = { path = "../sl-crypto/crates/sl-mpc-mate" }
-sl-mpc-mate = { git = "https://github.com/silence-laboratories/sl-crypto.git", branch = "feat/generic-curves" }
+sl-mpc-mate = { git = "https://github.com/silence-laboratories/sl-crypto.git", rev = "ff63353" }
 thiserror = "1"
 tracing = "0.1"
 tracing-subscriber = "0.3"
