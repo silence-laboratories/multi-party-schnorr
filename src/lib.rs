@@ -13,3 +13,4 @@ pub mod common;
 pub const VERSION: u16 = 1;
 
 pub use curve25519_dalek::{edwards::CompressedEdwardsY, EdwardsPoint};
+pub use elliptic_curve::group;
