@@ -51,7 +51,7 @@ mod test {
     use curve25519_dalek::EdwardsPoint;
 
     #[test]
-    fn refresh() {
+    fn refresh_curve25519() {
         let _ = run_refresh::<3, 5, EdwardsPoint>();
         let _ = run_refresh::<2, 3, EdwardsPoint>();
         let _ = run_refresh::<5, 10, EdwardsPoint>();
@@ -59,7 +59,7 @@ mod test {
     }
 
     #[test]
-    fn recovery() {
+    fn recovery_curve25519() {
         let keyshares = run_keygen::<3, 5, EdwardsPoint>();
         run_recovery::<3, 5, EdwardsPoint>(&keyshares, vec![0]).unwrap();
         run_recovery::<3, 5, EdwardsPoint>(&keyshares, vec![1, 2]).unwrap();
@@ -70,9 +70,42 @@ mod test {
 
     #[test]
     #[should_panic(expected = "Error during key refresh or recovery protocol")]
-    fn recovery_invalid() {
+    fn recovery_invalid_curve25519() {
         let keyshares = run_keygen::<3, 5, EdwardsPoint>();
         if let Err(e) = run_recovery::<3, 5, EdwardsPoint>(&keyshares, vec![1, 2, 3]) {
+            panic!("{}", e);
+        }
+    }
+
+    #[cfg(feature = "secp256k1")]
+    #[test]
+    fn refresh_secp256k1() {
+        use k256::ProjectivePoint;
+        let _ = run_refresh::<3, 5, ProjectivePoint>();
+        let _ = run_refresh::<2, 3, ProjectivePoint>();
+        let _ = run_refresh::<5, 10, ProjectivePoint>();
+        let _ = run_refresh::<9, 20, ProjectivePoint>();
+    }
+
+    #[cfg(feature = "secp256k1")]
+    #[test]
+    fn recovery_secp256k1() {
+        use k256::ProjectivePoint;
+        let keyshares = run_keygen::<3, 5, ProjectivePoint>();
+        run_recovery::<3, 5, ProjectivePoint>(&keyshares, vec![0]).unwrap();
+        run_recovery::<3, 5, ProjectivePoint>(&keyshares, vec![1, 2]).unwrap();
+        run_recovery::<3, 5, ProjectivePoint>(&keyshares, vec![3, 4]).unwrap();
+        run_recovery::<3, 5, ProjectivePoint>(&keyshares, vec![2, 3]).unwrap();
+        run_recovery::<3, 5, ProjectivePoint>(&keyshares, vec![4, 1]).unwrap();
+    }
+
+    #[cfg(feature = "secp256k1")]
+    #[test]
+    #[should_panic(expected = "Error during key refresh or recovery protocol")]
+    fn recovery_invalid_secp256k1() {
+        use k256::ProjectivePoint;
+        let keyshares = run_keygen::<3, 5, ProjectivePoint>();
+        if let Err(e) = run_recovery::<3, 5, ProjectivePoint>(&keyshares, vec![1, 2, 3]) {
             panic!("{}", e);
         }
     }

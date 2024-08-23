@@ -1,7 +1,5 @@
 use crypto_bigint::subtle::ConstantTimeEq;
-use curve25519_dalek::{
-    constants::ED25519_BASEPOINT_POINT, EdwardsPoint, Scalar,
-};
+use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, EdwardsPoint, Scalar};
 use ff::{Field, PrimeField};
 use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -17,7 +15,11 @@ use super::{
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct DLogProof<G: GroupElem> {
     /// Public point `t`.
-    pub t: G,
+    #[serde(bound(
+        serialize = "G::Repr: Serialize",
+        deserialize = "G::Repr: Deserialize<'de>"
+    ))]
+    pub t: G::Repr,
     /// Challenge response
     pub s: G::Scalar,
 }
@@ -40,14 +42,21 @@ where
 
         let s = r + c * x;
 
-        Self { t, s }
+        Self { t: t.to_bytes(), s }
     }
 
     /// Verify knowledge of discrete logarithm.
     pub fn verify(&self, session_id: &SessionId, y: &G) -> bool {
-        let c = Self::fiat_shamir(session_id, y, &self.t);
+        let t = G::from_bytes(&self.t);
+        let t = if t.is_some().into() {
+            t.unwrap()
+        } else {
+            return false;
+        };
+
+        let c = Self::fiat_shamir(session_id, y, &t);
         let lhs = G::generator() * &self.s;
-        let rhs = self.t + *y * c;
+        let rhs = t + *y * c;
 
         lhs.ct_eq(&rhs).into()
     }

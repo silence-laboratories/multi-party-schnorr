@@ -49,11 +49,7 @@ where
     G: Group,
 {
     /// Generate a new set of random params
-    pub fn generate<R: CryptoRng + RngCore>(
-        t: u8,
-        n: u8,
-        rng: &mut R,
-    ) -> Self {
+    pub fn generate<R: CryptoRng + RngCore>(t: u8, n: u8, rng: &mut R) -> Self {
         // 11.2(a)
         let session_id = rng.gen();
 
@@ -69,11 +65,7 @@ where
         }
     }
 
-    pub fn generate_refresh<R: CryptoRng + RngCore>(
-        t: u8,
-        n: u8,
-        rng: &mut R,
-    ) -> Self {
+    pub fn generate_refresh<R: CryptoRng + RngCore>(t: u8, n: u8, rng: &mut R) -> Self {
         let session_id = rng.gen();
         let mut polynomial = Polynomial::random(rng, (t - 1) as usize);
         polynomial.reset_contant();
@@ -94,6 +86,10 @@ pub enum KeygenError {
     /// Invalid Pid value
     #[error("Invalid pid, it must be in the range [1,n]")]
     InvalidPid,
+
+    /// Invalid data given in message, serialization/deserialization error
+    #[error("Invalid message data")]
+    InvalidMsgData,
 
     /// Invalid threshold t value
     #[error("Invalid t, must be less than n")]
