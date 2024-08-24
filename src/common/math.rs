@@ -1,5 +1,5 @@
 use crypto_bigint::subtle::ConstantTimeEq;
-use curve25519_dalek::{Scalar};
+use curve25519_dalek::Scalar;
 use elliptic_curve::Group;
 use ff::Field;
 use sl_mpc_mate::math::factorial_range;

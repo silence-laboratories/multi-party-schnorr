@@ -370,42 +370,35 @@ mod taproot {
         fn process(self, msg_to_sign: Self::Input) -> Self::Output {
             use elliptic_curve::point::AffineCoordinates;
             let hash = Sha256::digest(&msg_to_sign);
-            println!("hash: {:?}", hash);
-            let big_a = self.keyshare.public_key.to_affine();
+            let big_p = self.keyshare.public_key.to_affine();
+            let big_r = self.state.big_r.to_affine();
+            let mut k_i = self.rand_params.k_i;
+            let mut d_i = self.state.d_i;
+
             println!(
                 "public key y is odd: {:?}",
-                big_a.y_is_odd().unwrap_u8() == 1
+                big_p.y_is_odd().unwrap_u8() == 1
             );
-            let big_r = self.state.big_r.to_affine();
-            println!("Y odd:{}", big_r.y_is_odd().unwrap_u8() == 1);
+
+            println!("Big R Y is odd:{}", big_r.y_is_odd().unwrap_u8() == 1);
+
+            if big_r.y_is_odd().unwrap_u8() == 1 {
+                k_i = -k_i;
+            }
+
+            if big_p.y_is_odd().unwrap_u8() == 1 {
+                d_i = -d_i;
+            }
 
             let e = <k256::Scalar as Reduce<U256>>::reduce_bytes(
                 &tagged_hash(CHALLENGE_TAG)
                     .chain_update(big_r.x())
-                    .chain_update(big_a.x())
+                    .chain_update(big_p.x())
                     .chain_update(hash)
                     .finalize(),
             );
-            println!("e: {:?}", e);
-            let s_i = self.rand_params.k_i + self.state.d_i * e;
 
-            // let k = NonZeroScalar::try_from(&*rand)
-            //           .map(Self::from)
-            //           .map_err(|_| Error::new())?;
-            //
-            //       let secret_key = k.secret_key;
-            //       let verifying_point = AffinePoint::from(k.verifying_key);
-            //       let r = verifying_point.x.normalize();
-            //
-            //       let e = <Scalar as Reduce<U256>>::reduce_bytes(
-            //           &tagged_hash(CHALLENGE_TAG)
-            //               .chain_update(r.to_bytes())
-            //               .chain_update(self.verifying_key.to_bytes())
-            //               .chain_update(msg_digest)
-            //               .finalize(),
-            //       );
-            //
-            //       let s = *secret_key + e * *self.secret_key;
+            let s_i = k_i + d_i * e;
 
             let msg3 = SignMsg3 {
                 from_party: self.keyshare.party_id,
@@ -449,16 +442,13 @@ mod taproot {
             }
 
             let r = self.state.big_r.to_affine().x();
-            println!("r: {:?}", r);
             let r: &[u8] = r.as_ref();
-            println!("r: {:?}", r);
 
             let signature: [u8; 64] = [r, s.to_bytes().as_ref()]
                 .concat()
                 .try_into()
                 .expect("Sign must be 64 bytes");
             let s = k256::schnorr::Signature::try_from(signature.as_ref()).unwrap();
-            println!("signature: {:?}", s);
 
             self.keyshare
                 .public_key
