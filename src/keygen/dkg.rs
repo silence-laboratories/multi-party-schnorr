@@ -1,9 +1,8 @@
 use crypto_bigint::subtle::ConstantTimeEq;
 use crypto_box::{PublicKey, SecretKey};
-use curve25519_dalek::{traits::Identity};
 use elliptic_curve::{group::GroupEncoding, Group};
 
-use std::{sync::Arc};
+use std::sync::Arc;
 
 use ff::{Field, PrimeField};
 use rand::{Rng, SeedableRng};
@@ -275,7 +274,6 @@ where
 
         // 11.4(b)
         let mut rng = ChaCha20Rng::from_seed(self.seed);
-        use sha2::digest::Update;
         let dlog_sid = Sha256::new()
             .chain(b"SL-EDDSA-DLOG-PROOF")
             .chain(final_sid.as_ref())

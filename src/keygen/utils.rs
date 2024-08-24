@@ -1,9 +1,6 @@
-
 use elliptic_curve::Group;
 
 use rand::{CryptoRng, Rng, RngCore};
-use rayon::iter::{ParallelIterator};
-
 
 use crate::common::traits::{GroupElem, ScalarReduce};
 use crate::common::utils::{generate_pki, run_keygen, run_round};

@@ -1,8 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
 use crypto_bigint::subtle::ConstantTimeEq;
-use curve25519_dalek::{traits::IsIdentity, EdwardsPoint, Scalar};
-use ed25519_dalek::{Verifier};
 use elliptic_curve::{group::GroupEncoding, Group};
 use ff::PrimeField;
 
@@ -24,8 +22,6 @@ use super::{
     messages::{SignComplete, SignMsg1, SignMsg2, SignMsg3},
     types::{SignEntropy, SignError},
 };
-
-const CHALLENGE_TAG: &[u8] = b"BIP0340/challenge";
 
 /// Signer party
 pub struct SignerParty<T, G: Group> {
@@ -351,7 +347,10 @@ impl<G: Group + GroupEncoding + GroupVerifier> Round for SignerParty<PartialSign
 
 #[cfg(feature = "taproot")]
 mod taproot {
+
+    const CHALLENGE_TAG: &[u8] = b"BIP0340/challenge";
     use super::*;
+    use k256::ProjectivePoint;
 
     impl Round for SignerParty<SignReady<ProjectivePoint>, ProjectivePoint> {
         type Input = Vec<u8>;
@@ -475,7 +474,7 @@ mod taproot {
 }
 
 #[cfg(feature = "taproot")]
-pub fn run_sign(shares: &[Keyshare<ProjectivePoint>]) -> [u8; 64] {
+pub fn run_sign(shares: &[Keyshare<k256::ProjectivePoint>]) -> [u8; 64] {
     let mut rng = rand::thread_rng();
     let parties = shares
         .iter()
@@ -512,43 +511,6 @@ fn hash_commitment_r_i<G: Group + GroupEncoding>(
         .chain(blind_factor)
         .finalize()
         .into()
-}
-
-fn digest_msg_1(sid: SessionId, pid: u8, commitment_r_i: HashBytes) -> Sha512 {
-    use sha2::digest::Update;
-    Sha512::new()
-        .chain(b"SignMsg1")
-        .chain(sid.as_ref())
-        .chain((pid).to_be_bytes())
-        .chain(commitment_r_i.as_ref())
-}
-fn digest_msg_2(
-    sid: &SessionId,
-    commitments: &[HashBytes],
-    big_r_i: &EdwardsPoint,
-    blind_factor: &[u8; 32],
-) -> Sha512 {
-    let mut hasher = Sha512::new();
-
-    hasher.update(b"SignMsg2");
-    hasher.update(sid.as_ref());
-
-    for c in commitments {
-        hasher.update(c.as_ref());
-    }
-
-    hasher.update(big_r_i.compress().to_bytes());
-    hasher.update(blind_factor);
-
-    hasher
-}
-
-fn digest_msg_3(sid: &SessionId, s_i: &Scalar) -> Sha512 {
-    use sha2::digest::Update;
-    Sha512::new()
-        .chain(b"SignMsg3")
-        .chain(sid.as_ref())
-        .chain(s_i.as_bytes())
 }
 
 fn validate_input_messages<M: BaseMessage>(
