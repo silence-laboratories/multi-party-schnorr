@@ -4,24 +4,22 @@ mod math;
 /// Utility functions
 pub mod utils;
 
-
 pub use dlog_proof::*;
 
 pub use math::*;
 // pub use poly::*;
 
-
 pub mod traits {
+    use crypto_bigint::subtle::ConstantTimeEq;
     use crypto_bigint::U512;
-    use crypto_bigint::{subtle::ConstantTimeEq};
     use curve25519_dalek::EdwardsPoint;
     use ed25519_dalek::Verifier;
     use ed25519_dalek::{SignatureError, VerifyingKey};
     use elliptic_curve::sec1::FromEncodedPoint;
     use elliptic_curve::{group::GroupEncoding, ops::Reduce, Group};
-    
+
+    use k256::schnorr::SigningKey;
     use k256::{ProjectivePoint, PublicKey, U256};
-    
 
     /// Trait that defines a state transition for any round based protocol.
     pub trait Round {
@@ -86,13 +84,13 @@ pub mod traits {
 
     impl ScalarReduce<[u8; 32]> for k256::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 32]) -> Self {
-            <Self as Reduce<U256>>::reduce(U256::from_le_slice(bytes))
+            <Self as Reduce<U256>>::reduce(U256::from_be_slice(bytes))
         }
     }
 
     impl ScalarReduce<[u8; 64]> for k256::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 64]) -> Self {
-            <Self as Reduce<U512>>::reduce(U512::from_le_slice(bytes))
+            <Self as Reduce<U512>>::reduce(U512::from_be_slice(bytes))
         }
     }
 
@@ -107,10 +105,11 @@ pub mod traits {
     impl GroupVerifier for ProjectivePoint {
         fn verify(&self, signature: &[u8; 64], msg: &[u8]) -> Result<(), SignatureError> {
             use elliptic_curve::sec1::ToEncodedPoint;
-            
+
             let sig = k256::schnorr::Signature::try_from(signature.as_ref())?;
+            //FIXME: Remove unwrap
             let pk = PublicKey::from_encoded_point(&self.to_encoded_point(true)).unwrap();
-            let vk = k256::schnorr::VerifyingKey::try_from(pk).unwrap();
+            let vk = k256::schnorr::VerifyingKey::try_from(pk)?;
             vk.verify(msg, &sig)
         }
     }

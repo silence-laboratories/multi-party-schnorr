@@ -350,7 +350,8 @@ mod taproot {
 
     const CHALLENGE_TAG: &[u8] = b"BIP0340/challenge";
     use super::*;
-    use k256::ProjectivePoint;
+    use elliptic_curve::ops::Reduce;
+    use k256::{ProjectivePoint, U256};
 
     impl Round for SignerParty<SignReady<ProjectivePoint>, ProjectivePoint> {
         type Input = Vec<u8>;
@@ -370,17 +371,22 @@ mod taproot {
             use elliptic_curve::point::AffineCoordinates;
             let hash = Sha256::digest(&msg_to_sign);
             println!("hash: {:?}", hash);
-            let big_a = self.keyshare.public_key.to_affine().x();
-            let r_x = self.state.big_r.to_affine().x();
+            let big_a = self.keyshare.public_key.to_affine();
+            println!(
+                "public key y is odd: {:?}",
+                big_a.y_is_odd().unwrap_u8() == 1
+            );
+            let big_r = self.state.big_r.to_affine();
+            println!("Y odd:{}", big_r.y_is_odd().unwrap_u8() == 1);
 
-            let e_bytes: [u8; 32] = tagged_hash(CHALLENGE_TAG)
-                .chain_update(r_x)
-                .chain_update(big_a)
-                .chain_update(hash)
-                .finalize()
-                .into();
-
-            let e = k256::Scalar::reduce_from_bytes(&e_bytes);
+            let e = <k256::Scalar as Reduce<U256>>::reduce_bytes(
+                &tagged_hash(CHALLENGE_TAG)
+                    .chain_update(big_r.x())
+                    .chain_update(big_a.x())
+                    .chain_update(hash)
+                    .finalize(),
+            );
+            println!("e: {:?}", e);
             let s_i = self.rand_params.k_i + self.state.d_i * e;
 
             // let k = NonZeroScalar::try_from(&*rand)
@@ -442,13 +448,17 @@ mod taproot {
                 s += msg.s_i;
             }
 
-            let x = self.state.big_r.to_affine().x();
-            let x: &[u8] = x.as_ref();
+            let r = self.state.big_r.to_affine().x();
+            println!("r: {:?}", r);
+            let r: &[u8] = r.as_ref();
+            println!("r: {:?}", r);
 
-            let signature: [u8; 64] = [x, s.to_repr().as_ref()]
+            let signature: [u8; 64] = [r, s.to_bytes().as_ref()]
                 .concat()
                 .try_into()
                 .expect("Sign must be 64 bytes");
+            let s = k256::schnorr::Signature::try_from(signature.as_ref()).unwrap();
+            println!("signature: {:?}", s);
 
             self.keyshare
                 .public_key
@@ -591,13 +601,13 @@ mod tests {
         {
             use k256::ProjectivePoint;
             let shares = run_keygen::<2, 3, ProjectivePoint>();
-            let _ = super::run_sign(&shares);
+            let _ = super::run_sign(&shares[0..2]);
         }
 
         #[cfg(not(feature = "taproot"))]
         {
             let shares = run_keygen::<2, 3, EdwardsPoint>();
-            _ = super::run_sign(&shares);
+            _ = super::run_sign(&shares[0..2]);
         }
     }
 }

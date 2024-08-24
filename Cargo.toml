@@ -7,7 +7,7 @@ edition = "2021"
 
 
 [features]
-default = []
+default = ["taproot"]
 taproot = []
 [dependencies]
 zeroize = { version = "1.6.1", features = ["zeroize_derive"] }
