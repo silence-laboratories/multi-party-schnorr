@@ -12,6 +12,7 @@ pub use math::*;
 use rand::{CryptoRng, RngCore};
 
 pub mod traits {
+    use crypto_bigint::U512;
     use crypto_bigint::{generic_array::GenericArray, subtle::ConstantTimeEq};
     use curve25519_dalek::EdwardsPoint;
     use ed25519_dalek::Verifier;
@@ -86,6 +87,12 @@ pub mod traits {
     impl ScalarReduce<[u8; 32]> for k256::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 32]) -> Self {
             <Self as Reduce<U256>>::reduce(U256::from_le_slice(bytes))
+        }
+    }
+
+    impl ScalarReduce<[u8; 64]> for k256::Scalar {
+        fn reduce_from_bytes(bytes: &[u8; 64]) -> Self {
+            <Self as Reduce<U512>>::reduce(U512::from_le_slice(bytes))
         }
     }
 

@@ -260,7 +260,7 @@ where
     }
 }
 
-#[cfg(not(feature = "secp256k1"))]
+#[cfg(not(feature = "taproot"))]
 impl<G: Group + GroupEncoding> Round for SignerParty<SignReady<G>, G>
 where
     G::Scalar: ScalarReduce<[u8; 64]>,
@@ -307,89 +307,15 @@ where
     }
 }
 
-#[cfg(feature = "secp256k1")]
-impl Round for SignerParty<SignReady<ProjectivePoint>, ProjectivePoint> {
-    type Input = Vec<u8>;
-
-    type Output = Result<
-        (
-            SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint>,
-            SignMsg3<ProjectivePoint>,
-        ),
-        SignError,
-    >;
-
-    /// The signer party processes the message to sign and returns the partial signature
-    /// # Arguments
-    /// * `msg_hash` - 32 bytes hash of the message to sign. It must be the output of a secure hash function.
-    fn process(self, msg_to_sign: Self::Input) -> Self::Output {
-        use elliptic_curve::point::AffineCoordinates;
-        let hash = Sha256::digest(&msg_to_sign);
-        println!("hash: {:?}", hash);
-        let big_a = self.keyshare.public_key.to_affine().x();
-        let r_x = self.state.big_r.to_affine().x();
-
-        let e_bytes = tagged_hash(CHALLENGE_TAG)
-            .chain_update(r_x)
-            .chain_update(big_a)
-            .chain_update(hash)
-            .finalize()
-            .into();
-
-        let e = k256::Scalar::reduce_from_bytes(&e_bytes);
-        let s_i = self.rand_params.k_i + self.state.d_i * e;
-
-        // let k = NonZeroScalar::try_from(&*rand)
-        //           .map(Self::from)
-        //           .map_err(|_| Error::new())?;
-        //
-        //       let secret_key = k.secret_key;
-        //       let verifying_point = AffinePoint::from(k.verifying_key);
-        //       let r = verifying_point.x.normalize();
-        //
-        //       let e = <Scalar as Reduce<U256>>::reduce_bytes(
-        //           &tagged_hash(CHALLENGE_TAG)
-        //               .chain_update(r.to_bytes())
-        //               .chain_update(self.verifying_key.to_bytes())
-        //               .chain_update(msg_digest)
-        //               .finalize(),
-        //       );
-        //
-        //       let s = *secret_key + e * *self.secret_key;
-
-        let msg3 = SignMsg3 {
-            from_party: self.keyshare.party_id,
-            session_id: self.state.final_session_id,
-            s_i,
-        };
-
-        let next = SignerParty {
-            party_id: self.party_id,
-            keyshare: self.keyshare,
-            rand_params: self.rand_params,
-            state: PartialSign {
-                final_session_id: self.state.final_session_id,
-                big_r: self.state.big_r,
-                s_i,
-                msg_to_sign,
-            },
-            seed: self.seed,
-        };
-
-        Ok((next, msg3))
-    }
-}
-
-#[cfg(feature = "secp256k1")]
-impl Round for SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint> {
-    type Input = Vec<SignMsg3<ProjectivePoint>>;
+#[cfg(not(feature = "taproot"))]
+impl<G: Group + GroupEncoding + GroupVerifier> Round for SignerParty<PartialSign<G>, G> {
+    type Input = Vec<SignMsg3<G>>;
 
     type Output = Result<([u8; 64], SignComplete), SignError>;
 
     fn process(self, mut messages: Self::Input) -> Self::Output {
-        use elliptic_curve::point::AffineCoordinates;
-        messages.sort_by_key(|m| m.from_party);
         let mut s = self.state.s_i;
+        messages.sort_by_key(|m| m.from_party);
 
         for msg in messages {
             if msg.from_party == self.keyshare.party_id {
@@ -399,10 +325,7 @@ impl Round for SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint> {
             s += msg.s_i;
         }
 
-        let x = self.state.big_r.to_affine().x();
-        let x: &[u8] = x.as_ref();
-
-        let signature: [u8; 64] = [x, s.to_repr().as_ref()]
+        let signature: [u8; 64] = [self.state.big_r.to_bytes().as_ref(), s.to_repr().as_ref()]
             .concat()
             .try_into()
             .expect("Sign must be 64 bytes");
@@ -410,6 +333,11 @@ impl Round for SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint> {
         self.keyshare
             .public_key
             .verify(&signature, &self.state.msg_to_sign)?;
+
+        self.keyshare
+            .public_key
+            .verify(&signature, &self.state.msg_to_sign)
+            .expect("Invalid signature");
 
         let sign_complete = SignComplete {
             from_party: self.keyshare.party_id,
@@ -419,6 +347,155 @@ impl Round for SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint> {
 
         Ok((signature, sign_complete))
     }
+}
+
+#[cfg(feature = "taproot")]
+mod taproot {
+    use super::*;
+
+    impl Round for SignerParty<SignReady<ProjectivePoint>, ProjectivePoint> {
+        type Input = Vec<u8>;
+
+        type Output = Result<
+            (
+                SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint>,
+                SignMsg3<ProjectivePoint>,
+            ),
+            SignError,
+        >;
+
+        /// The signer party processes the message to sign and returns the partial signature
+        /// # Arguments
+        /// * `msg_hash` - 32 bytes hash of the message to sign. It must be the output of a secure hash function.
+        fn process(self, msg_to_sign: Self::Input) -> Self::Output {
+            use elliptic_curve::point::AffineCoordinates;
+            let hash = Sha256::digest(&msg_to_sign);
+            println!("hash: {:?}", hash);
+            let big_a = self.keyshare.public_key.to_affine().x();
+            let r_x = self.state.big_r.to_affine().x();
+
+            let e_bytes: [u8; 32] = tagged_hash(CHALLENGE_TAG)
+                .chain_update(r_x)
+                .chain_update(big_a)
+                .chain_update(hash)
+                .finalize()
+                .into();
+
+            let e = k256::Scalar::reduce_from_bytes(&e_bytes);
+            let s_i = self.rand_params.k_i + self.state.d_i * e;
+
+            // let k = NonZeroScalar::try_from(&*rand)
+            //           .map(Self::from)
+            //           .map_err(|_| Error::new())?;
+            //
+            //       let secret_key = k.secret_key;
+            //       let verifying_point = AffinePoint::from(k.verifying_key);
+            //       let r = verifying_point.x.normalize();
+            //
+            //       let e = <Scalar as Reduce<U256>>::reduce_bytes(
+            //           &tagged_hash(CHALLENGE_TAG)
+            //               .chain_update(r.to_bytes())
+            //               .chain_update(self.verifying_key.to_bytes())
+            //               .chain_update(msg_digest)
+            //               .finalize(),
+            //       );
+            //
+            //       let s = *secret_key + e * *self.secret_key;
+
+            let msg3 = SignMsg3 {
+                from_party: self.keyshare.party_id,
+                session_id: self.state.final_session_id,
+                s_i,
+            };
+
+            let next = SignerParty {
+                party_id: self.party_id,
+                keyshare: self.keyshare,
+                rand_params: self.rand_params,
+                state: PartialSign {
+                    final_session_id: self.state.final_session_id,
+                    big_r: self.state.big_r,
+                    s_i,
+                    msg_to_sign,
+                },
+                seed: self.seed,
+            };
+
+            Ok((next, msg3))
+        }
+    }
+
+    impl Round for SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint> {
+        type Input = Vec<SignMsg3<ProjectivePoint>>;
+
+        type Output = Result<([u8; 64], SignComplete), SignError>;
+
+        fn process(self, mut messages: Self::Input) -> Self::Output {
+            use elliptic_curve::point::AffineCoordinates;
+            messages.sort_by_key(|m| m.from_party);
+            let mut s = self.state.s_i;
+
+            for msg in messages {
+                if msg.from_party == self.keyshare.party_id {
+                    continue;
+                }
+
+                s += msg.s_i;
+            }
+
+            let x = self.state.big_r.to_affine().x();
+            let x: &[u8] = x.as_ref();
+
+            let signature: [u8; 64] = [x, s.to_repr().as_ref()]
+                .concat()
+                .try_into()
+                .expect("Sign must be 64 bytes");
+
+            self.keyshare
+                .public_key
+                .verify(&signature, &self.state.msg_to_sign)?;
+
+            let sign_complete = SignComplete {
+                from_party: self.keyshare.party_id,
+                session_id: self.state.final_session_id,
+                signature,
+            };
+
+            Ok((signature, sign_complete))
+        }
+    }
+
+    fn tagged_hash(tag: &[u8]) -> Sha256 {
+        let tag_hash = Sha256::digest(tag);
+        let mut digest = Sha256::new();
+        digest.update(tag_hash);
+        digest.update(tag_hash);
+        digest
+    }
+}
+
+#[cfg(feature = "taproot")]
+pub fn run_sign(shares: &[Keyshare<ProjectivePoint>]) -> [u8; 64] {
+    let mut rng = rand::thread_rng();
+    let parties = shares
+        .iter()
+        .map(|keyshare| SignerParty::new(keyshare.clone().into(), &mut rng))
+        .collect::<Vec<_>>();
+
+    // Pre-Signature phase
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+    let ready_parties = run_round(parties, msgs);
+
+    // Signature phase
+    let msg = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+    let (parties, partial_sigs): (Vec<_>, Vec<_>) =
+        run_round(ready_parties, msg.into()).into_iter().unzip();
+
+    let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
+        run_round(parties, partial_sigs).into_iter().unzip();
+
+    signatures[0]
 }
 
 fn hash_commitment_r_i<G: Group + GroupEncoding>(
@@ -512,15 +589,13 @@ fn verify_commitment_r_i<G: Group + GroupEncoding>(
     commitment.ct_eq(&compare_commitment).into()
 }
 
-fn tagged_hash(tag: &[u8]) -> Sha256 {
-    let tag_hash = Sha256::digest(tag);
-    let mut digest = Sha256::new();
-    digest.update(tag_hash);
-    digest.update(tag_hash);
-    digest
-}
-
-pub fn run_sign(shares: &[Keyshare<ProjectivePoint>]) -> [u8; 64] {
+#[cfg(not(feature = "taproot"))]
+pub fn run_sign<G>(shares: &[Keyshare<G>]) -> [u8; 64]
+where
+    G: GroupElem + GroupVerifier,
+    G::Scalar: ScalarReduce<[u8; 32]>,
+    G::Scalar: ScalarReduce<[u8; 64]>,
+{
     let mut rng = rand::thread_rng();
     let parties = shares
         .iter()
@@ -545,13 +620,22 @@ pub fn run_sign(shares: &[Keyshare<ProjectivePoint>]) -> [u8; 64] {
 
 #[cfg(test)]
 mod tests {
-    use k256::ProjectivePoint;
-
     use crate::common::utils::run_keygen;
+    use curve25519_dalek::EdwardsPoint;
 
     #[test]
     fn sign() {
-        let shares = run_keygen::<2, 3, ProjectivePoint>();
-        _ = super::run_sign(&shares);
+        #[cfg(feature = "taproot")]
+        {
+            use k256::ProjectivePoint;
+            let shares = run_keygen::<2, 3, ProjectivePoint>();
+            let _ = super::run_sign(&shares);
+        }
+
+        #[cfg(not(feature = "taproot"))]
+        {
+            let shares = run_keygen::<2, 3, EdwardsPoint>();
+            _ = super::run_sign(&shares);
+        }
     }
 }
