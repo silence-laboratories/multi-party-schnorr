@@ -52,11 +52,7 @@ where
     pub r_i: [u8; 32],
 
     /// Participants Fik values
-    #[serde(bound(
-        serialize = "G::Repr: Serialize",
-        deserialize = "G::Repr: Deserialize<'de>"
-    ))]
-    pub big_a_i_poly: Vec<G::Repr>,
+    pub big_a_i_poly: Vec<Vec<u8>>,
 
     /// Ciphertext list
     pub c_i_list: Vec<EncryptedScalar>,

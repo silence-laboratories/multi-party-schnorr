@@ -299,7 +299,7 @@ where
                 .state
                 .big_a_i
                 .iter()
-                .map(|e| e.to_bytes())
+                .map(|e| e.to_bytes().as_ref().to_vec())
                 .collect::<Vec<_>>(),
             c_i_list: self.state.c_i_j,
             r_i: self.rand_params.r_i,
@@ -343,7 +343,14 @@ where
             .map(|msg| {
                 msg.big_a_i_poly
                     .iter()
-                    .map(|e| Option::from(G::from_bytes(e)).ok_or(KeygenError::InvalidMsgData))
+                    .map(|e| {
+                        let mut encoding = G::Repr::default();
+                        if e.len() != encoding.as_ref().len() {
+                            return Err(KeygenError::InvalidMsgData);
+                        }
+                        encoding.as_mut().copy_from_slice(e);
+                        Option::from(G::from_bytes(&encoding)).ok_or(KeygenError::InvalidMsgData)
+                    })
                     .collect::<Result<Vec<_>, _>>()
             })
             .collect::<Result<Vec<_>, _>>()?;

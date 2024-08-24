@@ -34,11 +34,11 @@ pub struct SignMsg2<G: GroupElem> {
     pub(crate) blind_factor: [u8; 32],
 
     #[serde(bound(
-        serialize = "G::Scalar: Serialize, G::Repr: Serialize",
-        deserialize = "G::Scalar: Deserialize<'de>, G::Repr: Deserialize<'de>"
+        serialize = "G::Scalar: Serialize",
+        deserialize = "G::Scalar: Deserialize<'de>"
     ))]
     pub(crate) dlog_proof: DLogProof<G>,
-    pub(crate) big_r_i: G,
+    pub(crate) big_r_i: Vec<u8>,
 }
 
 /// Type for the sign gen message 3.

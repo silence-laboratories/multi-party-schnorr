@@ -16,9 +16,10 @@ pub mod traits {
     use curve25519_dalek::EdwardsPoint;
     use ed25519_dalek::Verifier;
     use ed25519_dalek::{SignatureError, VerifyingKey};
+    use elliptic_curve::sec1::FromEncodedPoint;
     use elliptic_curve::{group::GroupEncoding, ops::Reduce, Group};
     use ff::PrimeField;
-    use k256::{ProjectivePoint, U256};
+    use k256::{ProjectivePoint, PublicKey, U256};
     use serde::{de::DeserializeOwned, Serialize};
 
     /// Trait that defines a state transition for any round based protocol.
@@ -98,8 +99,11 @@ pub mod traits {
 
     impl GroupVerifier for ProjectivePoint {
         fn verify(&self, signature: &[u8; 64], msg: &[u8]) -> Result<(), SignatureError> {
-            let sig = k256::ecdsa::Signature::from_bytes(signature.into())?;
-            let vk = k256::ecdsa::VerifyingKey::from_affine(self.to_affine())?;
+            use elliptic_curve::sec1::ToEncodedPoint;
+            use k256::schnorr::SigningKey;
+            let sig = k256::schnorr::Signature::try_from(signature.as_ref())?;
+            let pk = PublicKey::from_encoded_point(&self.to_encoded_point(true)).unwrap();
+            let vk = k256::schnorr::VerifyingKey::try_from(pk).unwrap();
             vk.verify(msg, &sig)
         }
     }

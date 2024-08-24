@@ -20,9 +20,13 @@ fn main() {
     // Locally run the keygen protocol
     // Run Round 1
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+    let msga = bincode::serialize(&msgs[0]).unwrap();
+    let msgb = bincode::serialize(&msgs[1]).unwrap();
 
     // Run Round 2
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+    let msga = bincode::serialize(&msgs[0]).unwrap();
+    let msgb = bincode::serialize(&msgs[1]).unwrap();
 
     // Run Round 3
     let keyshares: Vec<Keyshare<ProjectivePoint>> = run_round(parties, msgs);

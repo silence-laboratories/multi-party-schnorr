@@ -5,6 +5,7 @@ use curve25519_dalek::{traits::IsIdentity, EdwardsPoint, Scalar};
 use ed25519_dalek::{DigestSigner, DigestVerifier, Signature, SigningKey, Verifier, VerifyingKey};
 use elliptic_curve::{group::GroupEncoding, Group};
 use ff::PrimeField;
+use k256::{schnorr, ProjectivePoint};
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256, Sha512};
@@ -13,7 +14,7 @@ use crate::{
     common::{
         get_lagrange_coeff,
         traits::{GroupElem, GroupVerifier, Round, ScalarReduce},
-        utils::{calculate_final_session_id, BaseMessage, HashBytes, SessionId},
+        utils::{calculate_final_session_id, run_round, BaseMessage, HashBytes, SessionId},
         DLogProof,
     },
     keygen::Keyshare,
@@ -23,6 +24,8 @@ use super::{
     messages::{SignComplete, SignMsg1, SignMsg2, SignMsg3},
     types::{SignEntropy, SignError},
 };
+
+const CHALLENGE_TAG: &[u8] = b"BIP0340/challenge";
 
 /// Signer party
 pub struct SignerParty<T, G: Group> {
@@ -152,7 +155,7 @@ where
             session_id: final_sid,
             dlog_proof,
             blind_factor: self.rand_params.blind_factor,
-            big_r_i: self.state.big_r_i,
+            big_r_i: self.state.big_r_i.to_bytes().as_ref().to_vec(),
         };
 
         let next = SignerParty {
@@ -192,7 +195,18 @@ where
                 continue;
             }
 
-            if msg.big_r_i.is_identity().into() {
+            let mut encoding = G::Repr::default();
+            if encoding.as_ref().len() != msg.big_r_i.len() {
+                return Err(SignError::InvalidBigRi);
+            }
+            encoding.as_mut().copy_from_slice(&msg.big_r_i);
+            let msg_big_r_i = G::from_bytes(&encoding);
+            let msg_big_r_i = if msg_big_r_i.is_some().into() {
+                msg_big_r_i.unwrap()
+            } else {
+                return Err(SignError::InvalidBigRi);
+            };
+            if msg_big_r_i.is_identity().into() {
                 return Err(SignError::InvalidBigRi);
             }
 
@@ -202,7 +216,7 @@ where
             verify_commitment_r_i(
                 &sid,
                 msg.from_party,
-                &msg.big_r_i,
+                &msg_big_r_i,
                 &msg.blind_factor,
                 &commitment,
             )
@@ -218,11 +232,11 @@ where
             let dlog_sid = h.finalize().into();
 
             msg.dlog_proof
-                .verify(&dlog_sid, &msg.big_r_i)
+                .verify(&dlog_sid, &msg_big_r_i)
                 .then_some(())
                 .ok_or(SignError::InvalidDLogProof(msg.from_party))?;
 
-            big_r_i += msg.big_r_i;
+            big_r_i += msg_big_r_i;
         }
 
         // FIXME: do we need copied?
@@ -246,7 +260,7 @@ where
     }
 }
 
-#[cfg(not(target_feature = "secp256k1"))]
+#[cfg(not(feature = "secp256k1"))]
 impl<G: Group + GroupEncoding> Round for SignerParty<SignReady<G>, G>
 where
     G::Scalar: ScalarReduce<[u8; 64]>,
@@ -293,33 +307,60 @@ where
     }
 }
 
-#[cfg(target_feature = "secp256k1")]
-impl<G: Group + GroupEncoding> Round for SignerParty<SignReady<G>, G>
-where
-    G::Scalar: ScalarReduce<[u8; 32]>,
-{
-    type Input = [u8; 32];
+#[cfg(feature = "secp256k1")]
+impl Round for SignerParty<SignReady<ProjectivePoint>, ProjectivePoint> {
+    type Input = Vec<u8>;
 
-    type Output = Result<(SignerParty<PartialSign, G>, SignMsg3<G>), SignError>;
+    type Output = Result<
+        (
+            SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint>,
+            SignMsg3<ProjectivePoint>,
+        ),
+        SignError,
+    >;
 
     /// The signer party processes the message to sign and returns the partial signature
     /// # Arguments
     /// * `msg_hash` - 32 bytes hash of the message to sign. It must be the output of a secure hash function.
-    fn process(self, msg_hash: Self::Input) -> Self::Output {
-        let big_a = self.keyshare.public_key.to_bytes();
+    fn process(self, msg_to_sign: Self::Input) -> Self::Output {
+        use elliptic_curve::point::AffineCoordinates;
+        let hash = Sha256::digest(&msg_to_sign);
+        println!("hash: {:?}", hash);
+        let big_a = self.keyshare.public_key.to_affine().x();
+        let r_x = self.state.big_r.to_affine().x();
 
-        let e = G::Scalar::reduce_from_bytes(&msg_hash);
+        let e_bytes = tagged_hash(CHALLENGE_TAG)
+            .chain_update(r_x)
+            .chain_update(big_a)
+            .chain_update(hash)
+            .finalize()
+            .into();
+
+        let e = k256::Scalar::reduce_from_bytes(&e_bytes);
         let s_i = self.rand_params.k_i + self.state.d_i * e;
 
-        let msg_hash_3 = digest_msg_3(&self.state.final_session_id, &s_i);
-
-        let signature = self.params.signing_key.sign_digest(msg_hash_3);
+        // let k = NonZeroScalar::try_from(&*rand)
+        //           .map(Self::from)
+        //           .map_err(|_| Error::new())?;
+        //
+        //       let secret_key = k.secret_key;
+        //       let verifying_point = AffinePoint::from(k.verifying_key);
+        //       let r = verifying_point.x.normalize();
+        //
+        //       let e = <Scalar as Reduce<U256>>::reduce_bytes(
+        //           &tagged_hash(CHALLENGE_TAG)
+        //               .chain_update(r.to_bytes())
+        //               .chain_update(self.verifying_key.to_bytes())
+        //               .chain_update(msg_digest)
+        //               .finalize(),
+        //       );
+        //
+        //       let s = *secret_key + e * *self.secret_key;
 
         let msg3 = SignMsg3 {
             from_party: self.keyshare.party_id,
             session_id: self.state.final_session_id,
             s_i,
-            signature: signature.to_bytes(),
         };
 
         let next = SignerParty {
@@ -331,7 +372,6 @@ where
                 big_r: self.state.big_r,
                 s_i,
                 msg_to_sign,
-                party_id_to_idx: self.state.party_id_to_idx,
             },
             seed: self.seed,
         };
@@ -340,12 +380,14 @@ where
     }
 }
 
-impl<G: GroupElem + GroupVerifier> Round for SignerParty<PartialSign<G>, G> {
-    type Input = Vec<SignMsg3<G>>;
+#[cfg(feature = "secp256k1")]
+impl Round for SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint> {
+    type Input = Vec<SignMsg3<ProjectivePoint>>;
 
     type Output = Result<([u8; 64], SignComplete), SignError>;
 
     fn process(self, mut messages: Self::Input) -> Self::Output {
+        use elliptic_curve::point::AffineCoordinates;
         messages.sort_by_key(|m| m.from_party);
         let mut s = self.state.s_i;
 
@@ -357,7 +399,10 @@ impl<G: GroupElem + GroupVerifier> Round for SignerParty<PartialSign<G>, G> {
             s += msg.s_i;
         }
 
-        let signature: [u8; 64] = [self.state.big_r.to_bytes().as_ref(), s.to_repr().as_ref()]
+        let x = self.state.big_r.to_affine().x();
+        let x: &[u8] = x.as_ref();
+
+        let signature: [u8; 64] = [x, s.to_repr().as_ref()]
             .concat()
             .try_into()
             .expect("Sign must be 64 bytes");
@@ -465,4 +510,48 @@ fn verify_commitment_r_i<G: Group + GroupEncoding>(
 ) -> bool {
     let compare_commitment = hash_commitment_r_i(sid, pid, big_r_i, blind_factor);
     commitment.ct_eq(&compare_commitment).into()
+}
+
+fn tagged_hash(tag: &[u8]) -> Sha256 {
+    let tag_hash = Sha256::digest(tag);
+    let mut digest = Sha256::new();
+    digest.update(tag_hash);
+    digest.update(tag_hash);
+    digest
+}
+
+pub fn run_sign(shares: &[Keyshare<ProjectivePoint>]) -> [u8; 64] {
+    let mut rng = rand::thread_rng();
+    let parties = shares
+        .iter()
+        .map(|keyshare| SignerParty::new(keyshare.clone().into(), &mut rng))
+        .collect::<Vec<_>>();
+
+    // Pre-Signature phase
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+    let ready_parties = run_round(parties, msgs);
+
+    // Signature phase
+    let msg = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+    let (parties, partial_sigs): (Vec<_>, Vec<_>) =
+        run_round(ready_parties, msg.into()).into_iter().unzip();
+
+    let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
+        run_round(parties, partial_sigs).into_iter().unzip();
+
+    signatures[0]
+}
+
+#[cfg(test)]
+mod tests {
+    use k256::ProjectivePoint;
+
+    use crate::common::utils::run_keygen;
+
+    #[test]
+    fn sign() {
+        let shares = run_keygen::<2, 3, ProjectivePoint>();
+        _ = super::run_sign(&shares);
+    }
 }

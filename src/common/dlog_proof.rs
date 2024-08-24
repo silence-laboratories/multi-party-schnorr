@@ -15,11 +15,11 @@ use super::{
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct DLogProof<G: GroupElem> {
     /// Public point `t`.
-    #[serde(bound(
-        serialize = "G::Repr: Serialize",
-        deserialize = "G::Repr: Deserialize<'de>"
-    ))]
-    pub t: G::Repr,
+    // #[serde(bound(
+    //     serialize = "G::Repr: Serialize",
+    //     deserialize = "G::Repr: Deserialize<'de>"
+    // ))]
+    pub t: Vec<u8>,
     /// Challenge response
     pub s: G::Scalar,
 }
@@ -36,18 +36,26 @@ where
         rng: &mut R,
     ) -> Self {
         let r = <G::Scalar as Field>::random(rng);
-        let t = G::generator() * &r;
+        let t = G::generator() * r;
         let y = G::generator() * x;
         let c = Self::fiat_shamir(session_id, &y, &t);
 
         let s = r + c * x;
 
-        Self { t: t.to_bytes(), s }
+        Self {
+            t: t.to_bytes().as_ref().to_vec(),
+            s,
+        }
     }
 
     /// Verify knowledge of discrete logarithm.
     pub fn verify(&self, session_id: &SessionId, y: &G) -> bool {
-        let t = G::from_bytes(&self.t);
+        let mut encoding = G::Repr::default();
+        if self.t.len() != encoding.as_ref().len() {
+            return false;
+        }
+        encoding.as_mut().copy_from_slice(&self.t);
+        let t = G::from_bytes(&encoding);
         let t = if t.is_some().into() {
             t.unwrap()
         } else {
@@ -55,7 +63,7 @@ where
         };
 
         let c = Self::fiat_shamir(session_id, y, &t);
-        let lhs = G::generator() * &self.s;
+        let lhs = G::generator() * self.s;
         let rhs = t + *y * c;
 
         lhs.ct_eq(&rhs).into()
