@@ -1,18 +1,18 @@
 use crypto_bigint::subtle::ConstantTimeEq;
 use crypto_box::{PublicKey, SecretKey};
-use curve25519_dalek::{traits::Identity, EdwardsPoint, Scalar};
+use curve25519_dalek::{traits::Identity};
 use elliptic_curve::{group::GroupEncoding, Group};
-use k256::ProjectivePoint;
-use std::{hash::Hash, sync::Arc};
+
+use std::{sync::Arc};
 
 use ff::{Field, PrimeField};
-use rand::{CryptoRng, Rng, RngCore, SeedableRng};
+use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use rayon::{
     iter::IndexedParallelIterator,
     prelude::{IntoParallelRefIterator, ParallelIterator},
 };
-use sha2::{digest::Update, Digest, Sha256, Sha512};
+use sha2::{digest::Update, Digest, Sha256};
 use sl_mpc_mate::math::GroupPolynomial;
 
 use crate::common::{

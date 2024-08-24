@@ -2,10 +2,10 @@ use std::{collections::HashSet, sync::Arc};
 
 use crypto_bigint::subtle::ConstantTimeEq;
 use curve25519_dalek::{traits::IsIdentity, EdwardsPoint, Scalar};
-use ed25519_dalek::{DigestSigner, DigestVerifier, Signature, SigningKey, Verifier, VerifyingKey};
+use ed25519_dalek::{Verifier};
 use elliptic_curve::{group::GroupEncoding, Group};
 use ff::PrimeField;
-use k256::{schnorr, ProjectivePoint};
+
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256, Sha512};

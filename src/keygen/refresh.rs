@@ -1,6 +1,6 @@
-use curve25519_dalek::{EdwardsPoint, Scalar};
+
 use elliptic_curve::Group;
-use ff::{Field, PrimeField};
+use ff::{Field};
 
 use crate::common::traits::GroupElem;
 

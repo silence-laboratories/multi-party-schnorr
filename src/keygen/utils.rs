@@ -1,16 +1,16 @@
-use curve25519_dalek::{traits::Identity, EdwardsPoint, Scalar};
-use elliptic_curve::Group;
-use ff::Field;
-use rand::{CryptoRng, Rng, RngCore};
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::common::_get_lagrange_coeff_list;
-use crate::common::traits::{GroupElem, Round, ScalarReduce};
+use elliptic_curve::Group;
+
+use rand::{CryptoRng, Rng, RngCore};
+use rayon::iter::{ParallelIterator};
+
+
+use crate::common::traits::{GroupElem, ScalarReduce};
 use crate::common::utils::{generate_pki, run_keygen, run_round};
 
 use super::KeyRefreshData;
 use super::R0;
-use super::R1;
+
 use super::{messages::Keyshare, KeygenError, KeygenParty};
 
 pub fn setup_keygen<G: Group>(t: u8, n: u8) -> Result<Vec<KeygenParty<R0, G>>, KeygenError> {

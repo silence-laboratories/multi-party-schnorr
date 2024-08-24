@@ -3,25 +3,25 @@ mod math;
 // mod poly;
 /// Utility functions
 pub mod utils;
-use elliptic_curve::CurveArithmetic;
+
 
 pub use dlog_proof::*;
-use ed25519_dalek::{SigningKey, VerifyingKey};
+
 pub use math::*;
 // pub use poly::*;
-use rand::{CryptoRng, RngCore};
+
 
 pub mod traits {
     use crypto_bigint::U512;
-    use crypto_bigint::{generic_array::GenericArray, subtle::ConstantTimeEq};
+    use crypto_bigint::{subtle::ConstantTimeEq};
     use curve25519_dalek::EdwardsPoint;
     use ed25519_dalek::Verifier;
     use ed25519_dalek::{SignatureError, VerifyingKey};
     use elliptic_curve::sec1::FromEncodedPoint;
     use elliptic_curve::{group::GroupEncoding, ops::Reduce, Group};
-    use ff::PrimeField;
+    
     use k256::{ProjectivePoint, PublicKey, U256};
-    use serde::{de::DeserializeOwned, Serialize};
+    
 
     /// Trait that defines a state transition for any round based protocol.
     pub trait Round {
@@ -107,7 +107,7 @@ pub mod traits {
     impl GroupVerifier for ProjectivePoint {
         fn verify(&self, signature: &[u8; 64], msg: &[u8]) -> Result<(), SignatureError> {
             use elliptic_curve::sec1::ToEncodedPoint;
-            use k256::schnorr::SigningKey;
+            
             let sig = k256::schnorr::Signature::try_from(signature.as_ref())?;
             let pk = PublicKey::from_encoded_point(&self.to_encoded_point(true)).unwrap();
             let vk = k256::schnorr::VerifyingKey::try_from(pk).unwrap();

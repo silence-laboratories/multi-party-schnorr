@@ -1,10 +1,10 @@
 use std::hash::Hash;
 
-use curve25519_dalek::{EdwardsPoint, Scalar};
-use elliptic_curve::{group::GroupEncoding, Group};
+
+use elliptic_curve::{Group};
 use serde::{Deserialize, Serialize};
-use sl_mpc_mate::math::GroupPolynomial;
-use zeroize::{Zeroize, ZeroizeOnDrop};
+
+
 
 use crate::{
     common::{

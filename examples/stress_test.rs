@@ -143,7 +143,7 @@ fn main() {
     for serde_struct in &serde_structs {
         let _ = serde_struct.id;
         let _ = serde_struct.name.len();
-        let sum: u64 = serde_struct.parties.iter().map(|p| p.rank as u64).sum();
+        let _sum: u64 = serde_struct.parties.iter().map(|p| p.rank as u64).sum();
     }
     let serde_access_time = serde_start.elapsed();
 
@@ -151,7 +151,7 @@ fn main() {
     for custom_struct in &custom_structs {
         let _ = custom_struct.id();
         let _ = custom_struct.name().len();
-        let sum: u64 = custom_struct.parties().iter().map(|p| p.rank as u64).sum();
+        let _sum: u64 = custom_struct.parties().iter().map(|p| p.rank as u64).sum();
     }
     let custom_access_time = custom_start.elapsed();
 

@@ -1,5 +1,5 @@
-use curve25519_dalek::{EdwardsPoint, Scalar};
-use ed25519_dalek::{Signature, SIGNATURE_LENGTH};
+
+use ed25519_dalek::{SIGNATURE_LENGTH};
 use elliptic_curve::Group;
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};

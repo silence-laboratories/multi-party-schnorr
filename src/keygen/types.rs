@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use curve25519_dalek::{scalar::Scalar, EdwardsPoint};
+
 use elliptic_curve::Group;
 use rand::{CryptoRng, Rng, RngCore};
 use sl_mpc_mate::{math::Polynomial, random_bytes};
 use thiserror::Error;
-use zeroize::{Zeroize, ZeroizeOnDrop};
+
 
 /// Parameters for the keygen protocol. Constant across all rounds.
 #[derive(Clone)]

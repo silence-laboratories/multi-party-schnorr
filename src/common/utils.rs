@@ -8,15 +8,15 @@ use crypto_box::{
 use crypto_bigint::generic_array::typenum::Unsigned;
 use crypto_bigint::{generic_array::GenericArray, rand_core::CryptoRngCore, Encoding, U256};
 use curve25519_dalek::Scalar;
-use ed25519_dalek::{Signature, Verifier};
-use elliptic_curve::{group::GroupEncoding, Group};
+
+
 use ff::PrimeField;
-use rand::{CryptoRng, Rng, RngCore};
+use rand::{CryptoRng, RngCore};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use sha2::{Digest, Sha256};
-use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::keygen::{utils::setup_keygen, KeygenParty, Keyshare};
+
+use crate::keygen::{utils::setup_keygen, Keyshare};
 
 use super::traits::{GroupElem, Round, ScalarReduce};
 

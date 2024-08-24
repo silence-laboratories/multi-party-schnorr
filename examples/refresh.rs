@@ -1,14 +1,13 @@
 use std::time::Instant;
 
 use curve25519_dalek::EdwardsPoint;
-use elliptic_curve::Group;
+
 use k256::elliptic_curve::group::GroupEncoding;
-use k256::ProjectivePoint;
+
 use multi_party_schnorr::{
     common::utils::{run_keygen, run_round},
     keygen::{
-        utils::{setup_keygen, setup_refresh},
-        KeygenMsg2, Keyshare,
+        utils::{setup_refresh},
     },
 };
 

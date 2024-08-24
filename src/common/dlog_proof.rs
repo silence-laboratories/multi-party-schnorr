@@ -1,10 +1,10 @@
 use crypto_bigint::subtle::ConstantTimeEq;
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, EdwardsPoint, Scalar};
-use ff::{Field, PrimeField};
+
+use ff::{Field};
 use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use sha2::{digest::Update, Digest, Sha256};
-use zeroize::{Zeroize, ZeroizeOnDrop};
+
 
 use super::{
     traits::{GroupElem, ScalarReduce},

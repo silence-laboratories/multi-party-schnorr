@@ -1,11 +1,11 @@
-use curve25519_dalek::Scalar;
-use ed25519_dalek::{SigningKey, VerifyingKey};
-use elliptic_curve::{group::GroupEncoding, Group};
+
+
+use elliptic_curve::{Group};
 use ff::Field;
 use rand::{CryptoRng, Rng, RngCore};
 use thiserror::Error;
 
-use crate::{common::utils::SessionId, keygen::Keyshare};
+use crate::{common::utils::SessionId};
 
 /// All random params needed for sign protocol
 pub struct SignEntropy<G: Group> {
