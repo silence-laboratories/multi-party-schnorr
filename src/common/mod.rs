@@ -18,7 +18,6 @@ pub mod traits {
     use elliptic_curve::sec1::FromEncodedPoint;
     use elliptic_curve::{group::GroupEncoding, ops::Reduce, Group};
 
-    use k256::schnorr::SigningKey;
     use k256::{ProjectivePoint, PublicKey, U256};
 
     /// Trait that defines a state transition for any round based protocol.
@@ -104,11 +103,20 @@ pub mod traits {
 
     impl GroupVerifier for ProjectivePoint {
         fn verify(&self, signature: &[u8; 64], msg: &[u8]) -> Result<(), SignatureError> {
+            use elliptic_curve::point::AffineCoordinates;
             use elliptic_curve::sec1::ToEncodedPoint;
 
             let sig = k256::schnorr::Signature::try_from(signature.as_ref())?;
-            //FIXME: Remove unwrap
-            let pk = PublicKey::from_encoded_point(&self.to_encoded_point(true)).unwrap();
+            let mut p = self.to_affine();
+            // Tweak the public key to have even y-coordinate
+            // According to BIP-0340, the public key should have even y-coordinate
+            // `lift_x` from
+            // https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki#user-content-Verification
+            if self.to_affine().y_is_odd().unwrap_u8() == 1 {
+                p = -p
+            }
+            // FIXME: Remove unwrap
+            let pk = PublicKey::from_encoded_point(&p.to_encoded_point(true)).unwrap();
             let vk = k256::schnorr::VerifyingKey::try_from(pk)?;
             vk.verify(msg, &sig)
         }
