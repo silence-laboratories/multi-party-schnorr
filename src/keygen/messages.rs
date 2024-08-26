@@ -1,6 +1,9 @@
 use std::hash::Hash;
 
-use elliptic_curve::{group::GroupEncoding, Group};
+use crypto_bigint::subtle::ConstantTimeEq;
+use curve25519_dalek::EdwardsPoint;
+use elliptic_curve::{group::GroupEncoding, point::DecompactPoint, sec1::FromEncodedPoint, Group};
+use k256::{schnorr::VerifyingKey, AffinePoint, ProjectivePoint, PublicKey};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -36,7 +39,7 @@ pub struct KeygenMsg1 {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeygenMsg2<G>
 where
-    G: GroupElem,
+    G: Group + ConstantTimeEq + GroupEncoding,
     G::Scalar: ScalarReduce<[u8; 32]>,
 {
     /// Participant Id of the sender
@@ -49,7 +52,8 @@ where
     pub r_i: [u8; 32],
 
     /// Participants Fik values
-    pub big_a_i_poly: Vec<Vec<u8>>,
+    #[serde(with = "serde_vec_point")]
+    pub big_a_i_poly: Vec<G>,
 
     /// Ciphertext list
     pub c_i_list: Vec<EncryptedScalar>,
@@ -77,10 +81,32 @@ where
     pub(crate) d_i: G::Scalar,
     /// Public key of the generated key.
     #[serde(with = "serde_point")]
-    pub public_key: G,
+    pub(crate) public_key: G,
     pub key_id: [u8; 32],
     #[serde(with = "serde_vec_point")]
     pub(crate) big_a_poly: Vec<G>,
+}
+
+impl Keyshare<EdwardsPoint> {
+    pub fn public_key(&self) -> EdwardsPoint {
+        self.public_key
+    }
+}
+
+impl Keyshare<ProjectivePoint> {
+    pub fn public_key(&self) -> ProjectivePoint {
+        self.public_key
+    }
+
+    pub fn taproot_public_key(&self) -> Option<VerifyingKey> {
+        use elliptic_curve::point::AffineCoordinates;
+        let pubkey = PublicKey::from_affine(Option::from(AffinePoint::decompact(
+            &self.public_key.to_affine().x(),
+        ))?)
+        .ok()?;
+
+        VerifyingKey::try_from(pubkey).ok()
+    }
 }
 
 impl<G> Keyshare<G>

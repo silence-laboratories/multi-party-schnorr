@@ -293,12 +293,8 @@ where
         let msg2 = KeygenMsg2 {
             session_id: final_sid,
             from_party: self.params.party_id,
-            big_a_i_poly: self
-                .state
-                .big_a_i
-                .iter()
-                .map(|e| e.to_bytes().as_ref().to_vec())
-                .collect::<Vec<_>>(),
+            // FIXME: unneccessary allocation
+            big_a_i_poly: self.state.big_a_i.to_vec(),
             c_i_list: self.state.c_i_j,
             r_i: self.rand_params.r_i,
             dlog_proofs_i: dlog_proofs,
@@ -333,39 +329,14 @@ where
         let messages =
             validate_input_messages(messages, self.params.n, Some(self.state.final_session_id))?;
 
-        // Decode the curve point from the bytes given in the messages from all parties.
-        // FIXME: Optimise this away, this is only done because ProjectivePoint doesn't implement
-        // serde traits.
-        let msg_big_a_i_polys = messages
-            .iter()
-            .map(|msg| {
-                msg.big_a_i_poly
-                    .iter()
-                    .map(|e| {
-                        let mut encoding = G::Repr::default();
-                        if e.len() != encoding.as_ref().len() {
-                            return Err(KeygenError::InvalidMsgData);
-                        }
-                        encoding.as_mut().copy_from_slice(e);
-                        Option::from(G::from_bytes(&encoding)).ok_or(KeygenError::InvalidMsgData)
-                    })
-                    .collect::<Result<Vec<_>, _>>()
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-
-        messages.par_iter().enumerate().try_for_each(|(idx, msg)| {
+        messages.par_iter().try_for_each(|msg| {
             // 11.6(b)-i Verify commitments.
             let party_id = msg.party_id();
             let sid = self.state.sid_i_list[party_id as usize];
 
             let commitment = self.state.commitment_list[party_id as usize];
-            let commit_hash = hash_commitment(
-                sid,
-                party_id,
-                &msg_big_a_i_polys[idx],
-                &msg.c_i_list,
-                &msg.r_i,
-            );
+            let commit_hash =
+                hash_commitment(sid, party_id, &msg.big_a_i_poly, &msg.c_i_list, &msg.r_i);
             let commit_cond = bool::from(commit_hash.ct_eq(&commitment));
 
             // 11.6(b)-ii Verify DLog proofs
@@ -380,7 +351,7 @@ where
 
             let dlog_cond = verfiy_dlog_proofs(
                 &msg.dlog_proofs_i,
-                &msg_big_a_i_polys[idx],
+                &msg.big_a_i_poly,
                 &dlog_sid,
                 self.params.t,
             );
@@ -422,26 +393,26 @@ where
         let mut big_a_poly = GroupPolynomial::new(empty_poly);
 
         // Validate polynomial constant terms
-        for (idx, msg) in messages.iter().enumerate() {
+        for msg in messages.iter() {
             let mut is_lost = false;
             if let Some(ref data) = self.key_refresh_data {
                 is_lost = data.lost_keyshare_party_ids.contains(&msg.party_id());
             }
-            let is_identity = msg_big_a_i_polys[idx][0] == G::identity();
+            let is_identity = msg.big_a_i_poly[0] == G::identity();
 
             if (is_lost && !is_identity) || (!is_lost && is_identity) {
                 return Err(KeygenError::InvalidRefresh);
             }
 
             // 11.6(d)
-            big_a_poly.add_mut(&msg_big_a_i_polys[idx]);
+            big_a_poly.add_mut(&msg.big_a_i_poly);
 
             // 11.6(e)
             let d_i = d_i_vals[msg.party_id() as usize];
             // let expected_point = EdwardsPoint::mul_base(&d_i);
             let expected_point = G::generator() * d_i;
             // FIXME: Remove clone
-            let calc_point = GroupPolynomial::new(msg_big_a_i_polys[idx].clone())
+            let calc_point = GroupPolynomial::new(msg.big_a_i_poly.clone())
                 .evaluate_at(&G::Scalar::from((self.params.party_id + 1) as u64));
 
             if !bool::from(expected_point.ct_eq(&calc_point)) {
@@ -473,6 +444,7 @@ where
         }
 
         let key_id = sha2::Sha256::digest(public_key.to_bytes()).into();
+
         let keyshare = Keyshare {
             threshold: self.params.t,
             total_parties: self.params.n,

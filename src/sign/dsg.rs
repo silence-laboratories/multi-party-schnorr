@@ -352,6 +352,8 @@ impl<G: Group + GroupEncoding + GroupVerifier> Round for SignerParty<PartialSign
 mod taproot {
 
     const CHALLENGE_TAG: &[u8] = b"BIP0340/challenge";
+    use crate::keygen::KeygenError;
+
     use super::*;
     use elliptic_curve::ops::Reduce;
     use k256::{ProjectivePoint, U256};
@@ -377,13 +379,6 @@ mod taproot {
             let big_r = self.state.big_r.to_affine();
             let mut k_i = self.rand_params.k_i;
             let mut d_i = self.state.d_i;
-
-            println!(
-                "public key y is odd: {:?}",
-                big_p.y_is_odd().unwrap_u8() == 1
-            );
-
-            println!("Big R Y is odd:{}", big_r.y_is_odd().unwrap_u8() == 1);
 
             if big_r.y_is_odd().unwrap_u8() == 1 {
                 k_i = -k_i;
@@ -451,7 +446,6 @@ mod taproot {
                 .concat()
                 .try_into()
                 .expect("Sign must be 64 bytes");
-            let s = k256::schnorr::Signature::try_from(signature.as_ref()).unwrap();
 
             self.keyshare
                 .public_key
