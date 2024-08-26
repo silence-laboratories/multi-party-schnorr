@@ -2,11 +2,11 @@ use std::{collections::HashSet, sync::Arc};
 
 use crypto_bigint::subtle::ConstantTimeEq;
 use elliptic_curve::{group::GroupEncoding, Group};
-use ff::PrimeField;
+
 
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
-use sha2::{Digest, Sha256, Sha512};
+use sha2::{Digest, Sha256};
 
 use crate::{
     common::{
@@ -352,7 +352,7 @@ impl<G: Group + GroupEncoding + GroupVerifier> Round for SignerParty<PartialSign
 mod taproot {
 
     const CHALLENGE_TAG: &[u8] = b"BIP0340/challenge";
-    use crate::keygen::KeygenError;
+    
 
     use super::*;
     use elliptic_curve::ops::Reduce;
@@ -580,7 +580,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::common::utils::run_keygen;
-    use curve25519_dalek::EdwardsPoint;
+    
 
     #[test]
     fn sign() {

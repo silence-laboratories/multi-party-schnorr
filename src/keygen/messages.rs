@@ -2,7 +2,7 @@ use std::hash::Hash;
 
 use crypto_bigint::subtle::ConstantTimeEq;
 use curve25519_dalek::EdwardsPoint;
-use elliptic_curve::{group::GroupEncoding, point::DecompactPoint, sec1::FromEncodedPoint, Group};
+use elliptic_curve::{group::GroupEncoding, point::DecompactPoint, Group};
 use k256::{schnorr::VerifyingKey, AffinePoint, ProjectivePoint, PublicKey};
 use serde::{Deserialize, Serialize};
 

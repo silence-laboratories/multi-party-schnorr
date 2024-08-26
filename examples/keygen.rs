@@ -1,7 +1,5 @@
 use std::time::Instant;
 
-
-
 use k256::elliptic_curve::group::GroupEncoding;
 use k256::ProjectivePoint;
 use multi_party_schnorr::{
@@ -37,7 +35,7 @@ fn main() {
         println!(
             "Party-{}'s keyshare: {}",
             i,
-            bs58::encode(keyshare.public_key.to_bytes()).into_string()
+            bs58::encode(keyshare.public_key().to_bytes()).into_string()
         );
     }
 }

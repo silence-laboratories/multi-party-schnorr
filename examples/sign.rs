@@ -1,5 +1,4 @@
-use curve25519_dalek::EdwardsPoint;
-
+use k256::ProjectivePoint;
 use multi_party_schnorr::common::utils::{run_keygen, run_round};
 use multi_party_schnorr::sign::SignerParty;
 
@@ -7,7 +6,7 @@ fn main() {
     const N: usize = 5;
     const T: usize = 3;
 
-    let keyshares = run_keygen::<T, N, EdwardsPoint>();
+    let keyshares = run_keygen::<T, N, ProjectivePoint>();
     let mut rng = rand::thread_rng();
     let start = std::time::Instant::now();
 

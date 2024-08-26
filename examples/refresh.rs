@@ -6,9 +6,7 @@ use k256::elliptic_curve::group::GroupEncoding;
 
 use multi_party_schnorr::{
     common::utils::{run_keygen, run_round},
-    keygen::{
-        utils::{setup_refresh},
-    },
+    keygen::utils::setup_refresh,
 };
 
 fn main() {
@@ -39,7 +37,7 @@ fn main() {
         println!(
             "Party-{}'s old keyshare: {}",
             i,
-            bs58::encode(keyshare.public_key.to_bytes()).into_string()
+            bs58::encode(keyshare.public_key().to_bytes()).into_string()
         );
     }
 
@@ -47,7 +45,7 @@ fn main() {
         println!(
             "Party-{}'s refreshed keyshare: {}",
             i,
-            bs58::encode(new_share.public_key.to_bytes()).into_string()
+            bs58::encode(new_share.public_key().to_bytes()).into_string()
         );
     }
 }
