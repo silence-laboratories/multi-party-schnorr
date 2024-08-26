@@ -77,9 +77,9 @@ mod test {
         }
     }
 
-    #[cfg(feature = "secp256k1")]
+    #[cfg(feature = "taproot")]
     #[test]
-    fn refresh_secp256k1() {
+    fn refresh_taproot() {
         use k256::ProjectivePoint;
         let _ = run_refresh::<3, 5, ProjectivePoint>();
         let _ = run_refresh::<2, 3, ProjectivePoint>();
@@ -87,9 +87,9 @@ mod test {
         let _ = run_refresh::<9, 20, ProjectivePoint>();
     }
 
-    #[cfg(feature = "secp256k1")]
+    #[cfg(feature = "taproot")]
     #[test]
-    fn recovery_secp256k1() {
+    fn recovery_taproot() {
         use k256::ProjectivePoint;
         let keyshares = run_keygen::<3, 5, ProjectivePoint>();
         run_recovery::<3, 5, ProjectivePoint>(&keyshares, vec![0]).unwrap();
@@ -99,10 +99,10 @@ mod test {
         run_recovery::<3, 5, ProjectivePoint>(&keyshares, vec![4, 1]).unwrap();
     }
 
-    #[cfg(feature = "secp256k1")]
+    #[cfg(feature = "taproot")]
     #[test]
     #[should_panic(expected = "Error during key refresh or recovery protocol")]
-    fn recovery_invalid_secp256k1() {
+    fn recovery_invalid_taproot() {
         use k256::ProjectivePoint;
         let keyshares = run_keygen::<3, 5, ProjectivePoint>();
         if let Err(e) = run_recovery::<3, 5, ProjectivePoint>(&keyshares, vec![1, 2, 3]) {

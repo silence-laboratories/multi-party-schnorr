@@ -568,9 +568,9 @@ mod test {
         run_keygen::<9, 20, EdwardsPoint>();
     }
 
-    #[cfg(feature = "secp256k1")]
+    #[cfg(feature = "taproot")]
     #[test]
-    fn keygen_secp256k1() {
+    fn keygen_taproot() {
         use k256::ProjectivePoint;
         run_keygen::<3, 5, ProjectivePoint>();
         run_keygen::<2, 3, ProjectivePoint>();

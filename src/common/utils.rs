@@ -9,12 +9,10 @@ use crypto_bigint::generic_array::typenum::Unsigned;
 use crypto_bigint::{generic_array::GenericArray, rand_core::CryptoRngCore, Encoding, U256};
 use curve25519_dalek::Scalar;
 
-
 use ff::PrimeField;
 use rand::{CryptoRng, RngCore};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use sha2::{Digest, Sha256};
-
 
 use crate::keygen::{utils::setup_keygen, Keyshare};
 
@@ -22,6 +20,96 @@ use super::traits::{GroupElem, Round, ScalarReduce};
 
 // Encryption is done inplace, so the size of the ciphertext is the size of the message plus the tag size.
 pub const SCALAR_CIPHERTEXT_SIZE: usize = 32 + <SalsaBox as AeadCore>::TagSize::USIZE;
+
+// Custom serde serializer
+pub mod serde_point {
+    use std::marker::PhantomData;
+
+    use elliptic_curve::group::GroupEncoding;
+    use serde::de::Visitor;
+
+    pub fn serialize<S, G: GroupEncoding>(point: &G, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeTuple;
+        let mut tup = serializer.serialize_tuple(G::Repr::default().as_ref().len())?;
+        for byte in point.to_bytes().as_ref().iter() {
+            tup.serialize_element(byte)?;
+        }
+        tup.end()
+    }
+
+    pub fn deserialize<'de, D, G: GroupEncoding>(deserializer: D) -> Result<G, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct PointVisitor<G: GroupEncoding>(PhantomData<G>);
+
+        impl<'de, G: GroupEncoding> Visitor<'de> for PointVisitor<G> {
+            type Value = G;
+
+            fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                formatter.write_str("a valid point in Edwards y + sign format")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<G, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut encoding = G::Repr::default();
+                for (idx, byte) in encoding.as_mut().iter_mut().enumerate() {
+                    *byte = seq.next_element()?.ok_or_else(|| {
+                        serde::de::Error::invalid_length(idx, &"wrong length of point")
+                    })?;
+                }
+
+                Option::from(G::from_bytes(&encoding))
+                    .ok_or(serde::de::Error::custom("point decompression failed"))
+            }
+        }
+
+        deserializer.deserialize_tuple(G::Repr::default().as_ref().len(), PointVisitor(PhantomData))
+    }
+}
+
+pub mod serde_vec_point {
+    use elliptic_curve::group::GroupEncoding;
+
+    pub fn serialize<S, G: GroupEncoding>(points: &[G], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut bytes = Vec::with_capacity(points.len() * G::Repr::default().as_ref().len());
+        points.iter().for_each(|point| {
+            bytes.extend_from_slice(point.to_bytes().as_ref());
+        });
+        serializer.serialize_bytes(&bytes)
+    }
+
+    pub fn deserialize<'de, D, G: GroupEncoding>(deserializer: D) -> Result<Vec<G>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let bytes: Vec<u8> = serde::Deserialize::deserialize(deserializer)?;
+        let point_size = G::Repr::default().as_ref().len();
+        if bytes.len() % point_size != 0 {
+            return Err(serde::de::Error::custom("Invalid number of bytes"));
+        }
+        let mut points = Vec::with_capacity(bytes.len() / point_size);
+        for i in 0..bytes.len() / point_size {
+            let mut encoding = G::Repr::default();
+            encoding
+                .as_mut()
+                .copy_from_slice(&bytes[i * point_size..(i + 1) * point_size]);
+            points.push(
+                Option::from(G::from_bytes(&encoding))
+                    .ok_or(serde::de::Error::custom("Invalid point"))?,
+            );
+        }
+        Ok(points)
+    }
+}
 
 #[derive(
     Clone,

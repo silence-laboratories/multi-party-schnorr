@@ -1,16 +1,13 @@
 use std::hash::Hash;
 
-
-use elliptic_curve::{Group};
+use elliptic_curve::{group::GroupEncoding, Group};
 use serde::{Deserialize, Serialize};
-
-
 
 use crate::{
     common::{
         get_lagrange_coeff,
         traits::{GroupElem, ScalarReduce},
-        utils::{EncryptedScalar, HashBytes, SessionId},
+        utils::{serde_point, serde_vec_point, EncryptedScalar, HashBytes, SessionId},
         DLogProof,
     },
     impl_basemessage,
@@ -69,7 +66,7 @@ where
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Keyshare<G>
 where
-    G: Group,
+    G: Group + GroupEncoding,
 {
     /// Threshold value
     pub threshold: u8,
@@ -79,14 +76,16 @@ where
     pub party_id: u8,
     pub(crate) d_i: G::Scalar,
     /// Public key of the generated key.
+    #[serde(with = "serde_point")]
     pub public_key: G,
     pub key_id: [u8; 32],
+    #[serde(with = "serde_vec_point")]
     pub(crate) big_a_poly: Vec<G>,
 }
 
 impl<G> Keyshare<G>
 where
-    G: Group,
+    G: Group + GroupEncoding,
 {
     /// Start the key refresh protocol.
     /// This will return a [`KeyRefreshData`] instance which can be use to initialize the KeygenParty which can be driven

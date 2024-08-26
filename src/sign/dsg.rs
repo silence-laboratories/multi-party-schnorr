@@ -24,7 +24,10 @@ use super::{
 };
 
 /// Signer party
-pub struct SignerParty<T, G: Group> {
+pub struct SignerParty<T, G>
+where
+    G: Group + GroupEncoding,
+{
     party_id: u8,
     keyshare: Arc<Keyshare<G>>,
     rand_params: SignEntropy<G>,
@@ -66,7 +69,7 @@ pub struct PartialSign<G: Group> {
     msg_to_sign: Vec<u8>,
 }
 
-impl<G: Group> SignerParty<R0, G> {
+impl<G: Group + GroupEncoding> SignerParty<R0, G> {
     /// Create a new signer party with the given keyshare
     pub fn new<R: CryptoRng + RngCore>(keyshare: Arc<Keyshare<G>>, rng: &mut R) -> Self {
         Self {
