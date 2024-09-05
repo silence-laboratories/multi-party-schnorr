@@ -1,0 +1,163 @@
+use curve25519_dalek::{EdwardsPoint, Scalar};
+use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+use elliptic_curve::group::GroupEncoding;
+use sha2::{Digest, Sha512};
+
+use crate::common::traits::Round;
+
+use super::{
+    messages::{SignComplete, SignMsg3},
+    PartialSign, SignError, SignReady, SignerParty,
+};
+
+impl Round for SignerParty<SignReady<EdwardsPoint>, EdwardsPoint> {
+    type Input = Vec<u8>;
+
+    type Output = Result<
+        (
+            SignerParty<PartialSign<EdwardsPoint>, EdwardsPoint>,
+            SignMsg3<EdwardsPoint>,
+        ),
+        SignError,
+    >;
+
+    /// The signer party processes the message to sign and returns the partial signature
+    /// # Arguments
+    /// * `msg_to_sign` - The message to sign in bytes
+    fn process(self, msg_to_sign: Self::Input) -> Self::Output {
+        let big_a = self.keyshare.public_key.to_bytes();
+
+        use sha2::digest::Update;
+        let digest = Sha512::new()
+            .chain(self.state.big_r.to_bytes())
+            .chain(big_a)
+            .chain(&msg_to_sign);
+
+        let e = Scalar::from_bytes_mod_order_wide(&digest.finalize().into());
+        let s_i = self.rand_params.k_i + self.state.d_i * e;
+
+        let msg3 = SignMsg3 {
+            from_party: self.keyshare.party_id,
+            session_id: self.state.final_session_id,
+            s_i,
+        };
+
+        let next = SignerParty {
+            party_id: self.party_id,
+            keyshare: self.keyshare,
+            rand_params: self.rand_params,
+            state: PartialSign {
+                final_session_id: self.state.final_session_id,
+                big_r: self.state.big_r,
+                s_i,
+                msg_to_sign,
+            },
+            seed: self.seed,
+        };
+
+        Ok((next, msg3))
+    }
+}
+
+impl Round for SignerParty<PartialSign<EdwardsPoint>, EdwardsPoint> {
+    type Input = Vec<SignMsg3<EdwardsPoint>>;
+
+    type Output = Result<(Signature, SignComplete), SignError>;
+
+    fn process(self, mut messages: Self::Input) -> Self::Output {
+        let mut s = self.state.s_i;
+        messages.sort_by_key(|m| m.from_party);
+
+        for msg in messages {
+            if msg.from_party == self.keyshare.party_id {
+                continue;
+            }
+
+            s += msg.s_i;
+        }
+
+        let mut sig_bytes = [0u8; 64];
+        sig_bytes[..32].copy_from_slice(&self.state.big_r.to_bytes());
+        sig_bytes[32..].copy_from_slice(&s.to_bytes());
+        let signature = ed25519_dalek::Signature::from_bytes(&sig_bytes);
+
+        VerifyingKey::from(self.keyshare.public_key)
+            .verify(&self.state.msg_to_sign, &signature)
+            .map_err(|_| SignError::InvalidSignature)?;
+
+        let sign_complete = SignComplete {
+            from_party: self.keyshare.party_id,
+            session_id: self.state.final_session_id,
+            signature: sig_bytes,
+        };
+
+        Ok((signature, sign_complete))
+    }
+}
+
+#[cfg(test)]
+pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
+    use crate::common::utils::run_round;
+
+    let mut rng = rand::thread_rng();
+    let parties = shares
+        .iter()
+        .map(|keyshare| SignerParty::new(keyshare.clone().into(), &mut rng))
+        .collect::<Vec<_>>();
+
+    // Pre-Signature phase
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+    let ready_parties = run_round(parties, msgs);
+
+    // Signature phase
+    let msg = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+    let (parties, partial_sigs): (Vec<_>, Vec<_>) =
+        run_round(ready_parties, msg.into()).into_iter().unzip();
+
+    let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
+        run_round(parties, partial_sigs).into_iter().unzip();
+
+    signatures[0]
+}
+
+#[cfg(test)]
+mod tests {
+
+    use curve25519_dalek::EdwardsPoint;
+    use rand::seq::SliceRandom;
+
+    use crate::common::utils::run_keygen;
+
+    use super::run_sign;
+
+    #[test]
+    fn sign_2_3() {
+        let shares = run_keygen::<2, 3, EdwardsPoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), 2)
+            .cloned()
+            .collect();
+        run_sign(&subset);
+    }
+
+    #[test]
+    fn sign_3_5() {
+        let shares = run_keygen::<3, 5, EdwardsPoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), 3)
+            .cloned()
+            .collect();
+        run_sign(&subset);
+    }
+
+    #[test]
+    fn sign_5_10() {
+        let shares = run_keygen::<5, 10, EdwardsPoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), 5)
+            .cloned()
+            .collect();
+        run_sign(&subset);
+    }
+}

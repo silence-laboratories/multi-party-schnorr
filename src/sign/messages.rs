@@ -1,5 +1,3 @@
-
-use ed25519_dalek::{SIGNATURE_LENGTH};
 use elliptic_curve::Group;
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -57,7 +55,7 @@ pub struct SignMsg3<G: Group> {
 pub struct SignComplete {
     pub(crate) from_party: u8,
     pub(crate) session_id: SessionId,
-    pub(crate) signature: [u8; SIGNATURE_LENGTH],
+    pub(crate) signature: [u8; 64],
 }
 
 // TODO:Don't need base macro

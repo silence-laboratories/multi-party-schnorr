@@ -12,5 +12,10 @@ pub mod common;
 
 pub const VERSION: u16 = 1;
 
+#[cfg(feature = "eddsa")]
 pub use curve25519_dalek::{edwards::CompressedEdwardsY, EdwardsPoint};
+
+#[cfg(feature = "taproot")]
+pub use k256::{schnorr::VerifyingKey, AffinePoint, ProjectivePoint, PublicKey};
+
 pub use elliptic_curve::group;

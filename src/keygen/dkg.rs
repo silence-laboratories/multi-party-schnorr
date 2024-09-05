@@ -7,10 +7,7 @@ use std::sync::Arc;
 use ff::{Field, PrimeField};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
-use rayon::{
-    iter::IndexedParallelIterator,
-    prelude::{IntoParallelRefIterator, ParallelIterator},
-};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use sha2::{digest::Update, Digest, Sha256};
 use sl_mpc_mate::math::GroupPolynomial;
 
@@ -531,6 +528,7 @@ where
 mod test {
     use crate::common::utils::run_keygen;
     use curve25519_dalek::EdwardsPoint;
+    use k256::ProjectivePoint;
 
     #[test]
     fn keygen_curve25519() {
@@ -540,10 +538,8 @@ mod test {
         run_keygen::<9, 20, EdwardsPoint>();
     }
 
-    #[cfg(feature = "taproot")]
     #[test]
     fn keygen_taproot() {
-        use k256::ProjectivePoint;
         run_keygen::<3, 5, ProjectivePoint>();
         run_keygen::<2, 3, ProjectivePoint>();
         run_keygen::<5, 10, ProjectivePoint>();

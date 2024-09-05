@@ -11,14 +11,7 @@ pub use math::*;
 
 pub mod traits {
     use crypto_bigint::subtle::ConstantTimeEq;
-    use crypto_bigint::U512;
-    use curve25519_dalek::EdwardsPoint;
-    use ed25519_dalek::Verifier;
-    use ed25519_dalek::{SignatureError, VerifyingKey};
-    use elliptic_curve::sec1::FromEncodedPoint;
-    use elliptic_curve::{group::GroupEncoding, ops::Reduce, Group};
-
-    use k256::{ProjectivePoint, PublicKey, U256};
+    use elliptic_curve::{group::GroupEncoding, Group};
 
     /// Trait that defines a state transition for any round based protocol.
     pub trait Round {
@@ -30,28 +23,6 @@ pub mod traits {
         fn process(self, messages: Self::Input) -> Self::Output;
     }
 
-    // pub trait PersistentObj {
-    //     type Repr: AsRef<[u8]>;
-    //     fn to_bytes(&self) -> Option<Self::Repr>;
-    //     fn from_bytes(bytes: &[u8]) -> Option<Self>
-    //     where
-    //         Self: Sized;
-    // }
-    //
-    // impl<T> PersistentObj for T
-    // where
-    //     T: Serialize + DeserializeOwned,
-    // {
-    //     type Repr = Vec<u8>;
-    //     fn to_bytes(&self) -> Option<Self::Repr> {
-    //         bincode::serialize(&self).ok()
-    //     }
-    //
-    //     fn from_bytes(bytes: &[u8]) -> Option<Self> {
-    //         bincode::deserialize(bytes).ok()
-    //     }
-    // }
-
     pub trait GroupElem: Group + GroupEncoding + ConstantTimeEq {}
 
     impl<G> GroupElem for G
@@ -60,65 +31,39 @@ pub mod traits {
         G::Scalar: ScalarReduce<[u8; 32]>,
     {
     }
-    pub trait GroupVerifier {
-        fn verify(&self, signature: &[u8; 64], msg: &[u8]) -> Result<(), SignatureError>;
-    }
 
     /// Reduce (little endian) bytes to a scalar.
     pub trait ScalarReduce<T> {
         fn reduce_from_bytes(bytes: &T) -> Self;
     }
 
+    #[cfg(any(feature = "eddsa", test))]
     impl ScalarReduce<[u8; 32]> for curve25519_dalek::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 32]) -> Self {
             Self::from_bytes_mod_order(*bytes)
         }
     }
 
+    #[cfg(any(feature = "eddsa", test))]
     impl ScalarReduce<[u8; 64]> for curve25519_dalek::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 64]) -> Self {
             Self::from_bytes_mod_order_wide(bytes)
         }
     }
 
+    #[cfg(any(feature = "taproot", test))]
     impl ScalarReduce<[u8; 32]> for k256::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 32]) -> Self {
-            <Self as Reduce<U256>>::reduce(U256::from_be_slice(bytes))
+            use elliptic_curve::ops::Reduce;
+            <Self as Reduce<crypto_bigint::U256>>::reduce(crypto_bigint::U256::from_be_slice(bytes))
         }
     }
 
+    #[cfg(any(feature = "taproot", test))]
     impl ScalarReduce<[u8; 64]> for k256::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 64]) -> Self {
-            <Self as Reduce<U512>>::reduce(U512::from_be_slice(bytes))
-        }
-    }
-
-    impl GroupVerifier for EdwardsPoint {
-        fn verify(&self, signature: &[u8; 64], msg: &[u8]) -> Result<(), SignatureError> {
-            let sig = ed25519_dalek::Signature::from_bytes(signature);
-            let vk = VerifyingKey::from_bytes(&self.to_bytes())?;
-            vk.verify(msg, &sig)
-        }
-    }
-
-    impl GroupVerifier for ProjectivePoint {
-        fn verify(&self, signature: &[u8; 64], msg: &[u8]) -> Result<(), SignatureError> {
-            use elliptic_curve::point::AffineCoordinates;
-            use elliptic_curve::sec1::ToEncodedPoint;
-
-            let sig = k256::schnorr::Signature::try_from(signature.as_ref())?;
-            let mut p = self.to_affine();
-            // Tweak the public key to have even y-coordinate
-            // According to BIP-0340, the public key should have even y-coordinate
-            // `lift_x` from
-            // https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki#user-content-Verification
-            if self.to_affine().y_is_odd().unwrap_u8() == 1 {
-                p = -p
-            }
-            // FIXME: Remove unwrap
-            let pk = PublicKey::from_encoded_point(&p.to_encoded_point(true)).unwrap();
-            let vk = k256::schnorr::VerifyingKey::try_from(pk)?;
-            vk.verify(msg, &sig)
+            use elliptic_curve::ops::Reduce;
+            <Self as Reduce<crypto_bigint::U512>>::reduce(crypto_bigint::U512::from_be_slice(bytes))
         }
     }
 }

@@ -4,59 +4,15 @@ mod types;
 /// Messages used in the signing protocol
 pub mod messages;
 
-mod dsg;
+mod presign;
+pub use presign::*;
 
-pub use dsg::*;
+/// Taproot signing protocol
+#[cfg(any(feature = "taproot", test))]
+pub mod taproot;
+
+/// EdDSA signing protocol using Curve25519
+#[cfg(any(feature = "eddsa", test))]
+pub mod eddsa;
 
 pub use types::*;
-
-#[cfg(test)]
-mod test {
-    // use rand::seq::SliceRandom;
-    //
-    // use crate::keygen::utils::process_keygen;
-    //
-    // use super::generate_sign;
-    //
-    // #[test]
-    // fn sign() {
-    //     let mut rng = rand::thread_rng();
-    //     let keyshares = process_keygen::<3, 5>();
-    //
-    //     let subset = keyshares.choose_multiple(&mut rng, 3).cloned().collect();
-    //     let message =
-    //         "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks".as_bytes();
-    //
-    //     let signatures = generate_sign(subset, message, &mut rng);
-    //
-    //     for sig in &signatures {
-    //         assert_eq!(sig, &signatures[0])
-    //     }
-    // }
-    //
-    // #[test]
-    // // We check that the party-id set is of length T
-    // #[should_panic(expected = "called `Result::unwrap()` on an `Err` value: InvalidMsgCount")]
-    // fn sign_fail_threshold() {
-    //     let mut rng = rand::thread_rng();
-    //     let keyshares = process_keygen::<3, 5>();
-    //
-    //     let subset = keyshares.choose_multiple(&mut rng, 2).cloned().collect();
-    //     let message =
-    //         "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks".as_bytes();
-    //     let signatures = generate_sign(subset, message, &mut rng);
-    //
-    //     for sig in &signatures {
-    //         assert_eq!(sig, &signatures[0])
-    //     }
-    // }
-    //
-    // #[test]
-    // fn keygen_with_ranks() {
-    //     let _ = process_keygen::<3, 5>();
-    //     let _ = process_keygen::<3, 5>();
-    //     let _ = process_keygen::<3, 5>();
-    //     let _ = process_keygen::<3, 5>();
-    //     let _ = process_keygen::<3, 5>();
-    // }
-}

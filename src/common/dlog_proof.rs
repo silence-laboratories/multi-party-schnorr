@@ -1,10 +1,9 @@
 use crypto_bigint::subtle::ConstantTimeEq;
 
-use ff::{Field};
+use ff::Field;
 use rand::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use sha2::{digest::Update, Digest, Sha256};
-
 
 use super::{
     traits::{GroupElem, ScalarReduce},
@@ -14,11 +13,6 @@ use super::{
 /// Non-interactive Proof of knowledge of discrete logarithm with Fiat-Shamir transform.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct DLogProof<G: GroupElem> {
-    /// Public point `t`.
-    // #[serde(bound(
-    //     serialize = "G::Repr: Serialize",
-    //     deserialize = "G::Repr: Deserialize<'de>"
-    // ))]
     pub t: Vec<u8>,
     /// Challenge response
     pub s: G::Scalar,

@@ -1,11 +1,9 @@
 use std::sync::Arc;
 
-
 use elliptic_curve::Group;
 use rand::{CryptoRng, Rng, RngCore};
 use sl_mpc_mate::{math::Polynomial, random_bytes};
 use thiserror::Error;
-
 
 /// Parameters for the keygen protocol. Constant across all rounds.
 #[derive(Clone)]
@@ -120,7 +118,7 @@ pub enum KeygenError {
     DecryptionError,
 
     #[error("Invalid signature")]
-    InvalidSignature(#[from] ed25519_dalek::SignatureError),
+    InvalidSignature,
 
     #[error("Abort")]
     Abort(&'static str),

@@ -7,12 +7,15 @@ edition = "2021"
 
 
 [features]
-default = ["taproot"]
-taproot = []
+default = ["eddsa"]
+eddsa = ["curve25519-dalek", "ed25519-dalek"]
+taproot = ["k256"]
+
 [dependencies]
 zeroize = { version = "1.6.1", features = ["zeroize_derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11.15"
+signature = { version = "2.2.0" }
 bytemuck = { version = "1.14.1", features = [
   "derive",
   "min_const_generics",
@@ -24,7 +27,7 @@ ed25519-dalek = { version = "2.1.0", features = [
   "serde",
   "rand_core",
   "digest",
-] }
+], optional = true }
 serde_arrays = "0.1"
 curve25519-dalek = { version = "4.1.3", features = [
   "serde",
@@ -32,8 +35,8 @@ curve25519-dalek = { version = "4.1.3", features = [
   "precomputed-tables",
   "digest",
   "group",
-] }
-k256 = { version = "0.13.2", features = ["serde"] }
+], optional = true }
+k256 = { version = "0.13.2", features = ["serde"], optional = true }
 crypto-bigint = "0.5"
 rand = "0.8"
 rayon = "1.7.0"
@@ -42,8 +45,6 @@ crypto_box = { version = "0.9.1", features = ["serde"] }
 ff = "0.13.0"
 rand_chacha = "0.3.1"
 bincode = "1"
-# FIXME: Remove this 
-# sl-mpc-mate = { path = "../sl-crypto/crates/sl-mpc-mate" }
 sl-mpc-mate = { git = "https://github.com/silence-laboratories/sl-crypto.git", rev = "ff63353" }
 thiserror = "1"
 tracing = "0.1"
@@ -54,6 +55,20 @@ hex = "0.4.3"
 
 
 [dev-dependencies]
+k256 = { version = "0.13.2", features = ["serde"] }
+curve25519-dalek = { version = "4.1.3", features = [
+  "serde",
+  "rand_core",
+  "precomputed-tables",
+  "digest",
+  "group",
+] }
+ed25519-dalek = { version = "2.1.0", features = [
+  "zeroize",
+  "serde",
+  "rand_core",
+  "digest",
+] }
 bs58 = "0.5.0"
 tokio = { version = "1.34.0", features = [
   "rt",

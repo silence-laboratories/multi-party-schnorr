@@ -1,11 +1,9 @@
-
-
-use elliptic_curve::{Group};
+use elliptic_curve::Group;
 use ff::Field;
 use rand::{CryptoRng, Rng, RngCore};
 use thiserror::Error;
 
-use crate::{common::utils::SessionId};
+use crate::common::utils::SessionId;
 
 /// All random params needed for sign protocol
 pub struct SignEntropy<G: Group> {
@@ -83,5 +81,5 @@ pub enum SignError {
     MathError(String),
 
     #[error("Invalid signature")]
-    InvalidSignature(#[from] ed25519_dalek::SignatureError),
+    InvalidSignature,
 }

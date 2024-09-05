@@ -6,8 +6,7 @@ use crypto_box::{
 };
 
 use crypto_bigint::generic_array::typenum::Unsigned;
-use crypto_bigint::{generic_array::GenericArray, rand_core::CryptoRngCore, Encoding, U256};
-use curve25519_dalek::Scalar;
+use crypto_bigint::{generic_array::GenericArray, rand_core::CryptoRngCore};
 
 use ff::PrimeField;
 use rand::{CryptoRng, RngCore};
@@ -152,23 +151,23 @@ impl EncryptedScalar {
     }
 }
 
-/// A trait for converting a type to a curve25519 scalar.
-pub trait ToCurveScalar {
-    /// Converts `self` to a curve25519 scalar.
-    fn to_25519_scalar(self) -> Scalar;
-}
-
-impl ToCurveScalar for [u8; 32] {
-    fn to_25519_scalar(self) -> Scalar {
-        Scalar::from_bytes_mod_order(self)
-    }
-}
-
-impl ToCurveScalar for U256 {
-    fn to_25519_scalar(self) -> Scalar {
-        Scalar::from_bytes_mod_order(self.to_le_bytes())
-    }
-}
+// /// A trait for converting a type to a curve25519 scalar.
+// pub trait ToCurveScalar {
+//     /// Converts `self` to a curve25519 scalar.
+//     fn to_25519_scalar(self) -> Scalar;
+// }
+//
+// impl ToCurveScalar for [u8; 32] {
+//     fn to_25519_scalar(self) -> Scalar {
+//         Scalar::from_bytes_mod_order(self)
+//     }
+// }
+//
+// impl ToCurveScalar for U256 {
+//     fn to_25519_scalar(self) -> Scalar {
+//         Scalar::from_bytes_mod_order(self.to_le_bytes())
+//     }
+// }
 
 /// Common trait for all MPC messages.
 pub trait BaseMessage {

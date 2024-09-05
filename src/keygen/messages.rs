@@ -1,9 +1,7 @@
 use std::hash::Hash;
 
 use crypto_bigint::subtle::ConstantTimeEq;
-use curve25519_dalek::EdwardsPoint;
-use elliptic_curve::{group::GroupEncoding, point::DecompactPoint, Group};
-use k256::{schnorr::VerifyingKey, AffinePoint, ProjectivePoint, PublicKey};
+use elliptic_curve::{group::GroupEncoding, Group};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -87,25 +85,9 @@ where
     pub(crate) big_a_poly: Vec<G>,
 }
 
-impl Keyshare<EdwardsPoint> {
-    pub fn public_key(&self) -> EdwardsPoint {
-        self.public_key
-    }
-}
-
-impl Keyshare<ProjectivePoint> {
-    pub fn public_key(&self) -> ProjectivePoint {
-        self.public_key
-    }
-
-    pub fn taproot_public_key(&self) -> Option<VerifyingKey> {
-        use elliptic_curve::point::AffineCoordinates;
-        let pubkey = PublicKey::from_affine(Option::from(AffinePoint::decompact(
-            &self.public_key.to_affine().x(),
-        ))?)
-        .ok()?;
-
-        VerifyingKey::try_from(pubkey).ok()
+impl<G: Group + GroupEncoding> Keyshare<G> {
+    pub fn public_key(&self) -> &G {
+        &self.public_key
     }
 }
 
