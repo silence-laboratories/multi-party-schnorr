@@ -5,7 +5,7 @@
 //! Since the final signing is done differently for different schemes, that part is not generic and
 //! is implemented as specific modules.
 //!
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 
 use crypto_bigint::subtle::ConstantTimeEq;
 use elliptic_curve::{group::GroupEncoding, Group};
@@ -18,10 +18,11 @@ use crate::{
     common::{
         get_lagrange_coeff,
         traits::{GroupElem, Round, ScalarReduce},
-        utils::{calculate_final_session_id, BaseMessage, HashBytes, SessionId},
+        utils::{calculate_final_session_id, HashBytes, SessionId},
         DLogProof,
     },
     keygen::Keyshare,
+    sign::validate_input_messages,
 };
 
 use super::{
@@ -65,6 +66,7 @@ pub struct SignReady<G: Group> {
     pub(crate) final_session_id: SessionId,
     pub(crate) big_r: G,
     pub(crate) d_i: G::Scalar,
+    pub(crate) pid_list: Vec<u8>,
     // party_id_to_idx: Vec<(u8, u8)>,
 }
 /// State of Signer party after processing all SignMsg3 messages
@@ -73,6 +75,7 @@ pub struct PartialSign<G: Group> {
     pub(crate) big_r: G,
     pub(crate) s_i: G::Scalar,
     pub(crate) msg_to_sign: Vec<u8>,
+    pub(crate) pid_list: Vec<u8>,
 }
 
 impl<G: Group + GroupEncoding> SignerParty<R0, G> {
@@ -88,6 +91,7 @@ impl<G: Group + GroupEncoding> SignerParty<R0, G> {
     }
 }
 
+// Protocol 11 from https://eprint.iacr.org/2022/374.pdf
 impl<G: Group + GroupEncoding> Round for SignerParty<R0, G> {
     type Input = ();
 
@@ -133,7 +137,8 @@ where
         let mut commitment_list = Vec::with_capacity(self.keyshare.threshold as usize);
         let mut sid_list = Vec::with_capacity(self.keyshare.threshold as usize);
         let mut party_ids = Vec::with_capacity(self.keyshare.threshold as usize);
-        msgs.sort_by_key(|m| m.party_id());
+
+        msgs.sort_by_key(|m| m.from_party);
 
         for msg in msgs {
             commitment_list.push(msg.commitment_r_i);
@@ -190,8 +195,8 @@ where
 
     type Output = Result<SignerParty<SignReady<G>, G>, SignError>;
 
-    fn process(self, mut msgs: Self::Input) -> Self::Output {
-        msgs.sort_by_key(|m| m.party_id());
+    fn process(self, msgs: Self::Input) -> Self::Output {
+        let msgs = validate_input_messages(msgs, self.keyshare.threshold, &self.state.pid_list)?;
 
         let mut big_r_i = self.state.big_r_i;
 
@@ -257,6 +262,7 @@ where
                 final_session_id: self.state.final_session_id,
                 big_r: big_r_i,
                 d_i,
+                pid_list: self.state.pid_list,
             },
             seed: self.seed,
         };
@@ -279,34 +285,6 @@ fn hash_commitment_r_i<G: Group + GroupEncoding>(
         .chain(blind_factor)
         .finalize()
         .into()
-}
-
-// TODO: Review and add validation of input messages
-fn _validate_input_messages<M: BaseMessage>(
-    mut msgs: Vec<M>,
-    threshold: u8,
-    party_id_to_idx: &[(u8, u8)],
-) -> Result<Vec<M>, SignError> {
-    if msgs.len() as u8 != threshold {
-        return Err(SignError::InvalidMsgCount);
-    }
-
-    let party_ids = msgs
-        .iter()
-        .map(|msg| msg.party_id())
-        .collect::<HashSet<u8>>();
-
-    if party_ids.len() as u8 != threshold {
-        return Err(SignError::DuplicatePartyId);
-    }
-
-    for (pid, _) in party_id_to_idx {
-        if !party_ids.contains(pid) {
-            return Err(SignError::InvalidMsgPartyId);
-        }
-    }
-    msgs.sort_by_key(BaseMessage::party_id);
-    Ok(msgs)
 }
 
 fn verify_commitment_r_i<G: Group + GroupEncoding>(

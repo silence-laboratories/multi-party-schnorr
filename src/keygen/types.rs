@@ -95,7 +95,7 @@ pub enum KeygenError {
 
     /// Invalid length of messages list
     #[error("Provided messages list has invalid length")]
-    InvalidMessageLength,
+    InvalidMsgCount,
 
     /// Given message list pid's do not match with the expected pid's.
     #[error("Incorrect participant pid's in the message list")]

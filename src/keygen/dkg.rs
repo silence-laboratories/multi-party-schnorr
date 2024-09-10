@@ -162,21 +162,21 @@ where
     }
 }
 
-// Protocol 11 from https://eprint.iacr.org/2022/374.pdf
+// Protocol 12 from https://eprint.iacr.org/2022/374.pdf
 // Simple Three-Round Multiparty Schnorr Signing with Full Simulatability
 impl<G: GroupElem> Round for KeygenParty<R0, G> {
     type Input = ();
 
     type Output = Result<(KeygenParty<R1<G>, G>, KeygenMsg1), KeygenError>;
 
-    /// Protocol 11, step 2. From https://eprint.iacr.org/2022/374.pdf.
+    /// Protocol 21, step 2. From https://eprint.iacr.org/2022/374.pdf.
     fn process(self, _: ()) -> Self::Output {
-        // 11.2(a) Sampling random session-id was done in KeyEntropy.
+        // 12.2(a) Sampling random session-id was done in KeyEntropy.
 
-        // 11.2(b) Sampling random polynomial was done in KeyEntropy.
+        // 12.2(b) Sampling random polynomial was done in KeyEntropy.
         let big_a_i = self.rand_params.polynomial.commit();
 
-        // 11.2(c)
+        // 12.2(c)
         let mut rng = ChaCha20Rng::from_seed(self.seed);
         let c_i_j = (0..self.params.n)
             .map(|party_id| {
@@ -201,7 +201,7 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
             })
             .collect::<Result<Vec<_>, KeygenError>>()?;
 
-        // 11.2(d)
+        // 12.2(d)
         let commitment = hash_commitment(
             self.rand_params.session_id,
             self.params.party_id,
@@ -210,7 +210,7 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
             &self.rand_params.r_i,
         );
 
-        // 11.2(f)
+        // 12.2(f)
         let msg1 = KeygenMsg1 {
             from_party: self.params.party_id,
             session_id: self.rand_params.session_id,
@@ -251,7 +251,7 @@ where
         let mut commitment_list = Vec::with_capacity(n);
         let mut party_id_list = Vec::with_capacity(n);
 
-        // 11.4(a)
+        // 12.4(a)
         for message in &messages {
             if message.party_id() == self.params.party_id {
                 let cond1 = self.rand_params.session_id == message.session_id;
@@ -269,7 +269,7 @@ where
 
         let final_sid = calculate_final_session_id(party_id_list.iter().copied(), &sid_i_list);
 
-        // 11.4(b)
+        // 12.4(b)
         let mut rng = ChaCha20Rng::from_seed(self.seed);
         let dlog_sid = Sha256::new()
             .chain(b"SL-EDDSA-DLOG-PROOF")
@@ -286,7 +286,7 @@ where
             .map(|f_i| DLogProof::<G>::prove(&dlog_sid, f_i, &mut rng))
             .collect::<Vec<_>>();
 
-        // 11.4(d)
+        // 12.4(d)
         let msg2 = KeygenMsg2 {
             session_id: final_sid,
             from_party: self.params.party_id,
@@ -327,7 +327,7 @@ where
             validate_input_messages(messages, self.params.n, Some(self.state.final_session_id))?;
 
         messages.par_iter().try_for_each(|msg| {
-            // 11.6(b)-i Verify commitments.
+            // 12.6(b)-i Verify commitments.
             let party_id = msg.party_id();
             let sid = self.state.sid_i_list[party_id as usize];
 
@@ -336,7 +336,7 @@ where
                 hash_commitment(sid, party_id, &msg.big_a_i_poly, &msg.c_i_list, &msg.r_i);
             let commit_cond = bool::from(commit_hash.ct_eq(&commitment));
 
-            // 11.6(b)-ii Verify DLog proofs
+            // 12.6(b)-ii Verify DLog proofs
             // Verify DLog proofs.
             let dlog_sid = Sha256::new()
                 .chain(b"SL-EDDSA-DLOG-PROOF")
@@ -359,7 +359,7 @@ where
             Ok::<(), KeygenError>(())
         })?;
 
-        // 11.6(c)
+        // 12.6(c)
         let d_i_vals = messages
             .iter()
             .map(|msg| {
@@ -382,7 +382,7 @@ where
             })
             .collect::<Result<Vec<_>, KeygenError>>()?;
 
-        // 11.6(c)
+        // 12.6(c)
         let d_i_share = d_i_vals.iter().sum();
 
         let empty_poly = (0..self.params.t).map(|_| G::identity()).collect();
@@ -401,10 +401,10 @@ where
                 return Err(KeygenError::InvalidRefresh);
             }
 
-            // 11.6(d)
+            // 12.6(d)
             big_a_poly.add_mut(&msg.big_a_i_poly);
 
-            // 11.6(e)
+            // 12.6(e)
             let d_i = d_i_vals[msg.party_id() as usize];
             // let expected_point = EdwardsPoint::mul_base(&d_i);
             let expected_point = G::generator() * d_i;
@@ -421,8 +421,7 @@ where
 
         let public_key = big_a_poly.get_constant();
 
-        // 11.6(e)
-        // let expected_point = EdwardsPoint::mul_base(&d_i_share);
+        // 12.6(e)
         let expected_point: G = G::generator() * d_i_share;
         let calc_point =
             big_a_poly.evaluate_at(&G::Scalar::from((self.params.party_id + 1) as u64));
@@ -482,7 +481,7 @@ fn validate_input_messages<M: BaseMessage>(
     expected_sid: Option<SessionId>,
 ) -> Result<Vec<M>, KeygenError> {
     if messages.len() != n as usize {
-        return Err(KeygenError::InvalidMessageLength);
+        return Err(KeygenError::InvalidMsgCount);
     }
 
     messages.sort_by_key(|msg| msg.party_id());

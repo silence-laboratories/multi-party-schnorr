@@ -7,7 +7,7 @@ use crate::common::traits::Round;
 
 use super::{
     messages::{SignComplete, SignMsg3},
-    PartialSign, SignError, SignReady, SignerParty,
+    validate_input_messages, PartialSign, SignError, SignReady, SignerParty,
 };
 
 impl Round for SignerParty<SignReady<EdwardsPoint>, EdwardsPoint> {
@@ -51,6 +51,7 @@ impl Round for SignerParty<SignReady<EdwardsPoint>, EdwardsPoint> {
                 big_r: self.state.big_r,
                 s_i,
                 msg_to_sign,
+                pid_list: self.state.pid_list,
             },
             seed: self.seed,
         };
@@ -64,9 +65,10 @@ impl Round for SignerParty<PartialSign<EdwardsPoint>, EdwardsPoint> {
 
     type Output = Result<(Signature, SignComplete), SignError>;
 
-    fn process(self, mut messages: Self::Input) -> Self::Output {
+    fn process(self, messages: Self::Input) -> Self::Output {
+        let messages =
+            validate_input_messages(messages, self.keyshare.threshold, &self.state.pid_list)?;
         let mut s = self.state.s_i;
-        messages.sort_by_key(|m| m.from_party);
 
         for msg in messages {
             if msg.from_party == self.keyshare.party_id {

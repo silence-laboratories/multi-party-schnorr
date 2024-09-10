@@ -26,6 +26,10 @@ impl<G: Group> SignEntropy<G> {
 /// Distributed key generation errors
 #[derive(Error, Debug)]
 pub enum SignError {
+    #[error("Invalid party ids on messages list")]
+    /// Invalid party ids on messages list
+    InvalidParticipantSet,
+
     /// Party key not found
     #[error("Party key not found")]
     PartyKeyNotFound,
@@ -51,10 +55,6 @@ pub enum SignError {
     #[error("Invalid message")]
     /// Invalid message
     InvalidPlaintext,
-
-    #[error("Already processed message from all parties, please use check_proceed to proceed to next state ")]
-    /// Already processed message from all parties
-    AlreadyProcessedAll,
 
     /// Decryption error
     #[error("Decryption error: {0}")]

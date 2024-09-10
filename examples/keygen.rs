@@ -1,7 +1,7 @@
 use std::time::Instant;
 
+use curve25519_dalek::EdwardsPoint;
 use k256::elliptic_curve::group::GroupEncoding;
-use k256::ProjectivePoint;
 use multi_party_schnorr::{
     common::utils::run_round,
     keygen::{utils::setup_keygen, Keyshare},
@@ -18,16 +18,12 @@ fn main() {
     // Locally run the keygen protocol
     // Run Round 1
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-    let _msga = bincode::serialize(&msgs[0]).unwrap();
-    let _msgb = bincode::serialize(&msgs[1]).unwrap();
 
     // Run Round 2
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-    let _msga = bincode::serialize(&msgs[0]).unwrap();
-    let _msgb = bincode::serialize(&msgs[1]).unwrap();
 
     // Run Round 3
-    let keyshares: Vec<Keyshare<ProjectivePoint>> = run_round(parties, msgs);
+    let keyshares: Vec<Keyshare<EdwardsPoint>> = run_round(parties, msgs);
 
     println!("Time elapsed: {:?}", start.elapsed());
 

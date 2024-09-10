@@ -78,6 +78,7 @@ impl Round for SignerParty<SignReady<ProjectivePoint>, ProjectivePoint> {
                 big_r: self.state.big_r,
                 s_i,
                 msg_to_sign,
+                pid_list: self.state.pid_list,
             },
             seed: self.seed,
         };
@@ -91,10 +92,11 @@ impl Round for SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint> {
 
     type Output = Result<(Signature, SignComplete), SignError>;
 
-    fn process(self, mut messages: Self::Input) -> Self::Output {
+    fn process(self, messages: Self::Input) -> Self::Output {
         use elliptic_curve::point::AffineCoordinates;
         use signature::Verifier;
-        messages.sort_by_key(|m| m.from_party);
+        let messages =
+            validate_input_messages(messages, self.keyshare.threshold, &self.state.pid_list)?;
         let mut s = self.state.s_i;
 
         for msg in messages {
