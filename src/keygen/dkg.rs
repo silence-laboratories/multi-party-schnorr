@@ -468,7 +468,6 @@ fn hash_commitment<G: GroupElem>(
         sha2::Digest::update(&mut hasher, point.to_bytes());
     }
     for c in ciphertexts {
-        // FIXME: Unwrap okay?
         sha2::Digest::update(&mut hasher, bytemuck::bytes_of(c));
     }
     sha2::Digest::update(&mut hasher, r_i);

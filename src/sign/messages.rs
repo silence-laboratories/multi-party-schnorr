@@ -58,7 +58,7 @@ pub struct SignComplete {
     pub(crate) signature: [u8; 64],
 }
 
-// TODO:Don't need base macro
+// TODO: Don't need base macro anymore
 impl_basemessage!(SignMsg1);
 
 impl<G> BaseMessage for SignMsg2<G>

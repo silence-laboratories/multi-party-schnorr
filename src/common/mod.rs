@@ -7,7 +7,6 @@ pub mod utils;
 pub use dlog_proof::*;
 
 pub use math::*;
-// pub use poly::*;
 
 pub mod traits {
     use crypto_bigint::subtle::ConstantTimeEq;

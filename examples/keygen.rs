@@ -1,9 +1,9 @@
 use std::time::Instant;
 
 use curve25519_dalek::EdwardsPoint;
-use k256::elliptic_curve::group::GroupEncoding;
 use multi_party_schnorr::{
     common::utils::run_round,
+    group::GroupEncoding,
     keygen::{utils::setup_keygen, Keyshare},
 };
 
@@ -31,7 +31,7 @@ fn main() {
         println!(
             "Party-{}'s keyshare: {}",
             i,
-            bs58::encode(keyshare.public_key().to_bytes()).into_string()
+            bs58::encode(keyshare.public_key().to_bytes()).into_string(),
         );
     }
 }

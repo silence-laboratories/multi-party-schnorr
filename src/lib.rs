@@ -1,5 +1,6 @@
 //! Threshold Signing Scheme for EdDSA in Rust.
 #![deny(unsafe_code)]
+#![doc = include_str!("../README.md")]
 
 /// The `keygen` module contains the key generation protocol
 pub mod keygen;
