@@ -2,15 +2,12 @@ use std::sync::Arc;
 
 use elliptic_curve::Group;
 use rand::{CryptoRng, Rng, RngCore};
-use sl_mpc_mate::{math::Polynomial, random_bytes};
 use thiserror::Error;
 
+use sl_mpc_mate::{math::Polynomial, random_bytes};
+
 /// Parameters for the keygen protocol. Constant across all rounds.
-#[derive(Clone)]
-pub struct KeygenParams<G>
-where
-    G: Group,
-{
+pub(crate) struct KeygenParams {
     /// Number of parties in the keygen protocol.
     pub n: u8,
     /// Threshold for the keygen protocol.
@@ -18,11 +15,8 @@ where
     /// Party id of the party.
     pub party_id: u8,
 
-    /// Party's scalar.
-    pub x_i: G::Scalar,
-
     /// Encryption secret key
-    pub(crate) dec_key: Arc<crypto_box::SecretKey>,
+    pub dec_key: Arc<crypto_box::SecretKey>,
     pub party_enc_keys: Vec<crypto_box::PublicKey>,
 }
 
@@ -64,17 +58,9 @@ where
     }
 
     pub fn generate_refresh<R: CryptoRng + RngCore>(t: u8, n: u8, rng: &mut R) -> Self {
-        let session_id = rng.gen();
-        let mut polynomial = Polynomial::random(rng, (t - 1) as usize);
-        polynomial.reset_contant();
-
-        KeyEntropy {
-            t,
-            n,
-            session_id,
-            polynomial,
-            r_i: random_bytes(rng),
-        }
+        let mut ent = Self::generate(t, n, rng);
+        ent.polynomial.reset_contant();
+        ent
     }
 }
 

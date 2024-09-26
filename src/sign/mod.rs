@@ -11,6 +11,7 @@ pub use presign::*;
 
 /// Taproot signing protocol
 #[cfg(any(feature = "taproot", test))]
+#[cfg(feature = "taproot")]
 pub mod taproot;
 
 /// EdDSA signing protocol using Curve25519

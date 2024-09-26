@@ -21,6 +21,7 @@ use super::traits::{GroupElem, Round, ScalarReduce};
 pub const SCALAR_CIPHERTEXT_SIZE: usize = 32 + <SalsaBox as AeadCore>::TagSize::USIZE;
 
 // Custom serde serializer
+#[cfg(feature = "serde")]
 pub mod serde_point {
     use std::marker::PhantomData;
 
@@ -72,6 +73,7 @@ pub mod serde_point {
     }
 }
 
+#[cfg(feature = "serde")]
 pub mod serde_vec_point {
     use elliptic_curve::group::GroupEncoding;
 
@@ -110,20 +112,13 @@ pub mod serde_vec_point {
     }
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    bytemuck::AnyBitPattern,
-    bytemuck::NoUninit,
-    serde::Serialize,
-    serde::Deserialize,
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, bytemuck::AnyBitPattern, bytemuck::NoUninit)]
 #[repr(C)]
 pub struct EncryptedScalar {
     pub sender_pid: u8,
     pub receiver_pid: u8,
-    #[serde(with = "serde_bytes")]
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
     pub ciphertext: [u8; SCALAR_CIPHERTEXT_SIZE],
     // Size of the nonce is 24
     pub nonce: [u8; <SalsaBox as AeadCore>::NonceSize::USIZE],
@@ -158,6 +153,7 @@ pub trait BaseMessage {
     // Return the party id of the message sender.
     fn party_id(&self) -> u8;
 }
+
 #[macro_export]
 /// Macro to implement the BaseMessage trait for a message type.
 macro_rules! impl_basemessage {
