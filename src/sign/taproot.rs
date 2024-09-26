@@ -1,12 +1,14 @@
-const CHALLENGE_TAG: &[u8] = b"BIP0340/challenge";
+use elliptic_curve::ops::Reduce;
+use k256::{schnorr::Signature, ProjectivePoint, U256};
+
+use messages::{SignComplete, SignMsg3};
+use sha2::{Digest, Sha256};
 
 use crate::{common::traits::Round, keygen::Keyshare};
 
 use super::*;
-use elliptic_curve::ops::Reduce;
-use k256::{schnorr::Signature, ProjectivePoint, U256};
-use messages::{SignComplete, SignMsg3};
-use sha2::{Digest, Sha256};
+
+const CHALLENGE_TAG: &[u8] = b"BIP0340/challenge";
 
 impl Keyshare<k256::ProjectivePoint> {
     /// Return the taproot public key, tweaked according to the Taproot BIP340 specification.

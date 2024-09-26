@@ -34,7 +34,7 @@ pub struct KeygenParty<T, G>
 where
     G: Group,
 {
-    params: KeygenParams<G>,
+    params: KeygenParams,
     rand_params: KeyEntropy<G>,
     seed: [u8; 32],
     state: T,
@@ -147,7 +147,6 @@ where
                 t,
                 n,
                 party_id,
-                x_i: G::Scalar::from((party_id + 1) as u64),
                 dec_key,
                 party_enc_keys,
             },
@@ -446,7 +445,6 @@ where
             total_parties: self.params.n,
             party_id: self.params.party_id,
             key_id,
-            big_a_poly: (*big_a_poly).to_vec(),
             d_i: d_i_share,
             public_key,
         };

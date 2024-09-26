@@ -1,6 +1,5 @@
-
 use elliptic_curve::Group;
-use ff::{Field};
+use ff::Field;
 
 use crate::common::traits::GroupElem;
 

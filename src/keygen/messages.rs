@@ -2,26 +2,28 @@ use std::hash::Hash;
 
 use crypto_bigint::subtle::ConstantTimeEq;
 use elliptic_curve::{group::GroupEncoding, Group};
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
     common::{
         get_lagrange_coeff,
         traits::{GroupElem, ScalarReduce},
-        utils::{serde_point, serde_vec_point, EncryptedScalar, HashBytes, SessionId},
+        utils::{EncryptedScalar, HashBytes, SessionId},
         DLogProof,
     },
     impl_basemessage,
 };
+
+#[cfg(feature = "serde")]
+use crate::common::utils::{serde_point, serde_vec_point};
 
 use super::KeyRefreshData;
 
 /// Type for the key generation protocol's message 1.
 ///
 #[derive(Hash, Clone)]
-// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Serialize, Deserialize)]
-#[repr(C)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeygenMsg1 {
     /// Participant Id of the sender
     pub from_party: u8,
@@ -34,7 +36,8 @@ pub struct KeygenMsg1 {
 }
 
 /// Type for the key generation protocol's message 2.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone)]
 pub struct KeygenMsg2<G>
 where
     G: Group + ConstantTimeEq + GroupEncoding,
@@ -50,22 +53,26 @@ where
     pub r_i: [u8; 32],
 
     /// Participants Fik values
-    #[serde(with = "serde_vec_point")]
+    #[cfg_attr(feature = "serde", serde(with = "serde_vec_point"))]
     pub big_a_i_poly: Vec<G>,
 
     /// Ciphertext list
     pub c_i_list: Vec<EncryptedScalar>,
 
     /// Participants dlog proof
-    #[serde(bound(
-        serialize = "G::Scalar: Serialize",
-        deserialize = "G::Scalar: Deserialize<'de>"
-    ))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(bound(
+            serialize = "G::Scalar: Serialize",
+            deserialize = "G::Scalar: Deserialize<'de>"
+        ))
+    )]
     pub dlog_proofs_i: Vec<DLogProof<G>>,
 }
 
 /// Keyshare of a party.
-#[derive(Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone)]
 pub struct Keyshare<G>
 where
     G: Group + GroupEncoding,
@@ -76,13 +83,13 @@ where
     pub total_parties: u8,
     /// Party Id of the sender
     pub party_id: u8,
-    pub(crate) d_i: G::Scalar,
+    /// d_i, internal
+    pub d_i: G::Scalar,
     /// Public key of the generated key.
-    #[serde(with = "serde_point")]
-    pub(crate) public_key: G,
+    #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
+    pub public_key: G,
+    /// Key ID
     pub key_id: [u8; 32],
-    #[serde(with = "serde_vec_point")]
-    pub(crate) big_a_poly: Vec<G>,
 }
 
 impl<G: Group + GroupEncoding> Keyshare<G> {
