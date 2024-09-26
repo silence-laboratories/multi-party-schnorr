@@ -52,8 +52,8 @@ where
     c_i_j: Vec<EncryptedScalar>,
     commitment: HashBytes,
 }
+
 /// State of a keygen party after processing the first message.
-// #[derive(Clone, bincode::Encode, bincode::Decode)]
 pub struct R2 {
     final_session_id: SessionId,
     commitment_list: Vec<HashBytes>,
@@ -219,13 +219,13 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
         let next_state = KeygenParty {
             params: self.params,
             rand_params: self.rand_params,
-            seed: self.seed,
             key_refresh_data: self.key_refresh_data,
             state: R1 {
                 big_a_i,
                 commitment,
                 c_i_j,
             },
+            seed: rng.gen(),
         };
 
         Ok((next_state, msg1))
@@ -289,8 +289,7 @@ where
         let msg2 = KeygenMsg2 {
             session_id: final_sid,
             from_party: self.params.party_id,
-            // FIXME: unneccessary allocation
-            big_a_i_poly: self.state.big_a_i.to_vec(),
+            big_a_i_poly: self.state.big_a_i.coeffs,
             c_i_list: self.state.c_i_j,
             r_i: self.rand_params.r_i,
             dlog_proofs_i: dlog_proofs,
@@ -389,7 +388,7 @@ where
         let mut big_a_poly = GroupPolynomial::new(empty_poly);
 
         // Validate polynomial constant terms
-        for msg in messages.iter() {
+        for msg in messages {
             let mut is_lost = false;
             if let Some(ref data) = self.key_refresh_data {
                 is_lost = data.lost_keyshare_party_ids.contains(&msg.party_id());
@@ -407,8 +406,8 @@ where
             let d_i = d_i_vals[msg.party_id() as usize];
             // let expected_point = EdwardsPoint::mul_base(&d_i);
             let expected_point = G::generator() * d_i;
-            // FIXME: Remove clone
-            let calc_point = GroupPolynomial::new(msg.big_a_i_poly.clone())
+
+            let calc_point = GroupPolynomial::new(msg.big_a_i_poly)
                 .evaluate_at(&G::Scalar::from((self.params.party_id + 1) as u64));
 
             if !bool::from(expected_point.ct_eq(&calc_point)) {
@@ -451,6 +450,7 @@ where
         Ok(keyshare)
     }
 }
+
 fn hash_commitment<G: GroupElem>(
     session_id: SessionId,
     party_id: u8,
