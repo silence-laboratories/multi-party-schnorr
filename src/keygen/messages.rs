@@ -136,7 +136,7 @@ where
         };
         let s_i_0 = self.d_i * lambda;
         KeyRefreshData {
-            d_i_0: s_i_0,
+            s_i_0,
             lost_keyshare_party_ids,
             expected_public_key: self.public_key,
         }

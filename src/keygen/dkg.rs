@@ -90,9 +90,9 @@ where
         let mut rand_params = KeyEntropy::generate(t, n, &mut rng);
 
         // Set the constant polynomial to the keyshare secret.
-        // d_i_0 is the current party's additive share of the private key
+        // s_i_0 is the current party's additive share of the private key
         if let Some(ref v) = refresh_data {
-            rand_params.polynomial.set_constant(v.d_i_0);
+            rand_params.polynomial.set_constant(v.s_i_0);
         }
 
         Self::new_with_context(
@@ -131,11 +131,11 @@ where
             let is_lost = v.lost_keyshare_party_ids.contains(&party_id);
             let cond1 = v.expected_public_key == G::identity();
             let cond2 = v.lost_keyshare_party_ids.len() > (n - t).into();
-            let cond3 = rand_params.polynomial.get_constant() != &v.d_i_0;
+            let cond3 = rand_params.polynomial.get_constant() != &v.s_i_0;
             let cond4 = if is_lost {
-                v.d_i_0 != G::Scalar::ZERO
+                v.s_i_0 != G::Scalar::ZERO
             } else {
-                v.d_i_0 == G::Scalar::ZERO
+                v.s_i_0 == G::Scalar::ZERO
             };
             if cond1 || cond2 || cond3 || cond4 {
                 return Err(KeygenError::InvalidRefresh);

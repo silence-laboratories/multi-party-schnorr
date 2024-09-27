@@ -11,7 +11,7 @@ where
     /// \sum_{i=0}^{n-1} s_i_0 = private_key
     /// s_i_0 can be equal to Zero in case when participant lost their key_share
     /// and wants to recover it during key_refresh
-    pub(crate) d_i_0: G::Scalar,
+    pub(crate) s_i_0: G::Scalar,
 
     /// list of participants ids who lost their key_shares
     /// should be in range [0, n-1]
@@ -19,9 +19,6 @@ where
 
     /// expected public key for key_refresh
     pub(crate) expected_public_key: G,
-    // /// root_chain_code
-    // #[allow(unused)]
-    // pub(crate) root_chain_code: [u8; 32],
 }
 
 impl<G> KeyRefreshData<G>
@@ -34,7 +31,7 @@ where
         expected_public_key: G,
     ) -> Self {
         KeyRefreshData {
-            d_i_0: <G::Scalar as Field>::ZERO,
+            s_i_0: <G::Scalar as Field>::ZERO,
             lost_keyshare_party_ids,
             expected_public_key,
         }
