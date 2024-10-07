@@ -9,7 +9,12 @@ edition = "2021"
 default = ["eddsa"]
 eddsa = ["curve25519-dalek", "ed25519-dalek"]
 taproot = ["k256"]
-serde = ["dep:serde", "dep:serde_bytes" ]
+serde = [
+  "dep:serde",
+  "dep:serde_bytes",
+  "curve25519-dalek/serde",
+  "ed25519-dalek/serde",
+]
 
 [dependencies]
 zeroize = { version = "1.6.1", features = ["zeroize_derive"] }
