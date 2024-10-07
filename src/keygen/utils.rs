@@ -92,12 +92,17 @@ where
 {
     let mut rng = rand::thread_rng();
     let (party_key_list, party_pubkey_list) = generate_pki(N, &mut rng);
+    let key_id = keyshares[0].key_id;
 
     // Start refresh protocol
     let mut parties0 = vec![];
     for pid in 0..N {
         let data = if lost_party_ids.contains(&(pid as u8)) {
-            KeyRefreshData::recovery_data_for_lost(lost_party_ids.clone(), keyshares[0].public_key)
+            KeyRefreshData::recovery_data_for_lost(
+                lost_party_ids.clone(),
+                keyshares[0].public_key,
+                key_id,
+            )
         } else {
             keyshares[pid].get_recovery_data(lost_party_ids.clone())
         };

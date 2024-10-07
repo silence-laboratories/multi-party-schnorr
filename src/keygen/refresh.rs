@@ -7,6 +7,7 @@ pub struct KeyRefreshData<G>
 where
     G: Group,
 {
+    pub key_id: [u8; 32],
     /// Additive share of participant_i (after interpolation)
     /// \sum_{i=0}^{n-1} s_i_0 = private_key
     /// s_i_0 can be equal to Zero in case when participant lost their key_share
@@ -29,8 +30,10 @@ where
     pub fn recovery_data_for_lost(
         lost_keyshare_party_ids: Vec<u8>,
         expected_public_key: G,
+        key_id: [u8; 32],
     ) -> Self {
         KeyRefreshData {
+            key_id,
             s_i_0: <G::Scalar as Field>::ZERO,
             lost_keyshare_party_ids,
             expected_public_key,
