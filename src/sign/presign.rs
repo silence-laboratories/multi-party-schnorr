@@ -67,12 +67,19 @@ pub struct SignReady<G: Group> {
     pub(crate) big_r: G,
     pub(crate) d_i: G::Scalar,
     pub(crate) pid_list: Vec<u8>,
-    // party_id_to_idx: Vec<(u8, u8)>,
+    pub threshold: u8,
+    pub public_key: G,
+    pub(crate) k_i: G::Scalar,
+    pub party_id: u8,
+    pub session_id: SessionId,
 }
 /// State of Signer party after processing all SignMsg3 messages
 pub struct PartialSign<G: Group> {
-    pub(crate) final_session_id: SessionId,
+    pub party_id: u8,
+    pub(crate) session_id: SessionId,
+    pub threshold: u8,
     pub(crate) big_r: G,
+    pub public_key: G,
     pub(crate) s_i: G::Scalar,
     pub(crate) msg_to_sign: Vec<u8>,
     pub(crate) pid_list: Vec<u8>,
@@ -193,7 +200,7 @@ where
 {
     type Input = Vec<SignMsg2<G>>;
 
-    type Output = Result<SignerParty<SignReady<G>, G>, SignError>;
+    type Output = Result<SignReady<G>, SignError>;
 
     fn process(self, msgs: Self::Input) -> Self::Output {
         let msgs = validate_input_messages(msgs, self.keyshare.threshold, &self.state.pid_list)?;
@@ -254,17 +261,16 @@ where
 
         let d_i = coeff * self.keyshare.d_i;
 
-        let next = SignerParty {
+        let next = SignReady {
+            threshold: self.keyshare.threshold,
+            final_session_id: self.state.final_session_id,
+            big_r: big_r_i,
+            d_i,
+            pid_list: self.state.pid_list,
+            public_key: self.keyshare.public_key,
+            session_id: self.state.final_session_id,
+            k_i: self.rand_params.k_i,
             party_id: self.party_id,
-            keyshare: self.keyshare,
-            rand_params: self.rand_params,
-            state: SignReady {
-                final_session_id: self.state.final_session_id,
-                big_r: big_r_i,
-                d_i,
-                pid_list: self.state.pid_list,
-            },
-            seed: self.seed,
         };
 
         Ok(next)

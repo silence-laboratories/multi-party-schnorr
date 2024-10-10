@@ -7,71 +7,61 @@ use crate::common::traits::Round;
 
 use super::{
     messages::{SignComplete, SignMsg3},
-    validate_input_messages, PartialSign, SignError, SignReady, SignerParty,
+    validate_input_messages, PartialSign, SignError, SignReady,
 };
 
-impl Round for SignerParty<SignReady<EdwardsPoint>, EdwardsPoint> {
+impl Round for SignReady<EdwardsPoint> {
     type Input = Vec<u8>;
 
-    type Output = Result<
-        (
-            SignerParty<PartialSign<EdwardsPoint>, EdwardsPoint>,
-            SignMsg3<EdwardsPoint>,
-        ),
-        SignError,
-    >;
+    type Output = Result<(PartialSign<EdwardsPoint>, SignMsg3<EdwardsPoint>), SignError>;
 
     /// The signer party processes the message to sign and returns the partial signature
     /// # Arguments
     /// * `msg_to_sign` - The message to sign in bytes
     fn process(self, msg_to_sign: Self::Input) -> Self::Output {
-        let big_a = self.keyshare.public_key.to_bytes();
+        let big_a = self.public_key.to_bytes();
 
         use sha2::digest::Update;
         let digest = Sha512::new()
-            .chain(self.state.big_r.to_bytes())
+            .chain(self.big_r.to_bytes())
             .chain(big_a)
             .chain(&msg_to_sign);
 
         let e = Scalar::from_bytes_mod_order_wide(&digest.finalize().into());
-        let s_i = self.rand_params.k_i + self.state.d_i * e;
+        let s_i = self.k_i + self.d_i * e;
 
         let msg3 = SignMsg3 {
-            from_party: self.keyshare.party_id,
-            session_id: self.state.final_session_id,
+            from_party: self.party_id,
+            session_id: self.final_session_id,
             s_i,
         };
 
-        let next = SignerParty {
+        let next = PartialSign {
             party_id: self.party_id,
-            keyshare: self.keyshare,
-            rand_params: self.rand_params,
-            state: PartialSign {
-                final_session_id: self.state.final_session_id,
-                big_r: self.state.big_r,
-                s_i,
-                msg_to_sign,
-                pid_list: self.state.pid_list,
-            },
-            seed: self.seed,
+            threshold: self.threshold,
+            session_id: self.session_id,
+            public_key: self.public_key,
+            big_r: self.big_r,
+            s_i,
+            msg_to_sign,
+            pid_list: self.pid_list,
         };
 
         Ok((next, msg3))
     }
 }
 
-impl Round for SignerParty<PartialSign<EdwardsPoint>, EdwardsPoint> {
+impl Round for PartialSign<EdwardsPoint> {
     type Input = Vec<SignMsg3<EdwardsPoint>>;
 
     type Output = Result<(Signature, SignComplete), SignError>;
 
     fn process(self, messages: Self::Input) -> Self::Output {
-        let messages =
-            validate_input_messages(messages, self.keyshare.threshold, &self.state.pid_list)?;
-        let mut s = self.state.s_i;
+        let messages = validate_input_messages(messages, self.threshold, &self.pid_list)?;
+        let mut s = self.s_i;
 
         for msg in messages {
-            if msg.from_party == self.keyshare.party_id {
+            if msg.from_party == self.party_id {
                 continue;
             }
 
@@ -79,17 +69,17 @@ impl Round for SignerParty<PartialSign<EdwardsPoint>, EdwardsPoint> {
         }
 
         let mut sig_bytes = [0u8; 64];
-        sig_bytes[..32].copy_from_slice(&self.state.big_r.to_bytes());
+        sig_bytes[..32].copy_from_slice(&self.big_r.to_bytes());
         sig_bytes[32..].copy_from_slice(&s.to_bytes());
         let signature = ed25519_dalek::Signature::from_bytes(&sig_bytes);
 
-        VerifyingKey::from(self.keyshare.public_key)
-            .verify(&self.state.msg_to_sign, &signature)
+        VerifyingKey::from(self.public_key)
+            .verify(&self.msg_to_sign, &signature)
             .map_err(|_| SignError::InvalidSignature)?;
 
         let sign_complete = SignComplete {
-            from_party: self.keyshare.party_id,
-            session_id: self.state.final_session_id,
+            from_party: self.party_id,
+            session_id: self.session_id,
             signature: sig_bytes,
         };
 
@@ -99,7 +89,7 @@ impl Round for SignerParty<PartialSign<EdwardsPoint>, EdwardsPoint> {
 
 #[cfg(test)]
 pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
-    use crate::common::utils::run_round;
+    use crate::{common::utils::run_round, sign::SignerParty};
 
     let mut rng = rand::thread_rng();
     let parties = shares

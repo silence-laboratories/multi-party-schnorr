@@ -13,28 +13,30 @@ const CHALLENGE_TAG: &[u8] = b"BIP0340/challenge";
 impl Keyshare<k256::ProjectivePoint> {
     /// Return the taproot public key, tweaked according to the Taproot BIP340 specification.
     /// https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki
-    pub fn taproot_public_key(&self) -> Option<k256::schnorr::VerifyingKey> {
-        use elliptic_curve::point::AffineCoordinates;
-        use elliptic_curve::point::DecompactPoint;
-        let pubkey = k256::PublicKey::from_affine(Option::from(k256::AffinePoint::decompact(
-            &self.public_key.to_affine().x(),
-        ))?)
-        .ok()?;
-
-        k256::schnorr::VerifyingKey::try_from(pubkey).ok()
+    pub fn get_taproot_public_key(&self) -> Option<k256::schnorr::VerifyingKey> {
+        taproot_public_key(&self.public_key)
     }
 }
 
-impl Round for SignerParty<SignReady<ProjectivePoint>, ProjectivePoint> {
+/// Return the taproot public key, tweaked according to the Taproot BIP340 specification.
+/// https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki
+pub fn taproot_public_key(
+    public_key: &k256::ProjectivePoint,
+) -> Option<k256::schnorr::VerifyingKey> {
+    use elliptic_curve::point::AffineCoordinates;
+    use elliptic_curve::point::DecompactPoint;
+    let pubkey = k256::PublicKey::from_affine(Option::from(k256::AffinePoint::decompact(
+        &public_key.to_affine().x(),
+    ))?)
+    .ok()?;
+
+    k256::schnorr::VerifyingKey::try_from(pubkey).ok()
+}
+
+impl Round for SignReady<ProjectivePoint> {
     type Input = Vec<u8>;
 
-    type Output = Result<
-        (
-            SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint>,
-            SignMsg3<ProjectivePoint>,
-        ),
-        SignError,
-    >;
+    type Output = Result<(PartialSign<ProjectivePoint>, SignMsg3<ProjectivePoint>), SignError>;
 
     /// The signer party processes the message to sign and returns the partial signature
     /// # Arguments
@@ -42,10 +44,10 @@ impl Round for SignerParty<SignReady<ProjectivePoint>, ProjectivePoint> {
     fn process(self, msg_to_sign: Self::Input) -> Self::Output {
         use elliptic_curve::point::AffineCoordinates;
         let hash = Sha256::digest(&msg_to_sign);
-        let big_p = self.keyshare.public_key.to_affine();
-        let big_r = self.state.big_r.to_affine();
-        let mut k_i = self.rand_params.k_i;
-        let mut d_i = self.state.d_i;
+        let big_p = self.public_key.to_affine();
+        let big_r = self.big_r.to_affine();
+        let mut k_i = self.k_i;
+        let mut d_i = self.d_i;
 
         if big_r.y_is_odd().unwrap_u8() == 1 {
             k_i = -k_i;
@@ -66,30 +68,27 @@ impl Round for SignerParty<SignReady<ProjectivePoint>, ProjectivePoint> {
         let s_i = k_i + d_i * e;
 
         let msg3 = SignMsg3 {
-            from_party: self.keyshare.party_id,
-            session_id: self.state.final_session_id,
+            from_party: self.party_id,
+            session_id: self.final_session_id,
             s_i,
         };
 
-        let next = SignerParty {
+        let next = PartialSign {
+            public_key: self.public_key,
             party_id: self.party_id,
-            keyshare: self.keyshare,
-            rand_params: self.rand_params,
-            state: PartialSign {
-                final_session_id: self.state.final_session_id,
-                big_r: self.state.big_r,
-                s_i,
-                msg_to_sign,
-                pid_list: self.state.pid_list,
-            },
-            seed: self.seed,
+            threshold: self.threshold,
+            session_id: self.final_session_id,
+            big_r: self.big_r,
+            s_i,
+            msg_to_sign,
+            pid_list: self.pid_list,
         };
 
         Ok((next, msg3))
     }
 }
 
-impl Round for SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint> {
+impl Round for PartialSign<ProjectivePoint> {
     type Input = Vec<SignMsg3<ProjectivePoint>>;
 
     type Output = Result<(Signature, SignComplete), SignError>;
@@ -97,19 +96,18 @@ impl Round for SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint> {
     fn process(self, messages: Self::Input) -> Self::Output {
         use elliptic_curve::point::AffineCoordinates;
         use signature::Verifier;
-        let messages =
-            validate_input_messages(messages, self.keyshare.threshold, &self.state.pid_list)?;
-        let mut s = self.state.s_i;
+        let messages = validate_input_messages(messages, self.threshold, &self.pid_list)?;
+        let mut s = self.s_i;
 
         for msg in messages {
-            if msg.from_party == self.keyshare.party_id {
+            if msg.from_party == self.party_id {
                 continue;
             }
 
             s += msg.s_i;
         }
 
-        let r = self.state.big_r.to_affine().x();
+        let r = self.big_r.to_affine().x();
         let mut sig_bytes = [0u8; 64];
         sig_bytes[..32].copy_from_slice(&r);
         sig_bytes[32..].copy_from_slice(&s.to_bytes());
@@ -117,15 +115,14 @@ impl Round for SignerParty<PartialSign<ProjectivePoint>, ProjectivePoint> {
         let signature =
             Signature::try_from(sig_bytes.as_ref()).map_err(|_| SignError::InvalidSignature)?;
 
-        self.keyshare
-            .taproot_public_key()
+        taproot_public_key(&self.public_key)
             .unwrap()
-            .verify(&self.state.msg_to_sign, &signature)
+            .verify(&self.msg_to_sign, &signature)
             .map_err(|_| SignError::InvalidSignature)?;
 
         let sign_complete = SignComplete {
-            from_party: self.keyshare.party_id,
-            session_id: self.state.final_session_id,
+            from_party: self.party_id,
+            session_id: self.session_id,
             signature: sig_bytes,
         };
 
