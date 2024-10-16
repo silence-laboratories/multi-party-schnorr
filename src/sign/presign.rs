@@ -63,15 +63,15 @@ pub struct R2<G> {
 /// State of Signer party after processing all SignMsg2 messages.
 /// Party is ready to sign a message
 pub struct SignReady<G: Group> {
-    pub(crate) final_session_id: SessionId,
+    pub session_id: SessionId,
     pub(crate) big_r: G,
     pub(crate) d_i: G::Scalar,
     pub pid_list: Vec<u8>,
     pub threshold: u8,
     pub public_key: G,
+    pub key_id: [u8; 32],
     pub(crate) k_i: G::Scalar,
     pub party_id: u8,
-    pub session_id: SessionId,
 }
 /// State of Signer party after processing all SignMsg3 messages
 pub struct PartialSign<G: Group> {
@@ -277,8 +277,8 @@ where
         let d_i = coeff * self.keyshare.d_i;
 
         let next = SignReady {
+            key_id: self.keyshare.key_id,
             threshold: self.keyshare.threshold,
-            final_session_id: self.state.final_session_id,
             big_r: big_r_i,
             d_i,
             pid_list: self.state.pid_list,

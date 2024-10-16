@@ -69,7 +69,7 @@ impl Round for SignReady<ProjectivePoint> {
 
         let msg3 = SignMsg3 {
             from_party: self.party_id,
-            session_id: self.final_session_id,
+            session_id: self.session_id,
             s_i,
         };
 
@@ -77,7 +77,7 @@ impl Round for SignReady<ProjectivePoint> {
             public_key: self.public_key,
             party_id: self.party_id,
             threshold: self.threshold,
-            session_id: self.final_session_id,
+            session_id: self.session_id,
             big_r: self.big_r,
             s_i,
             msg_to_sign,

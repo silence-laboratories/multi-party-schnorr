@@ -32,7 +32,7 @@ impl Round for SignReady<EdwardsPoint> {
 
         let msg3 = SignMsg3 {
             from_party: self.party_id,
-            session_id: self.final_session_id,
+            session_id: self.session_id,
             s_i,
         };
 
