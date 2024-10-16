@@ -96,7 +96,7 @@ impl Round for PartialSign<ProjectivePoint> {
     fn process(self, messages: Self::Input) -> Self::Output {
         use elliptic_curve::point::AffineCoordinates;
         use signature::Verifier;
-        let messages = validate_input_messages(messages, self.threshold, &self.pid_list)?;
+        let messages = validate_input_messages(messages, &self.pid_list)?;
         let mut s = self.s_i;
 
         for msg in messages {

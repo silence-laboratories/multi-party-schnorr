@@ -24,10 +24,9 @@ use crate::common::utils::BaseMessage;
 
 pub(crate) fn validate_input_messages<M: BaseMessage>(
     mut msgs: Vec<M>,
-    threshold: u8,
     party_id_list: &[u8],
 ) -> Result<Vec<M>, SignError> {
-    if msgs.len() as u8 != threshold {
+    if msgs.len() != party_id_list.len() {
         return Err(SignError::InvalidMsgCount);
     }
 
@@ -36,7 +35,7 @@ pub(crate) fn validate_input_messages<M: BaseMessage>(
         .map(|msg| msg.party_id())
         .collect::<HashSet<u8>>();
 
-    if party_ids.len() as u8 != threshold {
+    if party_ids.len() != party_id_list.len() {
         return Err(SignError::DuplicatePartyId);
     }
 

@@ -66,7 +66,7 @@ pub struct SignReady<G: Group> {
     pub(crate) final_session_id: SessionId,
     pub(crate) big_r: G,
     pub(crate) d_i: G::Scalar,
-    pub(crate) pid_list: Vec<u8>,
+    pub pid_list: Vec<u8>,
     pub threshold: u8,
     pub public_key: G,
     pub(crate) k_i: G::Scalar,
@@ -153,6 +153,21 @@ where
             party_ids.push(msg.from_party);
         }
 
+        // Check for duplicate party ids
+        let num_parties = party_ids.len();
+        party_ids.dedup();
+
+        if party_ids.len() != num_parties {
+            return Err(SignError::InvalidParticipantSet);
+        }
+
+        // Check if the number of parties is within the threshold
+        if party_ids.len() < self.keyshare.threshold as usize
+            || party_ids.len() > self.keyshare.total_parties as usize
+        {
+            return Err(SignError::InvalidParticipantSet);
+        }
+
         let final_sid = calculate_final_session_id(party_ids.iter().copied(), &sid_list);
 
         use sha2::digest::Update;
@@ -203,7 +218,7 @@ where
     type Output = Result<SignReady<G>, SignError>;
 
     fn process(self, msgs: Self::Input) -> Self::Output {
-        let msgs = validate_input_messages(msgs, self.keyshare.threshold, &self.state.pid_list)?;
+        let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
 
         let mut big_r_i = self.state.big_r_i;
 

@@ -57,7 +57,7 @@ impl Round for PartialSign<EdwardsPoint> {
     type Output = Result<(Signature, SignComplete), SignError>;
 
     fn process(self, messages: Self::Input) -> Self::Output {
-        let messages = validate_input_messages(messages, self.threshold, &self.pid_list)?;
+        let messages = validate_input_messages(messages, &self.pid_list)?;
         let mut s = self.s_i;
 
         for msg in messages {
