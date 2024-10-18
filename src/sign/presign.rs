@@ -62,6 +62,7 @@ pub struct R2<G> {
 
 /// State of Signer party after processing all SignMsg2 messages.
 /// Party is ready to sign a message
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SignReady<G: Group> {
     pub session_id: SessionId,
     pub(crate) big_r: G,
