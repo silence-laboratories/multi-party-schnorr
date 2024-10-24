@@ -63,7 +63,7 @@ pub fn setup_refresh<R: CryptoRng + RngCore, G: GroupElem>(
             KeygenParty::new(
                 keyshare.threshold,
                 keyshare.total_parties,
-                keyshare.party_id,
+                keyshare.party_id(),
                 party_key,
                 party_pubkey_list.clone(),
                 Some(data),

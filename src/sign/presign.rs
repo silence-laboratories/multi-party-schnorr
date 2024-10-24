@@ -90,7 +90,7 @@ impl<G: Group + GroupEncoding> SignerParty<R0, G> {
     /// Create a new signer party with the given keyshare
     pub fn new<R: CryptoRng + RngCore>(keyshare: Arc<Keyshare<G>>, rng: &mut R) -> Self {
         Self {
-            party_id: keyshare.party_id,
+            party_id: keyshare.party_id(),
             keyshare,
             rand_params: SignEntropy::generate(rng),
             seed: rng.gen(),
@@ -115,7 +115,7 @@ impl<G: Group + GroupEncoding> Round for SignerParty<R0, G> {
         );
 
         let msg1 = SignMsg1 {
-            from_party: self.keyshare.party_id,
+            from_party: self.keyshare.party_id(),
             session_id: self.rand_params.session_id,
             commitment_r_i,
         };
@@ -184,7 +184,7 @@ where
         let dlog_proof = DLogProof::prove(&dlog_sid, &self.rand_params.k_i, &mut rng);
 
         let msg2 = SignMsg2 {
-            from_party: self.keyshare.party_id,
+            from_party: self.keyshare.party_id(),
             session_id: final_sid,
             dlog_proof,
             blind_factor: self.rand_params.blind_factor,
@@ -224,7 +224,7 @@ where
         let mut big_r_i = self.state.big_r_i;
 
         for (idx, msg) in msgs.iter().enumerate() {
-            if msg.from_party == self.keyshare.party_id {
+            if msg.from_party == self.keyshare.party_id() {
                 continue;
             }
 
@@ -275,7 +275,7 @@ where
         // FIXME: do we need copied?
         let coeff = get_lagrange_coeff::<G>(&self.party_id, self.state.pid_list.iter().copied());
 
-        let d_i = coeff * self.keyshare.d_i;
+        let d_i = coeff * self.keyshare.d_i();
 
         let next = SignReady {
             key_id: self.keyshare.key_id,

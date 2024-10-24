@@ -3,6 +3,7 @@ use ff::Field;
 
 use crate::common::traits::GroupElem;
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyRefreshData<G>
 where
     G: Group,

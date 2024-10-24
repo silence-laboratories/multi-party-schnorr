@@ -82,9 +82,9 @@ where
     /// Total number of parties
     pub total_parties: u8,
     /// Party Id of the sender
-    pub party_id: u8,
+    pub(crate) party_id: u8,
     /// d_i, internal
-    pub d_i: G::Scalar,
+    pub(crate) d_i: G::Scalar,
     /// Public key of the generated key.
     #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
     pub public_key: G,
@@ -95,6 +95,13 @@ where
 impl<G: Group + GroupEncoding> Keyshare<G> {
     pub fn public_key(&self) -> &G {
         &self.public_key
+    }
+    pub fn d_i(&self) -> &G::Scalar {
+        &self.d_i
+    }
+
+    pub fn party_id(&self) -> u8 {
+        self.party_id
     }
 }
 
