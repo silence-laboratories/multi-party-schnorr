@@ -1,7 +1,9 @@
 use elliptic_curve::Group;
+use ff::Field;
 
 use rand::{CryptoRng, Rng, RngCore};
 
+use crate::common::schnorr_split_private_key;
 use crate::common::traits::{GroupElem, ScalarReduce};
 use crate::common::utils::{generate_pki, run_keygen, run_round};
 
@@ -39,7 +41,11 @@ where
     G::Scalar: ScalarReduce<[u8; 32]>,
 {
     let mut rng = rand::thread_rng();
-    let parties0 = setup_refresh(&shares, &mut rng)?;
+    let refresh_data = shares
+        .into_iter()
+        .map(|data| data.get_refresh_data())
+        .collect();
+    let parties0 = setup_refresh(refresh_data, &mut rng)?;
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties0, ()).into_iter().unzip();
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
     let new_shares = run_round(actors, msgs);
@@ -51,19 +57,18 @@ where
 }
 
 pub fn setup_refresh<R: CryptoRng + RngCore, G: GroupElem>(
-    shares: &[Keyshare<G>],
+    shares: Vec<KeyRefreshData<G>>,
     rng: &mut R,
 ) -> Result<Vec<KeygenParty<R0, G>>, KeygenError> {
     let (party_key_list, party_pubkey_list) = generate_pki(shares.len(), rng);
     let parties0 = shares
-        .iter()
+        .into_iter()
         .zip(party_key_list)
-        .map(|(keyshare, party_key)| {
-            let data = keyshare.get_refresh_data();
+        .map(|(data, party_key)| {
             KeygenParty::new(
-                keyshare.threshold,
-                keyshare.total_parties,
-                keyshare.party_id(),
+                data.threshold,
+                data.total_parties,
+                data.party_id,
                 party_key,
                 party_pubkey_list.clone(),
                 Some(data),
@@ -103,6 +108,8 @@ where
                 keyshares[0].public_key,
                 key_id,
                 pid as u8,
+                T as u8,
+                N as u8,
             )
         } else {
             keyshares[pid].get_recovery_data(lost_party_ids.clone())
@@ -123,6 +130,21 @@ where
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
     run_round(actors, msgs);
 
+    Ok(())
+}
+
+pub fn run_import<const T: usize, const N: usize, G: GroupElem>() -> Result<(), KeygenError>
+where
+    G::Scalar: ScalarReduce<[u8; 32]>,
+{
+    let mut rng = rand::thread_rng();
+    let private_key = G::Scalar::random(&mut rng);
+    let shares = schnorr_split_private_key::<G>(&private_key, T as u8, N as u8, [5; 32]);
+    let parties = setup_refresh(shares, &mut rng).unwrap();
+
+    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
+    run_round(actors, msgs);
     Ok(())
 }
 

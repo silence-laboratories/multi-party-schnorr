@@ -144,6 +144,8 @@ where
         let s_i_0 = self.d_i * lambda;
         KeyRefreshData {
             key_id: self.key_id,
+            threshold: self.threshold,
+            total_parties: self.total_parties,
             party_id: self.party_id,
             s_i_0,
             lost_keyshare_party_ids,

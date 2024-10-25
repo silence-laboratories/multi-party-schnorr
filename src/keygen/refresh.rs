@@ -11,6 +11,8 @@ where
     pub key_id: [u8; 32],
     /// Party id of the key share
     pub party_id: u8,
+    pub threshold: u8,
+    pub total_parties: u8,
     /// Additive share of participant_i (after interpolation)
     /// \sum_{i=0}^{n-1} s_i_0 = private_key
     /// s_i_0 can be equal to Zero in case when participant lost their key_share
@@ -35,9 +37,13 @@ where
         expected_public_key: G,
         key_id: [u8; 32],
         party_id: u8,
+        threshold: u8,
+        total_parties: u8,
     ) -> Self {
         KeyRefreshData {
             key_id,
+            threshold,
+            total_parties,
             party_id,
             s_i_0: <G::Scalar as Field>::ZERO,
             lost_keyshare_party_ids,
@@ -60,7 +66,7 @@ where
 mod test {
     use crate::{
         common::utils::run_keygen,
-        keygen::utils::{run_recovery, run_refresh},
+        keygen::utils::{run_import, run_recovery, run_refresh},
     };
     use curve25519_dalek::EdwardsPoint;
 
@@ -70,6 +76,14 @@ mod test {
         let _ = run_refresh::<2, 3, EdwardsPoint>();
         let _ = run_refresh::<5, 10, EdwardsPoint>();
         let _ = run_refresh::<9, 20, EdwardsPoint>();
+    }
+
+    #[test]
+    fn key_import_curve25519() {
+        let _ = run_import::<3, 5, EdwardsPoint>();
+        let _ = run_import::<2, 3, EdwardsPoint>();
+        let _ = run_import::<5, 10, EdwardsPoint>();
+        let _ = run_import::<9, 20, EdwardsPoint>();
     }
 
     #[test]
@@ -122,5 +136,15 @@ mod test {
         if let Err(e) = run_recovery::<3, 5, ProjectivePoint>(&keyshares, vec![1, 2, 3]) {
             panic!("{}", e);
         }
+    }
+
+    #[cfg(feature = "taproot")]
+    #[test]
+    fn key_import_taproot() {
+        use k256::ProjectivePoint;
+        let _ = run_import::<3, 5, ProjectivePoint>();
+        let _ = run_import::<2, 3, ProjectivePoint>();
+        let _ = run_import::<5, 10, ProjectivePoint>();
+        let _ = run_import::<9, 20, ProjectivePoint>();
     }
 }

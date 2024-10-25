@@ -1,6 +1,9 @@
 use crypto_bigint::subtle::ConstantTimeEq;
 use elliptic_curve::Group;
 use ff::Field;
+use sl_mpc_mate::math::Polynomial;
+
+use crate::keygen::KeyRefreshData;
 
 pub fn get_lagrange_coeff<G: Group>(
     my_party_id: &u8,
@@ -18,4 +21,33 @@ pub fn get_lagrange_coeff<G: Group>(
         }
     }
     coeff
+}
+
+pub fn schnorr_split_private_key<G: Group>(
+    private_key: &G::Scalar,
+    t: u8,
+    n: u8,
+    key_id: [u8; 32],
+) -> Vec<KeyRefreshData<G>> {
+    let mut rng = rand::thread_rng();
+    let mut poly: Polynomial<G> = Polynomial::random(&mut rng, (t - 1) as usize);
+    poly.set_constant(*private_key);
+
+    let expected_public_key = G::generator() * private_key;
+    (0..n)
+        .map(|pid| {
+            let d_i: G::Scalar = poly.evaluate_at(&G::Scalar::from((pid + 1) as u64));
+            let coeff = get_lagrange_coeff::<G>(&pid, 0..n);
+            let s_i_0 = d_i * coeff;
+            KeyRefreshData {
+                key_id,
+                threshold: t,
+                total_parties: n,
+                party_id: pid,
+                s_i_0,
+                lost_keyshare_party_ids: vec![],
+                expected_public_key,
+            }
+        })
+        .collect()
 }

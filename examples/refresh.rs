@@ -19,7 +19,14 @@ fn main() {
 
     let start = Instant::now();
     // Setup the refresh protocol, initialize parties.
-    let parties0 = setup_refresh(&shares, &mut rng).unwrap();
+
+    // Get the refresh data from the keyshares
+    let refresh_data = shares
+        .into_iter()
+        .map(|data| data.get_refresh_data())
+        .collect();
+
+    let parties0 = setup_refresh(refresh_data, &mut rng).unwrap();
 
     // Locally running keygen refresh protocol
     // Run Round 1
