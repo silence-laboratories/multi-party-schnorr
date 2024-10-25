@@ -102,6 +102,7 @@ where
                 lost_party_ids.clone(),
                 keyshares[0].public_key,
                 key_id,
+                pid as u8,
             )
         } else {
             keyshares[pid].get_recovery_data(lost_party_ids.clone())
