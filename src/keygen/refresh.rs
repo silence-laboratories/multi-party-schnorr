@@ -22,7 +22,7 @@ where
     pub(crate) lost_keyshare_party_ids: Vec<u8>,
 
     /// expected public key for key_refresh
-    pub(crate) expected_public_key: G,
+    pub expected_public_key: G,
 }
 
 impl<G> KeyRefreshData<G>
@@ -43,6 +43,16 @@ where
             lost_keyshare_party_ids,
             expected_public_key,
         }
+    }
+
+    /// Get the private scalar (s_i) (not shamir secret)
+    pub fn s_i(&self) -> &G::Scalar {
+        &self.s_i_0
+    }
+
+    /// Get the list of lost party ids
+    pub fn lost_party_ids(&self) -> &[u8] {
+        &self.lost_keyshare_party_ids
     }
 }
 
