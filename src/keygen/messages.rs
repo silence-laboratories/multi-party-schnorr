@@ -96,10 +96,15 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
     pub fn public_key(&self) -> &G {
         &self.public_key
     }
+    /// Get the shamir secret share
     pub fn d_i(&self) -> &G::Scalar {
         &self.d_i
     }
-
+    /// Get the scalar share of the party
+    pub fn scalar_share(&self) -> G::Scalar {
+        let coeff = get_lagrange_coeff::<G>(&self.party_id, 0..self.total_parties);
+        self.d_i * coeff
+    }
     pub fn party_id(&self) -> u8 {
         self.party_id
     }
