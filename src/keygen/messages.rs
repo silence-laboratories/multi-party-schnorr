@@ -144,7 +144,7 @@ where
                 }
                 partys_with_keyshares.push(pid);
             }
-            get_lagrange_coeff::<G>(&self.party_id, partys_with_keyshares.into_iter())
+            get_lagrange_coeff::<G>(&self.party_id, partys_with_keyshares)
         };
         let s_i_0 = self.d_i * lambda;
         KeyRefreshData {

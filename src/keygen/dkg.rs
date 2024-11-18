@@ -190,7 +190,7 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
 
                 let enc_data = encrypt_message::<_, G>(
                     (&self.params.dec_key, self.params.party_id),
-                    (&ek_i, party_id),
+                    (ek_i, party_id),
                     d_i,
                     &mut rng,
                 )

@@ -7,7 +7,7 @@ use crate::keygen::KeyRefreshData;
 
 pub fn get_lagrange_coeff<G: Group>(
     my_party_id: &u8,
-    party_ids: impl Iterator<Item = u8>,
+    party_ids: impl IntoIterator<Item = u8>,
 ) -> G::Scalar {
     let mut coeff = G::Scalar::ONE;
     let x_i = G::Scalar::from((my_party_id + 1) as u64);
@@ -37,6 +37,7 @@ pub fn schnorr_split_private_key<G: Group>(
     (0..n)
         .map(|pid| {
             let d_i: G::Scalar = poly.evaluate_at(&G::Scalar::from((pid + 1) as u64));
+            // TODO: REMOVE THIS allocation
             let coeff = get_lagrange_coeff::<G>(&pid, 0..n);
             let s_i_0 = d_i * coeff;
             KeyRefreshData {
@@ -50,4 +51,39 @@ pub fn schnorr_split_private_key<G: Group>(
             }
         })
         .collect()
+}
+
+/// Split the private keys into shares,
+pub fn schnorr_split_private_key_with_lost<G: Group>(
+    private_key: &G::Scalar,
+    t: u8,
+    n: u8,
+    key_id: [u8; 32],
+    lost_ids: Option<Vec<u8>>,
+) -> Vec<KeyRefreshData<G>> {
+    let mut rng = rand::thread_rng();
+    let mut poly: Polynomial<G> = Polynomial::random(&mut rng, (t - 1) as usize);
+    poly.set_constant(*private_key);
+
+    let lost_ids = lost_ids.unwrap_or_default();
+    let expected_public_key = G::generator() * private_key;
+    let partys_with_keyshares = (0..n).filter(|pid| !lost_ids.contains(pid));
+    let mut shares = vec![];
+
+    for pid in partys_with_keyshares.clone() {
+        let d_i: G::Scalar = poly.evaluate_at(&G::Scalar::from((pid + 1) as u64));
+        let coeff = get_lagrange_coeff::<G>(&pid, partys_with_keyshares.clone());
+        let s_i_0 = d_i * coeff;
+        shares.push(KeyRefreshData {
+            key_id,
+            threshold: t,
+            total_parties: n,
+            party_id: pid,
+            s_i_0,
+            lost_keyshare_party_ids: lost_ids.clone(),
+            expected_public_key,
+        });
+    }
+
+    shares
 }
