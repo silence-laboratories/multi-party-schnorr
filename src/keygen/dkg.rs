@@ -60,13 +60,35 @@ pub struct R2 {
     sid_i_list: Vec<SessionId>,
 }
 
-fn validate_input(t: u8, n: u8, party_id: u8) -> Result<(), KeygenError> {
+fn validate_input(
+    t: u8,
+    n: u8,
+    party_id: u8,
+    my_enc_key: &PublicKey,
+    party_enc_keys: &[(u8, PublicKey)],
+) -> Result<(), KeygenError> {
     if party_id >= n {
         return Err(KeygenError::InvalidPid);
     }
 
     if t > n || t < 2 {
         return Err(KeygenError::InvalidT);
+    }
+
+    if party_enc_keys.len() != n as usize {
+        return Err(KeygenError::InvalidParticipantSet);
+    }
+
+    // Check if all the keys are present
+    for pid in 0..n {
+        let enc_key = find_enc_key(pid, party_enc_keys);
+        if enc_key.is_none() {
+            return Err(KeygenError::InvalidParticipantSet);
+        }
+
+        if pid == party_id && enc_key.unwrap() != my_enc_key {
+            return Err(KeygenError::InvalidParticipantSet);
+        }
     }
 
     Ok(())
@@ -82,7 +104,7 @@ where
         n: u8,
         party_id: u8,
         decryption_key: Arc<SecretKey>,
-        encyption_keys: Vec<PublicKey>,
+        encyption_keys: Vec<(u8, PublicKey)>,
         refresh_data: Option<KeyRefreshData<G>>,
         seed: [u8; 32],
     ) -> Result<Self, KeygenError> {
@@ -113,18 +135,12 @@ where
         n: u8,
         party_id: u8,
         dec_key: Arc<crypto_box::SecretKey>,
-        party_enc_keys: Vec<PublicKey>,
+        party_enc_keys: Vec<(u8, PublicKey)>,
         rand_params: KeyEntropy<G>,
         key_refresh_data: Option<KeyRefreshData<G>>,
         seed: [u8; 32],
     ) -> Result<Self, KeygenError> {
-        validate_input(t, n, party_id)?;
-
-        // Validate public keys
-        let my_ek = &party_enc_keys[party_id as usize];
-        if my_ek != &dec_key.public_key() {
-            return Err(KeygenError::InvalidParticipantSet);
-        }
+        validate_input(t, n, party_id, &dec_key.public_key(), &party_enc_keys)?;
 
         // Validate refresh data
         if let Some(ref v) = key_refresh_data {
@@ -180,7 +196,7 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
         let c_i_j = (0..self.params.n)
             .map(|party_id| {
                 // party_id is also the index of the party's data in all the lists.
-                let ek_i = &self.params.party_enc_keys[party_id as usize];
+                let ek_i = find_enc_key(party_id, &self.params.party_enc_keys).unwrap();
 
                 // Party's point is just party-id. (Adding 1 because party-id's start from 0).
                 let d_i = self
@@ -362,7 +378,8 @@ where
             .iter()
             .map(|msg| {
                 let encrypted_d_i = &msg.c_i_list[self.params.party_id as usize];
-                let sender_pubkey = &self.params.party_enc_keys[msg.party_id() as usize];
+                let sender_pubkey =
+                    find_enc_key(msg.party_id(), &self.params.party_enc_keys).unwrap();
 
                 let d_i_bytes = decrypt_message(&self.params.dec_key, sender_pubkey, encrypted_d_i)
                     .ok_or(KeygenError::DecryptionError)?;
@@ -518,6 +535,13 @@ where
     }
 
     valid
+}
+
+fn find_enc_key(pid: u8, party_enc_keys: &[(u8, PublicKey)]) -> Option<&PublicKey> {
+    party_enc_keys
+        .iter()
+        .find(|(id, _)| id == &pid)
+        .map(|(_, key)| key)
 }
 
 #[cfg(test)]

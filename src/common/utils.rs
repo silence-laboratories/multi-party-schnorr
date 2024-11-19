@@ -228,13 +228,16 @@ pub fn decrypt_message(
 pub fn generate_pki<R: CryptoRng + RngCore>(
     total_parties: usize,
     rng: &mut R,
-) -> (Vec<Arc<crypto_box::SecretKey>>, Vec<crypto_box::PublicKey>) {
+) -> (
+    Vec<Arc<crypto_box::SecretKey>>,
+    Vec<(u8, crypto_box::PublicKey)>,
+) {
     let mut party_pubkey_list = vec![];
 
     let party_key_list: Vec<Arc<crypto_box::SecretKey>> = (0..total_parties)
-        .map(|_| {
+        .map(|pid| {
             let sk = crypto_box::SecretKey::generate(rng);
-            party_pubkey_list.push(sk.public_key());
+            party_pubkey_list.push((pid as u8, sk.public_key()));
             Arc::new(sk)
         })
         .collect();

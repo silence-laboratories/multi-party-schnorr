@@ -17,7 +17,7 @@ pub(crate) struct KeygenParams {
 
     /// Encryption secret key
     pub dec_key: Arc<crypto_box::SecretKey>,
-    pub party_enc_keys: Vec<crypto_box::PublicKey>,
+    pub party_enc_keys: Vec<(u8, crypto_box::PublicKey)>,
 }
 
 /// All random params needed for keygen
