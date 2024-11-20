@@ -275,7 +275,7 @@ where
         // FIXME: do we need copied?
         let coeff = get_lagrange_coeff::<G>(&self.party_id, self.state.pid_list.iter().copied());
 
-        let d_i = coeff * self.keyshare.d_i();
+        let d_i = coeff * self.keyshare.shamir_share();
 
         let next = SignReady {
             key_id: self.keyshare.key_id,

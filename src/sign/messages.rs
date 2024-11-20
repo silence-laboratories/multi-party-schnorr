@@ -27,8 +27,7 @@ pub struct SignMsg2<G: GroupElem> {
     pub from_party: u8,
     /// Sesssion id
     pub session_id: SessionId,
-    /// blind_factor
-    pub blind_factor: [u8; 32],
+    pub(crate) blind_factor: [u8; 32],
     #[cfg_attr(
         feature = "serde",
         serde(bound(
@@ -36,10 +35,8 @@ pub struct SignMsg2<G: GroupElem> {
             deserialize = "G::Scalar: serde::Deserialize<'de>"
         ))
     )]
-    ///
-    pub dlog_proof: DLogProof<G>,
-    ///
-    pub big_r_i: Vec<u8>,
+    pub(crate) dlog_proof: DLogProof<G>,
+    pub(crate) big_r_i: Vec<u8>,
 }
 
 /// Type for the sign gen message 3.

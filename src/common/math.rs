@@ -1,6 +1,7 @@
 use crypto_bigint::subtle::ConstantTimeEq;
 use elliptic_curve::Group;
 use ff::Field;
+use rand::{CryptoRng, RngCore};
 use sl_mpc_mate::math::Polynomial;
 
 use crate::keygen::KeyRefreshData;
@@ -23,13 +24,13 @@ pub fn get_lagrange_coeff<G: Group>(
     coeff
 }
 
-pub fn schnorr_split_private_key<G: Group>(
+pub fn schnorr_split_private_key<G: Group, R: CryptoRng + RngCore>(
     private_key: &G::Scalar,
     t: u8,
     n: u8,
+    rng: &mut R,
 ) -> Vec<KeyRefreshData<G>> {
-    let mut rng = rand::thread_rng();
-    let mut poly: Polynomial<G> = Polynomial::random(&mut rng, (t - 1) as usize);
+    let mut poly: Polynomial<G> = Polynomial::random(rng, (t - 1) as usize);
     poly.set_constant(*private_key);
 
     let expected_public_key = G::generator() * private_key;
@@ -52,14 +53,14 @@ pub fn schnorr_split_private_key<G: Group>(
 }
 
 /// Split the private keys into shares,
-pub fn schnorr_split_private_key_with_lost<G: Group>(
+pub fn schnorr_split_private_key_with_lost<G: Group, R: CryptoRng + RngCore>(
     private_key: &G::Scalar,
     t: u8,
     n: u8,
     lost_ids: Option<Vec<u8>>,
+    rng: &mut R,
 ) -> Vec<KeyRefreshData<G>> {
-    let mut rng = rand::thread_rng();
-    let mut poly: Polynomial<G> = Polynomial::random(&mut rng, (t - 1) as usize);
+    let mut poly: Polynomial<G> = Polynomial::random(rng, (t - 1) as usize);
     poly.set_constant(*private_key);
 
     let lost_ids = lost_ids.unwrap_or_default();
@@ -82,4 +83,65 @@ pub fn schnorr_split_private_key_with_lost<G: Group>(
     }
 
     shares
+}
+
+/// Helper method to combine the secret shares into the private key
+/// You can use all the shares or the threshold number of shares to
+/// combine the private key
+/// Note: The list of s_i should be in the same order as the list of pids
+/// # Arguments
+///
+/// * `pid_list` - List of party ids participating in the export
+///
+/// * `d_i_list` - List of d_i (secret shamir shares of the parties)
+pub fn combine_shares<G: Group>(
+    pid_list: &[u8],
+    d_i_list: &[G::Scalar],
+    public_key: &G,
+) -> Option<G::Scalar> {
+    if pid_list.len() != d_i_list.len() {
+        return None;
+    }
+    let mut s = G::Scalar::ZERO;
+    for (pid, d_i) in pid_list.iter().zip(d_i_list.iter()) {
+        let coeff = get_lagrange_coeff::<G>(pid, pid_list.iter().copied());
+        s += coeff * d_i;
+    }
+
+    let calculated_public_key = G::generator() * s;
+
+    (public_key == &calculated_public_key).then_some(s)
+}
+
+#[cfg(test)]
+mod tests {
+    use curve25519_dalek::EdwardsPoint;
+    use rand::seq::SliceRandom;
+
+    use crate::common::utils::run_keygen;
+
+    use super::combine_shares;
+
+    #[test]
+    fn test_combine() {
+        let mut rng = rand::thread_rng();
+        let shares = run_keygen::<3, 5, EdwardsPoint>();
+        let sample = shares
+            .choose_multiple(&mut rng, shares.len())
+            .collect::<Vec<_>>();
+
+        // Creating copy of secret, in real scenario, we wouldn't have to do this.
+        let d_i_list = sample
+            .iter()
+            .map(|keyshare| *keyshare.shamir_share())
+            .collect::<Vec<_>>();
+
+        let pid_list = sample
+            .iter()
+            .map(|keyshare| keyshare.party_id())
+            .collect::<Vec<_>>();
+
+        combine_shares::<EdwardsPoint>(&pid_list, &d_i_list, sample[0].public_key())
+            .expect("Combine shares failed");
+    }
 }

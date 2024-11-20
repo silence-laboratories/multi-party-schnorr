@@ -97,7 +97,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         &self.public_key
     }
     /// Get the shamir secret share
-    pub fn d_i(&self) -> &G::Scalar {
+    pub fn shamir_share(&self) -> &G::Scalar {
         &self.d_i
     }
     /// Get the scalar share of the party
@@ -134,7 +134,7 @@ where
                 }
                 partys_with_keyshares.push(pid);
             }
-            get_lagrange_coeff::<G>(&self.party_id, partys_with_keyshares)
+            get_lagrange_coeff::<G>(&self.party_id, partys_with_keyshares.iter().copied())
         };
         let s_i_0 = self.d_i * lambda;
         KeyRefreshData {
