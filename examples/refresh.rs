@@ -23,7 +23,7 @@ fn main() {
     // Get the refresh data from the keyshares
     let refresh_data = shares
         .into_iter()
-        .map(|data| data.get_refresh_data())
+        .map(|data| data.get_refresh_data(None))
         .collect();
 
     let parties0 = setup_refresh(refresh_data, &mut rng).unwrap();

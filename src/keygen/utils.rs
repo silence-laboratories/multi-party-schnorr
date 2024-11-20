@@ -43,7 +43,7 @@ where
     let mut rng = rand::thread_rng();
     let refresh_data = shares
         .into_iter()
-        .map(|data| data.get_refresh_data())
+        .map(|data| data.get_refresh_data(None))
         .collect();
     let parties0 = setup_refresh(refresh_data, &mut rng)?;
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties0, ()).into_iter().unzip();
@@ -112,7 +112,7 @@ where
                 N as u8,
             )
         } else {
-            keyshares[pid].get_recovery_data(lost_party_ids.clone())
+            keyshares[pid].get_refresh_data(Some(lost_party_ids.clone()))
         };
 
         parties0.push(KeygenParty::new(

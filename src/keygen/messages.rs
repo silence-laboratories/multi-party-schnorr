@@ -115,21 +115,11 @@ where
     G: Group + GroupEncoding,
 {
     /// Start the key refresh protocol.
+    /// If some parties lost their keyshare, they can recover their keyshare using this protocol.
     /// This will return a [`KeyRefreshData`] instance which can be use to initialize the KeygenParty which can be driven
     /// to completion and will return the refreshed keyshare.
-    pub fn get_refresh_data(&self) -> KeyRefreshData<G> {
-        self.create_refresh(vec![])
-    }
-
-    /// Start the key recovery protocol.
-    /// When some parties lose their keyshare, they can recover their keyshare using this protocol.
-    /// This will return a [`KeyRefreshData`] instance which can be use to initialize the KeygenParty which can be driven
-    /// to completion and will return the refreshed keyshare.
-    /// This protocol will refresh keyshares that weren't lost and generate a new keyshare for the lost parties.
-    /// # Arguments
-    /// * `lost_keyshare_party_ids`: List of party ids that lost their keyshare.
-    pub fn get_recovery_data(&self, lost_keyshare_party_ids: Vec<u8>) -> KeyRefreshData<G> {
-        self.create_refresh(lost_keyshare_party_ids)
+    pub fn get_refresh_data(&self, lost_ids: Option<Vec<u8>>) -> KeyRefreshData<G> {
+        self.create_refresh(lost_ids.unwrap_or_default())
     }
 
     fn create_refresh(&self, lost_keyshare_party_ids: Vec<u8>) -> KeyRefreshData<G> {
