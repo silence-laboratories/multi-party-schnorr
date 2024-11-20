@@ -15,6 +15,10 @@ pub(crate) struct KeygenParams {
     /// Party id of the party.
     pub party_id: u8,
 
+    /// Optional key id that will be used for the keygen protocol.
+    /// If None then hash of the public key will be used.
+    pub key_id: Option<[u8; 32]>,
+
     /// Encryption secret key
     pub dec_key: Arc<crypto_box::SecretKey>,
     pub party_enc_keys: Vec<(u8, crypto_box::PublicKey)>,

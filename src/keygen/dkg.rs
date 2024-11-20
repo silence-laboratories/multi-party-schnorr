@@ -99,6 +99,7 @@ where
     G: Group,
 {
     /// Create a new keygen party.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         t: u8,
         n: u8,
@@ -106,6 +107,7 @@ where
         decryption_key: Arc<SecretKey>,
         encyption_keys: Vec<(u8, PublicKey)>,
         refresh_data: Option<KeyRefreshData<G>>,
+        key_id: Option<[u8; 32]>,
         seed: [u8; 32],
     ) -> Result<Self, KeygenError> {
         let mut rng = ChaCha20Rng::from_seed(seed);
@@ -125,6 +127,7 @@ where
             encyption_keys,
             rand_params,
             refresh_data,
+            key_id,
             rng.gen(),
         )
     }
@@ -138,6 +141,7 @@ where
         party_enc_keys: Vec<(u8, PublicKey)>,
         rand_params: KeyEntropy<G>,
         key_refresh_data: Option<KeyRefreshData<G>>,
+        key_id: Option<[u8; 32]>,
         seed: [u8; 32],
     ) -> Result<Self, KeygenError> {
         validate_input(t, n, party_id, &dec_key.public_key(), &party_enc_keys)?;
@@ -165,6 +169,7 @@ where
                 party_id,
                 dec_key,
                 party_enc_keys,
+                key_id,
             },
             rand_params,
             seed,
@@ -454,7 +459,11 @@ where
             }
         }
 
-        let key_id = sha2::Sha256::digest(public_key.to_bytes()).into();
+        let key_id = if let Some(key_id) = self.params.key_id {
+            key_id
+        } else {
+            sha2::Sha256::digest(public_key.to_bytes()).into()
+        };
 
         let keyshare = Keyshare {
             threshold: self.params.t,

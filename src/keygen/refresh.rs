@@ -8,7 +8,6 @@ pub struct KeyRefreshData<G>
 where
     G: Group,
 {
-    pub key_id: [u8; 32],
     /// Party id of the key share
     pub party_id: u8,
     pub threshold: u8,
@@ -35,13 +34,11 @@ where
     pub fn recovery_data_for_lost(
         lost_keyshare_party_ids: Vec<u8>,
         expected_public_key: G,
-        key_id: [u8; 32],
         party_id: u8,
         threshold: u8,
         total_parties: u8,
     ) -> Self {
         KeyRefreshData {
-            key_id,
             threshold,
             total_parties,
             party_id,

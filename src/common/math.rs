@@ -27,7 +27,6 @@ pub fn schnorr_split_private_key<G: Group>(
     private_key: &G::Scalar,
     t: u8,
     n: u8,
-    key_id: [u8; 32],
 ) -> Vec<KeyRefreshData<G>> {
     let mut rng = rand::thread_rng();
     let mut poly: Polynomial<G> = Polynomial::random(&mut rng, (t - 1) as usize);
@@ -41,7 +40,6 @@ pub fn schnorr_split_private_key<G: Group>(
             let coeff = get_lagrange_coeff::<G>(&pid, 0..n);
             let s_i_0 = d_i * coeff;
             KeyRefreshData {
-                key_id,
                 threshold: t,
                 total_parties: n,
                 party_id: pid,
@@ -58,7 +56,6 @@ pub fn schnorr_split_private_key_with_lost<G: Group>(
     private_key: &G::Scalar,
     t: u8,
     n: u8,
-    key_id: [u8; 32],
     lost_ids: Option<Vec<u8>>,
 ) -> Vec<KeyRefreshData<G>> {
     let mut rng = rand::thread_rng();
@@ -75,7 +72,6 @@ pub fn schnorr_split_private_key_with_lost<G: Group>(
         let coeff = get_lagrange_coeff::<G>(&pid, partys_with_keyshares.clone());
         let s_i_0 = d_i * coeff;
         shares.push(KeyRefreshData {
-            key_id,
             threshold: t,
             total_parties: n,
             party_id: pid,
