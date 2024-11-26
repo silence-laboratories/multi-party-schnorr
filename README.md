@@ -6,7 +6,7 @@ This is a pure Rust implementation of a threshold signing scheme for Schnorr sig
 ## Generic over Elliptic Curve Group
 
 - This library provides Distributed Key Generation generic over any elliptic curve group that implements the `Group` trait from the `elliptic-curve` crate.
-- Due to the specifics of signing, we currently support Distributed signing for EdDSA over curve25519 and Bitcoin Taproot Schnorr over the secp256k1 curve.
+- We currently support Distributed signing for random nonce EdDSA - thus Schnorr - over curve25519 and Bitcoin Taproot Schnorr over the secp256k1 curve.
 
 ## Examples
 
@@ -106,7 +106,7 @@ fn main() {
 
 | Feature            | Default? | Description |
 | :---               |  :---:   | :---        |
-| `eddsa`            |    ✓     | Enables EdDSA signing over curve25519 |
+| `eddsa`            |    ✓     | Enables signing over curve25519 with edd25519-dalek signing objects compatibility|
 | `taproot`          |        | Enables Bitcoin Taproot Schnorr signing over secp256k1 |
 
 ## Note on Networking
