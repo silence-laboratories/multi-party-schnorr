@@ -132,6 +132,7 @@ mod tests {
             .collect();
         run_sign(&subset);
     }
+    #[test]
     fn sign_2_3() {
         let shares = run_keygen::<2, 3, EdwardsPoint>();
         let subset: Vec<_> = shares
@@ -140,14 +141,16 @@ mod tests {
             .collect();
         run_sign(&subset);
     }
+    #[test]
     fn sign_2_3_3() {
-        let shares = run_keygen::<3, 3, EdwardsPoint>();
+        let shares = run_keygen::<2, 3, EdwardsPoint>();
         let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 2)
+            .choose_multiple(&mut rand::thread_rng(), 3)
             .cloned()
             .collect();
         run_sign(&subset);
     }
+    #[test]
     fn sign_3_3() {
         let shares = run_keygen::<3, 3, EdwardsPoint>();
         let subset: Vec<_> = shares
