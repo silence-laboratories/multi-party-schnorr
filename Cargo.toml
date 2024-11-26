@@ -8,12 +8,14 @@ edition = "2021"
 [features]
 default = ["eddsa"]
 eddsa = ["curve25519-dalek", "ed25519-dalek"]
-taproot = ["k256"]
+taproot = ["k256/schnorr"]
 serde = [
   "dep:serde",
   "dep:serde_bytes",
   "curve25519-dalek/serde",
   "ed25519-dalek/serde",
+  "k256/serde",
+  "k256/pkcs8",
 ]
 
 [dependencies]
@@ -38,7 +40,7 @@ curve25519-dalek = { version = "4.1.3", features = [
   "digest",
   "group",
 ], optional = true }
-k256 = { version = "0.13.2", optional = true }
+k256 = { version = "0.13.2", default-features = false, optional = true }
 crypto-bigint = "0.5"
 rand = "0.8"
 rayon = "1.7.0"
@@ -48,9 +50,6 @@ ff = "0.13.0"
 rand_chacha = "0.3.1"
 sl-mpc-mate = { git = "https://github.com/silence-laboratories/sl-crypto.git", rev = "ff63353" }
 thiserror = "1"
-tracing = "0.1"
-tracing-subscriber = "0.3"
-tokio = { version = "1.34.0", features = ["rt", "sync", "macros"] }
 derivation-path = "0.2.0"
 
 [dev-dependencies]
