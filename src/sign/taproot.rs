@@ -173,10 +173,35 @@ mod tests {
     use crate::{common::utils::run_keygen, sign::taproot::run_sign};
 
     #[test]
+    fn sign_2_2() {
+        let shares = run_keygen::<2, 2, ProjectivePoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), 2)
+            .cloned()
+            .collect();
+        run_sign(&subset);
+    }
+    #[test]
     fn sign_2_3() {
         let shares = run_keygen::<2, 3, ProjectivePoint>();
         let subset: Vec<_> = shares
             .choose_multiple(&mut rand::thread_rng(), 2)
+            .cloned()
+            .collect();
+        run_sign(&subset);
+    }
+    fn sign_2_3_3() {
+        let shares = run_keygen::<3, 3, ProjectivePoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), 2)
+            .cloned()
+            .collect();
+        run_sign(&subset);
+    }
+    fn sign_3_3() {
+        let shares = run_keygen::<3, 3, ProjectivePoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), 3)
             .cloned()
             .collect();
         run_sign(&subset);
