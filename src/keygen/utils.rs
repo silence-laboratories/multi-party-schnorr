@@ -27,6 +27,7 @@ pub fn setup_keygen<G: Group>(t: u8, n: u8) -> Result<Vec<KeygenParty<R0, G>>, K
                 None,
                 None,
                 rng.gen(),
+                None,
             )
             .unwrap()
         })
@@ -75,6 +76,7 @@ pub fn setup_refresh<R: CryptoRng + RngCore, G: GroupElem>(
                 Some(data),
                 None,
                 rng.gen(),
+                None,
             )
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -124,6 +126,7 @@ where
             Some(data),
             None,
             rng.gen(),
+            None,
         )?);
     }
 

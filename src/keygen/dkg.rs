@@ -109,6 +109,7 @@ where
         refresh_data: Option<KeyRefreshData<G>>,
         key_id: Option<[u8; 32]>,
         seed: [u8; 32],
+        extra_data: Option<Vec<u8>>,
     ) -> Result<Self, KeygenError> {
         let mut rng = ChaCha20Rng::from_seed(seed);
         let mut rand_params = KeyEntropy::generate(t, n, &mut rng);
@@ -129,6 +130,7 @@ where
             refresh_data,
             key_id,
             rng.gen(),
+            extra_data,
         )
     }
     /// Create a new keygen protocol instance with a given context. Used for testing purposes internally.
@@ -143,6 +145,7 @@ where
         key_refresh_data: Option<KeyRefreshData<G>>,
         key_id: Option<[u8; 32]>,
         seed: [u8; 32],
+        extra_data: Option<Vec<u8>>,
     ) -> Result<Self, KeygenError> {
         validate_input(t, n, party_id, &dec_key.public_key(), &party_enc_keys)?;
 
@@ -170,6 +173,7 @@ where
                 dec_key,
                 party_enc_keys,
                 key_id,
+                extra_data,
             },
             rand_params,
             seed,
@@ -472,6 +476,7 @@ where
             key_id,
             d_i: d_i_share,
             public_key,
+            extra_data: self.params.extra_data,
         };
         Ok(keyshare)
     }

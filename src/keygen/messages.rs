@@ -90,6 +90,8 @@ where
     pub public_key: G,
     /// Key ID
     pub key_id: [u8; 32],
+    /// Extra data
+    pub extra_data: Option<Vec<u8>>,
 }
 
 impl<G: Group + GroupEncoding> Keyshare<G> {
