@@ -110,6 +110,12 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
     pub fn party_id(&self) -> u8 {
         self.party_id
     }
+    pub fn extra_data(&self) -> &[u8] {
+        match &self.extra_data {
+            Some(val) => val,
+            None => &[],
+        }
+    }
 }
 
 impl<G> Keyshare<G>
