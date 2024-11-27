@@ -116,11 +116,8 @@ pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
 #[cfg(test)]
 mod tests {
     use curve25519_dalek::EdwardsPoint;
-    use k256::ProjectivePoint;
     use rand::seq::SliceRandom;
-
     use crate::common::utils::run_keygen;
-
     use super::run_sign;
 
     #[test]
