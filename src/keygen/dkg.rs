@@ -566,17 +566,23 @@ mod test {
 
     #[test]
     fn keygen_curve25519() {
-        run_keygen::<3, 5, EdwardsPoint>();
+        run_keygen::<2, 2, EdwardsPoint>();
         run_keygen::<2, 3, EdwardsPoint>();
+        run_keygen::<3, 5, EdwardsPoint>();
+        run_keygen::<5, 5, EdwardsPoint>();
         run_keygen::<5, 10, EdwardsPoint>();
+        run_keygen::<10, 10, EdwardsPoint>();
         run_keygen::<9, 20, EdwardsPoint>();
     }
 
     #[test]
     fn keygen_taproot() {
-        run_keygen::<3, 5, ProjectivePoint>();
+        run_keygen::<2, 2, ProjectivePoint>();
         run_keygen::<2, 3, ProjectivePoint>();
+        run_keygen::<3, 5, ProjectivePoint>();
+        run_keygen::<5, 5, EdwardsPoint>();
         run_keygen::<5, 10, ProjectivePoint>();
+        run_keygen::<10, 10, EdwardsPoint>();
         run_keygen::<9, 20, ProjectivePoint>();
     }
 }
