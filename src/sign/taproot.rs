@@ -28,7 +28,7 @@ pub fn taproot_public_key(
     let pubkey = k256::PublicKey::from_affine(Option::from(k256::AffinePoint::decompact(
         &public_key.to_affine().x(),
     ))?)
-    .ok()?;
+        .ok()?;
 
     k256::schnorr::VerifyingKey::try_from(pubkey).ok()
 }
@@ -166,17 +166,43 @@ pub fn run_sign(shares: &[Keyshare<k256::ProjectivePoint>]) -> Signature {
 
 #[cfg(test)]
 mod tests {
-
     use k256::ProjectivePoint;
     use rand::seq::SliceRandom;
 
     use crate::{common::utils::run_keygen, sign::taproot::run_sign};
 
     #[test]
+    fn sign_2_2() {
+        let shares = run_keygen::<2, 2, ProjectivePoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), 2)
+            .cloned()
+            .collect();
+        run_sign(&subset);
+    }
+    #[test]
     fn sign_2_3() {
         let shares = run_keygen::<2, 3, ProjectivePoint>();
         let subset: Vec<_> = shares
             .choose_multiple(&mut rand::thread_rng(), 2)
+            .cloned()
+            .collect();
+        run_sign(&subset);
+    }
+    #[test]
+    fn sign_2_3_3() {
+        let shares = run_keygen::<2, 3, ProjectivePoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), 3)
+            .cloned()
+            .collect();
+        run_sign(&subset);
+    }
+    #[test]
+    fn sign_3_3() {
+        let shares = run_keygen::<3, 3, ProjectivePoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), 3)
             .cloned()
             .collect();
         run_sign(&subset);
