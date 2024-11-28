@@ -18,7 +18,7 @@ The library supports:
 - Distributed signing
 - Refreshing key shares without changing the public key
 
-*The library does not support*:
+**The library does not support**:
 - This library contains only the cryptographic protocol and does not provide any networking functions. 
 - The parties in the protocol do not authenticate themselves and do not establish e2e secure channels
 
