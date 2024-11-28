@@ -8,19 +8,17 @@ This is a pure Rust implementation of a threshold signing scheme for Schnorr sig
 - This library provides Distributed Key Generation generic over any elliptic curve group that implements the `Group` trait from the `elliptic-curve` crate.
 - We currently support Distributed signing for random nonce EdDSA - thus Schnorr - over curve25519 and Bitcoin Taproot Schnorr over the secp256k1 curve.
 
-### Build
-`cargo build`
+### Build and Test
+- `cargo build`
+- `cargo test`
 
-### Test
-`cargo test`
-
-
+## Features
 The library supports:
 - Distribited key generation for curve25519 curve and secp256k1 curve (Taproot Schnorr)
 - Distributed signing
 - Refreshing key shares without changing the public key
 
-The library does not support:
+*The library does not support*:
 - This library contains only the cryptographic protocol and does not provide any networking functions. 
 - The parties in the protocol do not authenticate themselves and do not establish e2e secure channels
 
