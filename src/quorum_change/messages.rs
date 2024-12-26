@@ -3,8 +3,6 @@
 
 use crate::common::utils::{HashBytes, SessionId};
 use elliptic_curve::{group::GroupEncoding, Group};
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use std::mem;
 
