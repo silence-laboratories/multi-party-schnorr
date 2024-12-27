@@ -637,10 +637,15 @@ where
 
         // new_party collects (all - 1) commitments2 from old parties
         let mut commitment2_list: Pairs<HashBytes, u8> = Pairs::new();
-
         for (from_party_index, message) in &p2p_messages {
-            let from_party_id = *self.params.old_party_ids.find_pair(*from_party_index);
+            let from_party_id = *self
+                .params
+                .old_party_ids
+                .find_pair_or_err(*from_party_index, QCError::InvalidMessage)?;
             commitment2_list.push(from_party_id, message.commitment_2);
+        }
+        if commitment2_list.remove_ids().len() != (self.params.old_parties.len() - 1) {
+            return Err(QCError::InvalidMessage);
         }
 
         let mut p2p_messages_2 = Vec::with_capacity(self.params.new_parties.len());
@@ -706,7 +711,6 @@ where
             return Err(QCError::InvalidMsgCount);
         }
 
-        // TODO add message validation
         p2p_messages.sort_by_key(|msg| msg.0);
         broadcast_msgs_2.sort_by_key(|msg| msg.from_party);
 
@@ -714,7 +718,10 @@ where
         let mut root_chain_code_list = Pairs::new_with_item(self.old_keyshare.party_id, [0u8; 32]);
 
         for (from_party_index, p2p_msg2) in &p2p_messages {
-            let from_party_id = *self.params.old_party_ids.find_pair(*from_party_index);
+            let from_party_id = *self
+                .params
+                .old_party_ids
+                .find_pair_or_err(*from_party_index, QCError::InvalidMessage)?;
 
             let p_j_i = p2p_msg2.p_i;
             let r_2_i = p2p_msg2.r_2_i;
@@ -735,6 +742,9 @@ where
             p_i_list.push(from_party_id, p_j_i);
 
             root_chain_code_list.push(from_party_id, p2p_msg2.root_chain_code);
+        }
+        if p_i_list.remove_ids().len() != self.params.old_parties.len() {
+            return Err(QCError::InvalidMessage);
         }
 
         let mut r1_j_list = Pairs::new();
@@ -999,10 +1009,12 @@ where
 
         // new_party collects (all - 1) commitments2 from old parties
         let mut commitment2_list: Pairs<HashBytes, u8> = Pairs::new();
-
         for (from_party_index, message) in &p2p_messages {
             let from_party_id = *self.params.old_party_ids.find_pair(*from_party_index);
             commitment2_list.push(from_party_id, message.commitment_2);
+        }
+        if commitment2_list.remove_ids().len() != self.params.old_parties.len() {
+            return Err(QCError::InvalidMessage);
         }
 
         let next_state = QCPartyNew {
@@ -1039,7 +1051,6 @@ where
             return Err(QCError::InvalidMsgCount);
         }
 
-        // TODO add message validation
         p2p_messages.sort_by_key(|msg| msg.0);
         broadcast_msgs_2.sort_by_key(|msg| msg.from_party);
 
@@ -1068,6 +1079,9 @@ where
             p_i_list.push(from_party_id, p_j_i);
 
             root_chain_code_list.push(from_party_id, p2p_msg2.root_chain_code);
+        }
+        if p_i_list.remove_ids().len() != self.params.old_parties.len() {
+            return Err(QCError::InvalidMessage);
         }
 
         let mut r1_j_list = Pairs::new();
