@@ -89,6 +89,12 @@ impl<G> QCBroadcastMsg2<G>
 where
     G: Group + GroupEncoding,
 {
+    /// Returns size in bytes of QCBroadcastMsg2
+    /// from_party: 1 byte
+    /// r_1_i: 32 bytes
+    /// big_p_i_poly: l * point_size + 8,
+    /// where l is the vector length,
+    /// 8 - size in bytes for length
     pub fn external_size(l: usize) -> usize {
         let point_size = G::generator().to_bytes().as_ref().len();
         1 + 32 + 8 + l * point_size
