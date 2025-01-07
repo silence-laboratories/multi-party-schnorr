@@ -28,13 +28,13 @@ use crate::quorum_change::pairs::Pairs;
 use crate::quorum_change::types::{QCEntropyNew, QCEntropyOld, QCError, QCParams};
 
 /// LABEL for the QuorumChange protocol
-pub const QC_LABEL: &[u8] = b"SilenceLaboratories-Schnorr-QC";
+pub const QC_LABEL: &[u8] = b"Schnorr-QC";
 
 /// LABEL for the QuorumChange protocol COMMITMENT_1
-pub const QC_COMMITMENT_1_LABEL: &[u8] = b"SilenceLaboratories-Schnorr-QC-commit1";
+pub const QC_COMMITMENT_1_LABEL: &[u8] = b"Schnorr-QC-commit1";
 
 /// LABEL for the QuorumChange protocol COMMITMENT_2
-pub const QC_COMMITMENT_2_LABEL: &[u8] = b"SilenceLaboratories-Schnorr-QC-commit2";
+pub const QC_COMMITMENT_2_LABEL: &[u8] = b"Schnorr-QC-commit2";
 
 /// The QCPartyOld is a state machine that implements the QuorumChange protocol for old participant.
 pub struct QCPartyOld<T, G>
