@@ -48,6 +48,7 @@ pub struct R0;
 /// Round 1 state of Signer party
 pub struct R1<G> {
     big_r_i: G,
+    commitment_r_i: [u8; 32],
 }
 
 /// Round 2 state of Signer party
@@ -124,7 +125,10 @@ impl<G: Group + GroupEncoding> Round for SignerParty<R0, G> {
             party_id: self.party_id,
             keyshare: self.keyshare,
             rand_params: self.rand_params,
-            state: R1 { big_r_i },
+            state: R1 {
+                big_r_i,
+                commitment_r_i,
+            },
             seed: self.seed,
         };
 
@@ -137,7 +141,7 @@ where
     G: ConstantTimeEq,
     G::Scalar: ScalarReduce<[u8; 32]>,
 {
-    type Input = Vec<SignMsg1>;
+    type Input = (Vec<SignMsg1,>,Vec<u8>);
 
     type Output = Result<(SignerParty<R2<G>, G>, SignMsg2<G>), SignError>;
 
@@ -146,19 +150,36 @@ where
         let mut sid_list = Vec::with_capacity(self.keyshare.threshold as usize);
         let mut party_ids = Vec::with_capacity(self.keyshare.threshold as usize);
 
-        msgs.sort_by_key(|m| m.from_party);
+        msgs.0.sort_by_key(|m| m.from_party);
 
-        for msg in msgs {
+        for msg in &msgs.0 {
             commitment_list.push(msg.commitment_r_i);
             sid_list.push(msg.session_id);
             party_ids.push(msg.from_party);
+        }
+
+        //check if the input commitments match
+        msgs.0.iter()
+            .any(|msg| {
+                msg.from_party == self.party_id && msg.commitment_r_i == self.state.commitment_r_i
+            })
+            .then_some(())
+            .ok_or(SignError::InvalidParticipantSet)?;
+
+        //check sids are included
+        if !sid_list.contains(&self.rand_params.session_id) {
+            return Err(SignError::InvalidParticipantSet);
         }
 
         // Check for duplicate party ids
         let num_parties = party_ids.len();
         party_ids.dedup();
 
-        if party_ids.len() != num_parties {
+        if party_ids.len() != num_parties || !party_ids.contains(&self.party_id) {
+            return Err(SignError::InvalidParticipantSet);
+        }
+        //check for my sid
+        if !sid_list.contains(&self.rand_params.session_id) {
             return Err(SignError::InvalidParticipantSet);
         }
 
@@ -169,7 +190,7 @@ where
             return Err(SignError::InvalidParticipantSet);
         }
 
-        let final_sid = calculate_final_session_id(party_ids.iter().copied(), &sid_list);
+        let final_sid = calculate_final_session_id(party_ids.iter().copied(), &sid_list, Some(msgs.1.as_slice()));
 
         use sha2::digest::Update;
         let dlog_sid = Sha256::new()

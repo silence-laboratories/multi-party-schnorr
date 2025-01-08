@@ -270,7 +270,7 @@ where
         let n = self.params.n as usize;
         // We pass None for expected_sid because we don't know the final session id yet.
         // We don't expect the session-ids to be equal for all messages in this round.
-        let messages = validate_input_messages(messages, self.params.n, None)?;
+        let messages = validate_input_messages(messages, self.params.t, None)?;
         let mut sid_i_list = Vec::with_capacity(n);
         let mut commitment_list = Vec::with_capacity(n);
         let mut party_id_list = Vec::with_capacity(n);
@@ -291,7 +291,8 @@ where
             party_id_list.push(party_pubkey_idx);
         }
 
-        let final_sid = calculate_final_session_id(party_id_list.iter().copied(), &sid_i_list);
+        let final_sid =
+            calculate_final_session_id(party_id_list.iter().copied(), &sid_i_list, None);
 
         // 12.4(b)
         let mut rng = ChaCha20Rng::from_seed(self.seed);
@@ -347,7 +348,7 @@ where
 
     fn process(self, messages: Self::Input) -> Self::Output {
         let messages =
-            validate_input_messages(messages, self.params.n, Some(self.state.final_session_id))?;
+            validate_input_messages(messages, self.params.t, Some(self.state.final_session_id))?;
 
         messages.par_iter().try_for_each(|msg| {
             // 12.6(b)-i Verify commitments.
@@ -505,10 +506,10 @@ fn hash_commitment<G: GroupElem>(
 
 fn validate_input_messages<M: BaseMessage>(
     mut messages: Vec<M>,
-    n: u8,
+    t: u8,
     expected_sid: Option<SessionId>,
 ) -> Result<Vec<M>, KeygenError> {
-    if messages.len() != n as usize {
+    if messages.len() < t as usize {
         return Err(KeygenError::InvalidMsgCount);
     }
 

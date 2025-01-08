@@ -90,6 +90,7 @@ impl Round for PartialSign<EdwardsPoint> {
 #[cfg(test)]
 pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
     use crate::{common::utils::run_round, sign::SignerParty};
+    let msg = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
 
     let mut rng = rand::thread_rng();
     let parties = shares
@@ -99,11 +100,10 @@ pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
 
     // Pre-Signature phase
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, (msgs,msg.into())).into_iter().unzip();
     let ready_parties = run_round(parties, msgs);
 
     // Signature phase
-    let msg = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
     let (parties, partial_sigs): (Vec<_>, Vec<_>) =
         run_round(ready_parties, msg.into()).into_iter().unzip();
 
@@ -115,10 +115,10 @@ pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
 
 #[cfg(test)]
 mod tests {
+    use super::run_sign;
+    use crate::common::utils::run_keygen;
     use curve25519_dalek::EdwardsPoint;
     use rand::seq::SliceRandom;
-    use crate::common::utils::run_keygen;
-    use super::run_sign;
 
     #[test]
     fn sign_2_2() {

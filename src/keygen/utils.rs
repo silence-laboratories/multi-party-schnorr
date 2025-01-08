@@ -144,7 +144,7 @@ where
     let mut rng = rand::thread_rng();
     let private_key = G::Scalar::random(&mut rng);
     let shares = schnorr_split_private_key::<G, _>(&private_key, T as u8, N as u8, &mut rng);
-    let parties = setup_refresh(shares, &mut rng).unwrap();
+    let parties = setup_refresh(shares.unwrap(), &mut rng).unwrap();
 
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();

@@ -28,7 +28,7 @@ pub fn taproot_public_key(
     let pubkey = k256::PublicKey::from_affine(Option::from(k256::AffinePoint::decompact(
         &public_key.to_affine().x(),
     ))?)
-        .ok()?;
+    .ok()?;
 
     k256::schnorr::VerifyingKey::try_from(pubkey).ok()
 }
@@ -141,6 +141,7 @@ fn tagged_hash(tag: &[u8]) -> Sha256 {
 #[cfg(test)]
 pub fn run_sign(shares: &[Keyshare<k256::ProjectivePoint>]) -> Signature {
     use crate::common::utils::run_round;
+    let msg = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
 
     let mut rng = rand::thread_rng();
     let parties = shares
@@ -150,11 +151,10 @@ pub fn run_sign(shares: &[Keyshare<k256::ProjectivePoint>]) -> Signature {
 
     // Pre-Signature phase
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, (msgs,msg.into())).into_iter().unzip();
     let ready_parties = run_round(parties, msgs);
 
     // Signature phase
-    let msg = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
     let (parties, partial_sigs): (Vec<_>, Vec<_>) =
         run_round(ready_parties, msg.into()).into_iter().unzip();
 

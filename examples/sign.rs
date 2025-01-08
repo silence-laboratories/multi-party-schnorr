@@ -10,6 +10,7 @@ fn main() {
     let keyshares = run_keygen::<T, N, EdwardsPoint>();
     let mut rng = rand::thread_rng();
     let start = std::time::Instant::now();
+    let msg = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
 
     let subset: Vec<_> = keyshares
         .choose_multiple(&mut rand::thread_rng(), T)
@@ -23,11 +24,10 @@ fn main() {
 
     // Pre-Signature phase
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, (msgs,msg.into())).into_iter().unzip();
     let ready_parties = run_round(parties, msgs);
 
     // Signature phase
-    let msg = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
     let (parties, partial_sigs): (Vec<_>, Vec<_>) =
         run_round(ready_parties, msg.into()).into_iter().unzip();
 
