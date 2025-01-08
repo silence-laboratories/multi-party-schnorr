@@ -53,7 +53,7 @@ pub fn schnorr_split_private_key<G: Group, R: CryptoRng + RngCore>(
             }
         })
         .collect();
-    return Ok(res);
+    Ok(res)
 }
 
 /// Split the private keys into shares,

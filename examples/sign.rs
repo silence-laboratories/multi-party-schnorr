@@ -24,7 +24,8 @@ fn main() {
 
     // Pre-Signature phase
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, (msgs,msg.into())).into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) =
+        run_round(parties, (msgs, msg.into())).into_iter().unzip();
     let ready_parties = run_round(parties, msgs);
 
     // Signature phase

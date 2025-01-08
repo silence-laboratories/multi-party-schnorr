@@ -141,7 +141,7 @@ where
     G: ConstantTimeEq,
     G::Scalar: ScalarReduce<[u8; 32]>,
 {
-    type Input = (Vec<SignMsg1,>,Vec<u8>);
+    type Input = (Vec<SignMsg1>, Vec<u8>);
 
     type Output = Result<(SignerParty<R2<G>, G>, SignMsg2<G>), SignError>;
 
@@ -159,7 +159,8 @@ where
         }
 
         //check if the input commitments match
-        msgs.0.iter()
+        msgs.0
+            .iter()
             .any(|msg| {
                 msg.from_party == self.party_id && msg.commitment_r_i == self.state.commitment_r_i
             })
@@ -190,7 +191,11 @@ where
             return Err(SignError::InvalidParticipantSet);
         }
 
-        let final_sid = calculate_final_session_id(party_ids.iter().copied(), &sid_list, Some(msgs.1.as_slice()));
+        let final_sid = calculate_final_session_id(
+            party_ids.iter().copied(),
+            &sid_list,
+            Some(msgs.1.as_slice()),
+        );
 
         use sha2::digest::Update;
         let dlog_sid = Sha256::new()
