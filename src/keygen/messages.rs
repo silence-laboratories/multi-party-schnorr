@@ -107,6 +107,13 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         let coeff = get_lagrange_coeff::<G>(&self.party_id, 0..self.total_parties);
         self.d_i * coeff
     }
+
+    /// Get the scalar share of the party
+    pub fn scalar_share_interpolate(&self, party_id_list: Vec<u8>) -> G::Scalar {
+        let coeff = get_lagrange_coeff::<G>(&self.party_id, party_id_list);
+        self.d_i * coeff
+    }
+
     pub fn party_id(&self) -> u8 {
         self.party_id
     }

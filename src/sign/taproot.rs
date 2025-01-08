@@ -28,7 +28,7 @@ pub fn taproot_public_key(
     let pubkey = k256::PublicKey::from_affine(Option::from(k256::AffinePoint::decompact(
         &public_key.to_affine().x(),
     ))?)
-        .ok()?;
+    .ok()?;
 
     k256::schnorr::VerifyingKey::try_from(pubkey).ok()
 }
