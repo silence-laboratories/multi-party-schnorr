@@ -93,18 +93,17 @@ fn main() {
         .cloned()
         .collect();
 
+    let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
     let parties = subset
         .iter()
-        .map(|keyshare| SignerParty::new(keyshare.clone().into(), &mut rng))
+        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg.into(), &mut rng))
         .collect::<Vec<_>>();
 
-    // Pre-Signature phase
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
     let ready_parties = run_round(parties, msgs);
 
     // Signature phase
-    let msg = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
     let (parties, partial_sigs): (Vec<_>, Vec<_>) =
         run_round(ready_parties, msg.into()).into_iter().unzip();
 
