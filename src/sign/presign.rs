@@ -179,10 +179,6 @@ where
         if party_ids.len() != num_parties || !party_ids.contains(&self.party_id) {
             return Err(SignError::InvalidParticipantSet);
         }
-        //check for my sid
-        if !sid_list.contains(&self.rand_params.session_id) {
-            return Err(SignError::InvalidParticipantSet);
-        }
 
         // Check if the number of parties is within the threshold
         if party_ids.len() < self.keyshare.threshold as usize
