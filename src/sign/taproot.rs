@@ -9,6 +9,21 @@ use crate::{common::traits::Round, keygen::Keyshare};
 use super::*;
 
 const CHALLENGE_TAG: &[u8] = b"BIP0340/challenge";
+/// Concatenation of hash of challenge tag:  [sha256("BIP0340/challenge") || sha256("BIP0340/challenge")]
+const CHALLENGE_TAG_HASH: &[u8] = &[
+    123, 181, 45, 122, 159, 239, 88, 50, 62, 177, 191, 122, 64, 125, 179, 130, 210, 243, 242, 216,
+    27, 177, 34, 79, 73, 254, 81, 143, 109, 72, 211, 124, 123, 181, 45, 122, 159, 239, 88, 50, 62,
+    177, 191, 122, 64, 125, 179, 130, 210, 243, 242, 216, 27, 177, 34, 79, 73, 254, 81, 143, 109,
+    72, 211, 124,
+];
+
+/// Concatenation of hash of tag:  [sha256("TapTweak") || sha256("TapTweak")]
+const TAP_TWEAK_HASH: &[u8] = &[
+    232, 15, 225, 99, 156, 156, 160, 80, 227, 175, 27, 57, 193, 67, 198, 62, 66, 156, 188, 235, 21,
+    217, 64, 251, 181, 197, 161, 244, 175, 87, 197, 233, 232, 15, 225, 99, 156, 156, 160, 80, 227,
+    175, 27, 57, 193, 67, 198, 62, 66, 156, 188, 235, 21, 217, 64, 251, 181, 197, 161, 244, 175,
+    87, 197, 233,
+];
 
 impl Keyshare<k256::ProjectivePoint> {
     /// Return the taproot public key, tweaked according to the Taproot BIP340 specification.
@@ -58,7 +73,8 @@ impl Round for SignReady<ProjectivePoint> {
         }
 
         let e = <k256::Scalar as Reduce<U256>>::reduce_bytes(
-            &tagged_hash(CHALLENGE_TAG)
+            &Sha256::new()
+                .chain_update(CHALLENGE_TAG_HASH)
                 .chain_update(big_r.x())
                 .chain_update(big_p.x())
                 .chain_update(hash)
