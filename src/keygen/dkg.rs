@@ -326,7 +326,7 @@ where
         let msg2 = KeygenMsg2 {
             from_party: self.params.party_id,
             session_id: final_sid,
-            root_chain_code: root_chain_code,
+            root_chain_code,
             big_a_i_poly: self.state.big_a_i.coeffs,
             c_i_list: self.state.c_i_j,
             r_i: self.rand_params.r_i,
@@ -337,7 +337,7 @@ where
             params: self.params,
             state: R2 {
                 final_session_id: final_sid,
-                root_chain_code: root_chain_code,
+                root_chain_code,
                 commitment_list,
                 sid_i_list,
                 chain_codes_list,
@@ -498,8 +498,7 @@ where
             d_i: d_i_share,
             public_key,
             extra_data: self.params.extra_data,
-            root_chain_code: self.state.root_chain_code
-
+            root_chain_code: self.state.root_chain_code,
         };
         Ok(keyshare)
     }

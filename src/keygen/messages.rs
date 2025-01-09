@@ -98,7 +98,7 @@ where
     pub key_id: [u8; 32],
     /// Extra data
     pub extra_data: Option<Vec<u8>>,
-    pub root_chain_code: [u8; 32]
+    pub root_chain_code: [u8; 32],
 }
 
 impl<G: Group + GroupEncoding> Keyshare<G> {

@@ -43,7 +43,6 @@ where
     pub(crate) r_i: [u8; 32],
     ///chain_code_sid: the chain code for each player in order to compute the final root_chain_code
     pub(crate) chain_code_id: [u8; 32],
-
 }
 
 impl<G> KeyEntropy<G>
@@ -59,14 +58,13 @@ where
         let polynomial = Polynomial::random(rng, (t - 1) as usize);
         let chain_code_id = rng.gen();
 
-
         KeyEntropy {
             t,
             n,
             session_id,
             polynomial,
             r_i: random_bytes(rng),
-            chain_code_id
+            chain_code_id,
         }
     }
 
