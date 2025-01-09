@@ -98,13 +98,11 @@ pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
         .map(|keyshare| SignerParty::new(keyshare.clone().into(), &mut rng))
         .collect::<Vec<_>>();
 
-    // Pre-Signature phase
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
     let (parties, msgs): (Vec<_>, Vec<_>) =
         run_round(parties, (msgs, msg.into())).into_iter().unzip();
     let ready_parties = run_round(parties, msgs);
 
-    // Signature phase
     let (parties, partial_sigs): (Vec<_>, Vec<_>) =
         run_round(ready_parties, msg.into()).into_iter().unzip();
 
