@@ -33,6 +33,9 @@ pub struct KeygenMsg1 {
 
     /// Participants commitment
     pub commitment: HashBytes,
+
+    //chain code for that party
+    pub chain_code_id: [u8; 32],
 }
 
 /// Type for the key generation protocol's message 2.
@@ -48,6 +51,9 @@ where
 
     /// Sesssion id
     pub session_id: SessionId,
+
+    /// Sesroot chain code
+    pub root_chain_code: SessionId,
 
     /// Random 32 bytes
     pub r_i: [u8; 32],
@@ -92,6 +98,7 @@ where
     pub key_id: [u8; 32],
     /// Extra data
     pub extra_data: Option<Vec<u8>>,
+    pub root_chain_code: [u8; 32]
 }
 
 impl<G: Group + GroupEncoding> Keyshare<G> {
