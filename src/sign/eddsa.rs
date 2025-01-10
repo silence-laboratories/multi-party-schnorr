@@ -10,22 +10,24 @@ use super::{
     validate_input_messages, PartialSign, SignError, SignReady,
 };
 
+// TODO: This round can be removed and merged with previous round.
+// Keeping it for now, assuming presign api will be added in future.
 impl Round for SignReady<EdwardsPoint> {
-    type Input = Vec<u8>;
+    type Input = ();
 
     type Output = Result<(PartialSign<EdwardsPoint>, SignMsg3<EdwardsPoint>), SignError>;
 
     /// The signer party processes the message to sign and returns the partial signature
     /// # Arguments
-    /// * `msg_to_sign` - The message to sign in bytes
-    fn process(self, msg_to_sign: Self::Input) -> Self::Output {
+    /// * `msg_hash` - The message to sign in bytes
+    fn process(self, _: Self::Input) -> Self::Output {
         let big_a = self.public_key.to_bytes();
 
         use sha2::digest::Update;
         let digest = Sha512::new()
             .chain(self.big_r.to_bytes())
             .chain(big_a)
-            .chain(&msg_to_sign);
+            .chain(self.msg_hash);
 
         let e = Scalar::from_bytes_mod_order_wide(&digest.finalize().into());
         let s_i = self.k_i + self.d_i * e;
@@ -43,7 +45,7 @@ impl Round for SignReady<EdwardsPoint> {
             public_key: self.public_key,
             big_r: self.big_r,
             s_i,
-            msg_to_sign,
+            msg_hash: self.msg_hash,
             pid_list: self.pid_list,
         };
 
@@ -74,7 +76,7 @@ impl Round for PartialSign<EdwardsPoint> {
         let signature = ed25519_dalek::Signature::from_bytes(&sig_bytes);
 
         VerifyingKey::from(self.public_key)
-            .verify(&self.msg_to_sign, &signature)
+            .verify(&self.msg_hash, &signature)
             .map_err(|_| SignError::InvalidSignature)?;
 
         let sign_complete = SignComplete {
@@ -89,13 +91,16 @@ impl Round for PartialSign<EdwardsPoint> {
 
 #[cfg(test)]
 pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
+    use sha2::Sha256;
+
     use crate::{common::utils::run_round, sign::SignerParty};
     let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+    let msg_hash = Sha256::digest(msg);
 
     let mut rng = rand::thread_rng();
     let parties = shares
         .iter()
-        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg.into(), &mut rng))
+        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg_hash.into(), &mut rng))
         .collect::<Vec<_>>();
 
     // Pre-Signature phase
@@ -105,7 +110,7 @@ pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
 
     // Signature phase
     let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-        run_round(ready_parties, msg.into()).into_iter().unzip();
+        run_round(ready_parties, ()).into_iter().unzip();
 
     let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
         run_round(parties, partial_sigs).into_iter().unzip();

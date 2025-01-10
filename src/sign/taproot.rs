@@ -1,5 +1,6 @@
 use elliptic_curve::ops::Reduce;
 use k256::{schnorr::Signature, ProjectivePoint, Scalar, U256};
+use signature::hazmat::PrehashVerifier;
 
 use messages::{SignComplete, SignMsg3};
 use sha2::{Digest, Sha256};
@@ -11,7 +12,7 @@ use crate::{
 
 use super::*;
 
-const CHALLENGE_TAG: &[u8] = b"BIP0340/challenge";
+// const CHALLENGE_TAG: &[u8] = b"BIP0340/challenge";
 /// Concatenation of hash of challenge tag:  [sha256("BIP0340/challenge") || sha256("BIP0340/challenge")]
 const CHALLENGE_TAG_HASH: &[u8] = &[
     123, 181, 45, 122, 159, 239, 88, 50, 62, 177, 191, 122, 64, 125, 179, 130, 210, 243, 242, 216,
@@ -51,18 +52,18 @@ pub fn taproot_public_key(
     k256::schnorr::VerifyingKey::try_from(pubkey).ok()
 }
 
+// TODO: This round can be removed and merged with previous round.
+// Keeping it for now, assuming presign api will be added in future.
 impl Round for SignReady<ProjectivePoint> {
-    type Input = Vec<u8>;
+    type Input = ();
 
     type Output = Result<(PartialSign<ProjectivePoint>, SignMsg3<ProjectivePoint>), SignError>;
 
     /// The signer party processes the message to sign and returns the partial signature
     /// # Arguments
     /// * `msg_hash` - 32 bytes hash of the message to sign. It must be the output of a secure hash function.
-    fn process(self, msg_to_sign: Self::Input) -> Self::Output {
+    fn process(self, _: ()) -> Self::Output {
         use elliptic_curve::point::AffineCoordinates;
-        let hash = Sha256::digest(&msg_to_sign);
-        // let big_p = self.public_key.to_affine();
         let x_only_pubkey = taproot_public_key(&self.public_key).unwrap();
         let tweak: [u8; 32] = Sha256::new()
             .chain_update(TAP_TWEAK_HASH)
@@ -71,7 +72,7 @@ impl Round for SignReady<ProjectivePoint> {
             .into();
         let tweak_scalar = Scalar::reduce_from_bytes(&tweak);
 
-        let tweaked_pubkey =
+        let tweaked_big_p =
             (self.public_key + ProjectivePoint::GENERATOR * tweak_scalar).to_affine();
 
         let big_r = self.big_r.to_affine();
@@ -82,11 +83,11 @@ impl Round for SignReady<ProjectivePoint> {
             k_i = -k_i;
         }
 
-        let party_count = self.pid_list.len();
+        let parties = self.pid_list.len();
         let mut tweaked_share =
-            internal_share + tweak_scalar * Scalar::from(party_count as u64).invert().unwrap();
+            internal_share + (tweak_scalar * Scalar::from(parties as u64).invert().unwrap());
 
-        if tweaked_pubkey.y_is_odd().unwrap_u8() == 1 {
+        if tweaked_big_p.y_is_odd().unwrap_u8() == 1 {
             tweaked_share = -tweaked_share;
         }
 
@@ -94,8 +95,8 @@ impl Round for SignReady<ProjectivePoint> {
             &Sha256::new()
                 .chain_update(CHALLENGE_TAG_HASH)
                 .chain_update(big_r.x())
-                .chain_update(tweaked_pubkey.x())
-                .chain_update(hash)
+                .chain_update(tweaked_big_p.x())
+                .chain_update(self.msg_hash)
                 .finalize(),
         );
 
@@ -108,13 +109,13 @@ impl Round for SignReady<ProjectivePoint> {
         };
 
         let next = PartialSign {
-            public_key: ProjectivePoint::from(tweaked_pubkey),
+            public_key: self.public_key,
             party_id: self.party_id,
             threshold: self.threshold,
             session_id: self.session_id,
             big_r: self.big_r,
             s_i,
-            msg_to_sign,
+            msg_hash: self.msg_hash,
             pid_list: self.pid_list,
         };
 
@@ -129,7 +130,6 @@ impl Round for PartialSign<ProjectivePoint> {
 
     fn process(self, messages: Self::Input) -> Self::Output {
         use elliptic_curve::point::AffineCoordinates;
-        use signature::Verifier;
         let messages = validate_input_messages(messages, &self.pid_list)?;
         let mut s = self.s_i;
 
@@ -149,9 +149,20 @@ impl Round for PartialSign<ProjectivePoint> {
         let signature =
             Signature::try_from(sig_bytes.as_ref()).map_err(|_| SignError::InvalidSignature)?;
 
-        taproot_public_key(&self.public_key)
+        let x_only_pubkey = taproot_public_key(&self.public_key).unwrap();
+        let tweak: [u8; 32] = Sha256::new()
+            .chain_update(TAP_TWEAK_HASH)
+            .chain_update(x_only_pubkey.to_bytes())
+            .finalize()
+            .into();
+        let tweak_scalar = Scalar::reduce_from_bytes(&tweak);
+
+        let tweaked_pubkey = self.public_key + ProjectivePoint::GENERATOR * tweak_scalar;
+        // let test_tweak =
+        //     self.public_key + ProjectivePoint::GENERATOR * Scalar::from(self.pid_list.len() as u64);
+        taproot_public_key(&tweaked_pubkey)
             .unwrap()
-            .verify(&self.msg_to_sign, &signature)
+            .verify_prehash(&self.msg_hash, &signature)
             .map_err(|_| SignError::InvalidSignature)?;
 
         let sign_complete = SignComplete {
@@ -164,23 +175,24 @@ impl Round for PartialSign<ProjectivePoint> {
     }
 }
 
-fn tagged_hash(tag: &[u8]) -> Sha256 {
-    let tag_hash = Sha256::digest(tag);
-    let mut digest = Sha256::new();
-    digest.update(tag_hash);
-    digest.update(tag_hash);
-    digest
-}
+// fn tagged_hash(tag: &[u8]) -> Sha256 {
+//     let tag_hash = Sha256::digest(tag);
+//     let mut digest = Sha256::new();
+//     digest.update(tag_hash);
+//     digest.update(tag_hash);
+//     digest
+// }
 
 #[cfg(test)]
 pub fn run_sign(shares: &[Keyshare<k256::ProjectivePoint>]) -> Signature {
     use crate::common::utils::run_round;
     let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+    let hash = Sha256::digest(msg);
 
     let mut rng = rand::thread_rng();
     let parties = shares
         .iter()
-        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg.into(), &mut rng))
+        .map(|keyshare| SignerParty::new(keyshare.clone().into(), hash.into(), &mut rng))
         .collect::<Vec<_>>();
 
     // Pre-Signature phase
@@ -190,7 +202,7 @@ pub fn run_sign(shares: &[Keyshare<k256::ProjectivePoint>]) -> Signature {
 
     // Signature phase
     let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-        run_round(ready_parties, msg.into()).into_iter().unzip();
+        run_round(ready_parties, ()).into_iter().unzip();
 
     let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
         run_round(parties, partial_sigs).into_iter().unzip();
