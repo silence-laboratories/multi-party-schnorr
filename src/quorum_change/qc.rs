@@ -236,8 +236,8 @@ where
     type Output = Result<
         (
             QCPartyOld<R2Old<G>, G>,
-            Vec<(usize, QCP2PMsg1)>,
-            Vec<(usize, QCP2PMsg2<G>)>,
+            Vec<QCP2PMsg1>,
+            Vec<QCP2PMsg2<G>>,
             QCBroadcastMsg2<G>,
         ),
         QCError,
@@ -312,15 +312,21 @@ where
                 r2_j,
             );
 
-            let p2p_msg_1 = QCP2PMsg1 { commitment_2 };
-            p2p_messages_1.push((receiver_index, p2p_msg_1));
+            let p2p_msg_1 = QCP2PMsg1 {
+                from_party: self.params.party_index as u8,
+                to_party: receiver_index as u8,
+                commitment_2,
+            };
+            p2p_messages_1.push(p2p_msg_1);
 
             let p2p_msg_2 = QCP2PMsg2 {
+                from_party: self.params.party_index as u8,
+                to_party: receiver_index as u8,
                 p_i: p_i_j,
                 r_2_i: *r2_j,
                 root_chain_code: [0u8; 32],
             };
-            p2p_messages_2.push((receiver_index, p2p_msg_2));
+            p2p_messages_2.push(p2p_msg_2);
         }
 
         let broadcast_mgs2 = QCBroadcastMsg2 {
@@ -512,7 +518,7 @@ where
 {
     type Input = Vec<QCBroadcastMsg1>;
 
-    type Output = Result<(QCPartyOldToNew<R2OldToNew<G>, G>, Vec<(usize, QCP2PMsg1)>), QCError>;
+    type Output = Result<(QCPartyOldToNew<R2OldToNew<G>, G>, Vec<QCP2PMsg1>), QCError>;
 
     /// Processes BroadcastMsg1 and creates p2p commitment2
     fn process(self, messages: Self::Input) -> Self::Output {
@@ -588,8 +594,12 @@ where
                 r2_j,
             );
 
-            let p2p_msg_1 = QCP2PMsg1 { commitment_2 };
-            p2p_messages_1.push((receiver_index, p2p_msg_1));
+            let p2p_msg_1 = QCP2PMsg1 {
+                from_party: self.params.party_index as u8,
+                to_party: receiver_index as u8,
+                commitment_2,
+            };
+            p2p_messages_1.push(p2p_msg_1);
         }
 
         let next_state = QCPartyOldToNew {
@@ -615,12 +625,12 @@ impl<G: GroupElem> Round for QCPartyOldToNew<R2OldToNew<G>, G>
 where
     G: GroupElem,
 {
-    type Input = Vec<(usize, QCP2PMsg1)>;
+    type Input = Vec<QCP2PMsg1>;
 
     type Output = Result<
         (
             QCPartyOldToNew<R3OldToNew<G>, G>,
-            Vec<(usize, QCP2PMsg2<G>)>,
+            Vec<QCP2PMsg2<G>>,
             QCBroadcastMsg2<G>,
         ),
         QCError,
@@ -633,15 +643,19 @@ where
             return Err(QCError::InvalidMsgCount);
         }
         let mut p2p_messages = messages;
-        p2p_messages.sort_by_key(|msg| msg.0);
+        p2p_messages.sort_by_key(|msg| msg.from_party);
 
         // new_party collects (all - 1) commitments2 from old parties
         let mut commitment2_list: Pairs<HashBytes, u8> = Pairs::new();
-        for (from_party_index, message) in &p2p_messages {
+        for message in &p2p_messages {
+            if message.to_party as usize != self.params.party_index {
+                return Err(QCError::InvalidMessage);
+            }
+            let from_party_index = message.from_party as usize;
             let from_party_id = *self
                 .params
                 .old_party_ids
-                .find_pair_or_err(*from_party_index, QCError::InvalidMessage)?;
+                .find_pair_or_err(from_party_index, QCError::InvalidMessage)?;
             commitment2_list.push(from_party_id, message.commitment_2);
         }
         if commitment2_list.remove_ids().len() != (self.params.old_parties.len() - 1) {
@@ -660,11 +674,13 @@ where
             let p_i_j = self.state.p_i_j_list.find_pair(receiver_id);
 
             let p2p_msg_2 = QCP2PMsg2 {
+                from_party: self.params.party_index as u8,
+                to_party: receiver_index as u8,
                 p_i: *p_i_j,
                 r_2_i: *r2_j,
                 root_chain_code: [0u8; 32],
             };
-            p2p_messages_2.push((receiver_index, p2p_msg_2));
+            p2p_messages_2.push(p2p_msg_2);
         }
 
         let broadcast_mgs2 = QCBroadcastMsg2 {
@@ -696,7 +712,7 @@ impl<G: GroupElem> Round for QCPartyOldToNew<R3OldToNew<G>, G>
 where
     G: GroupElem,
 {
-    type Input = (Vec<(usize, QCP2PMsg2<G>)>, Vec<QCBroadcastMsg2<G>>);
+    type Input = (Vec<QCP2PMsg2<G>>, Vec<QCBroadcastMsg2<G>>);
 
     type Output = Result<Keyshare<G>, QCError>;
 
@@ -711,17 +727,21 @@ where
             return Err(QCError::InvalidMsgCount);
         }
 
-        p2p_messages.sort_by_key(|msg| msg.0);
+        p2p_messages.sort_by_key(|msg| msg.from_party);
         broadcast_msgs_2.sort_by_key(|msg| msg.from_party);
 
         let mut p_i_list = self.state.p_i_list;
         let mut root_chain_code_list = Pairs::new_with_item(self.old_keyshare.party_id, [0u8; 32]);
 
-        for (from_party_index, p2p_msg2) in &p2p_messages {
+        for p2p_msg2 in &p2p_messages {
+            if p2p_msg2.to_party as usize != self.params.party_index {
+                return Err(QCError::InvalidMessage);
+            }
+            let from_party_index = p2p_msg2.from_party as usize;
             let from_party_id = *self
                 .params
                 .old_party_ids
-                .find_pair_or_err(*from_party_index, QCError::InvalidMessage)?;
+                .find_pair_or_err(from_party_index, QCError::InvalidMessage)?;
 
             let p_j_i = p2p_msg2.p_i;
             let r_2_i = p2p_msg2.r_2_i;
@@ -729,7 +749,7 @@ where
             let commitment2 = self.state.commitment2_list.find_pair(from_party_id);
             let commit_hash_2 = hash_commitment_2::<G>(
                 &self.state.final_session_id,
-                *from_party_index,
+                from_party_index,
                 self.params.party_index,
                 &p_j_i,
                 &r_2_i,
@@ -995,7 +1015,7 @@ impl<G: GroupElem> Round for QCPartyNew<R2New, G>
 where
     G: GroupElem,
 {
-    type Input = Vec<(usize, QCP2PMsg1)>;
+    type Input = Vec<QCP2PMsg1>;
 
     type Output = Result<QCPartyNew<R3New, G>, QCError>;
 
@@ -1005,12 +1025,19 @@ where
             return Err(QCError::InvalidMsgCount);
         }
         let mut p2p_messages = messages;
-        p2p_messages.sort_by_key(|msg| msg.0);
+        p2p_messages.sort_by_key(|msg| msg.from_party);
 
         // new_party collects (all - 1) commitments2 from old parties
         let mut commitment2_list: Pairs<HashBytes, u8> = Pairs::new();
-        for (from_party_index, message) in &p2p_messages {
-            let from_party_id = *self.params.old_party_ids.find_pair(*from_party_index);
+        for message in &p2p_messages {
+            if message.to_party as usize != self.params.party_index {
+                return Err(QCError::InvalidMessage);
+            }
+            let from_party_index = message.from_party as usize;
+            let from_party_id = *self
+                .params
+                .old_party_ids
+                .find_pair_or_err(from_party_index, QCError::InvalidMessage)?;
             commitment2_list.push(from_party_id, message.commitment_2);
         }
         if commitment2_list.remove_ids().len() != self.params.old_parties.len() {
@@ -1036,7 +1063,7 @@ impl<G: GroupElem> Round for QCPartyNew<R3New, G>
 where
     G: GroupElem,
 {
-    type Input = (Vec<(usize, QCP2PMsg2<G>)>, Vec<QCBroadcastMsg2<G>>);
+    type Input = (Vec<QCP2PMsg2<G>>, Vec<QCBroadcastMsg2<G>>);
 
     type Output = Result<Keyshare<G>, QCError>;
 
@@ -1051,14 +1078,21 @@ where
             return Err(QCError::InvalidMsgCount);
         }
 
-        p2p_messages.sort_by_key(|msg| msg.0);
+        p2p_messages.sort_by_key(|msg| msg.from_party);
         broadcast_msgs_2.sort_by_key(|msg| msg.from_party);
 
         let mut p_i_list: Pairs<G::Scalar, u8> = Pairs::new();
         let mut root_chain_code_list = Pairs::new();
 
-        for (from_party_index, p2p_msg2) in &p2p_messages {
-            let from_party_id = *self.params.old_party_ids.find_pair(*from_party_index);
+        for p2p_msg2 in &p2p_messages {
+            if p2p_msg2.to_party as usize != self.params.party_index {
+                return Err(QCError::InvalidMessage);
+            }
+            let from_party_index = p2p_msg2.from_party as usize;
+            let from_party_id = *self
+                .params
+                .old_party_ids
+                .find_pair_or_err(from_party_index, QCError::InvalidMessage)?;
 
             let p_j_i = p2p_msg2.p_i;
             let r_2_i = p2p_msg2.r_2_i;
@@ -1066,7 +1100,7 @@ where
             let commitment2 = self.state.commitment2_list.find_pair(from_party_id);
             let commit_hash_2 = hash_commitment_2::<G>(
                 &self.state.final_session_id,
-                *from_party_index,
+                from_party_index,
                 self.params.party_index,
                 &p_j_i,
                 &r_2_i,
@@ -1360,28 +1394,28 @@ mod test {
         let mut p2p_messages_1_to_p3 = vec![];
         let mut p2p_messages_1_to_p4 = vec![];
         // collect
-        for (to_party_index, msg) in p2p_msg1_from_p0 {
-            let from_old_party_index = 0;
+        for msg in p2p_msg1_from_p0 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 1 {
-                p2p_messages_1_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p2.push(msg.clone())
             }
             if to_party_index == 3 {
-                p2p_messages_1_to_p3.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p3.push(msg.clone())
             }
             if to_party_index == 4 {
-                p2p_messages_1_to_p4.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p4.push(msg.clone())
             }
         }
-        for (to_party_index, msg) in p2p_msg1_from_p1 {
-            let from_old_party_index = 2;
+        for msg in p2p_msg1_from_p1 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 1 {
-                p2p_messages_1_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p2.push(msg.clone())
             }
             if to_party_index == 3 {
-                p2p_messages_1_to_p3.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p3.push(msg.clone())
             }
             if to_party_index == 4 {
-                p2p_messages_1_to_p4.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p4.push(msg.clone())
             }
         }
 
@@ -1393,28 +1427,28 @@ mod test {
         let mut p2p_messages_2_to_p3 = vec![];
         let mut p2p_messages_2_to_p4 = vec![];
         // collect
-        for (to_party_index, msg) in p2p_msg2_from_p0 {
-            let from_old_party_index = 0;
+        for msg in p2p_msg2_from_p0 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 1 {
-                p2p_messages_2_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p2.push(msg.clone())
             }
             if to_party_index == 3 {
-                p2p_messages_2_to_p3.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p3.push(msg.clone())
             }
             if to_party_index == 4 {
-                p2p_messages_2_to_p4.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p4.push(msg.clone())
             }
         }
-        for (to_party_index, msg) in p2p_msg2_from_p1 {
-            let from_old_party_index = 2;
+        for msg in p2p_msg2_from_p1 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 1 {
-                p2p_messages_2_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p2.push(msg.clone())
             }
             if to_party_index == 3 {
-                p2p_messages_2_to_p3.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p3.push(msg.clone())
             }
             if to_party_index == 4 {
-                p2p_messages_2_to_p4.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p4.push(msg.clone())
             }
         }
 
@@ -1531,22 +1565,22 @@ mod test {
         let mut p2p_messages_1_to_p1 = vec![];
         let mut p2p_messages_1_to_p2 = vec![];
         // collect
-        for (to_party_index, msg) in p2p_msg1_from_p0 {
-            let from_old_party_index = 0;
+        for msg in p2p_msg1_from_p0 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 1 {
-                p2p_messages_1_to_p1.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p1.push(msg.clone())
             }
             if to_party_index == 2 {
-                p2p_messages_1_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p2.push(msg.clone())
             }
         }
-        for (to_party_index, msg) in p2p_msg1_from_p1 {
-            let from_old_party_index = 1;
+        for msg in p2p_msg1_from_p1 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 0 {
-                p2p_messages_1_to_p0.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p0.push(msg.clone())
             }
             if to_party_index == 2 {
-                p2p_messages_1_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p2.push(msg.clone())
             }
         }
 
@@ -1560,22 +1594,22 @@ mod test {
         let mut p2p_messages_2_to_p1 = vec![];
         let mut p2p_messages_2_to_p2 = vec![];
         // collect
-        for (to_party_index, msg) in p2p_msg2_from_p0 {
-            let from_old_party_index = 0;
+        for msg in p2p_msg2_from_p0 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 1 {
-                p2p_messages_2_to_p1.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p1.push(msg.clone())
             }
             if to_party_index == 2 {
-                p2p_messages_2_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p2.push(msg.clone())
             }
         }
-        for (to_party_index, msg) in p2p_msg2_from_p1 {
-            let from_old_party_index = 1;
+        for msg in p2p_msg2_from_p1 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 0 {
-                p2p_messages_2_to_p0.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p0.push(msg.clone())
             }
             if to_party_index == 2 {
-                p2p_messages_2_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p2.push(msg.clone())
             }
         }
 
@@ -1714,52 +1748,52 @@ mod test {
         let mut p2p_messages_1_to_p2 = vec![];
         let mut p2p_messages_1_to_p3 = vec![];
         // collect
-        for (to_party_index, msg) in p2p_msg1_from_p0 {
-            let from_old_party_index = 0;
+        for msg in p2p_msg1_from_p0 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 1 {
-                p2p_messages_1_to_p1.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p1.push(msg.clone())
             }
             if to_party_index == 2 {
-                p2p_messages_1_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p2.push(msg.clone())
             }
             if to_party_index == 3 {
-                p2p_messages_1_to_p3.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p3.push(msg.clone())
             }
         }
-        for (to_party_index, msg) in p2p_msg1_from_p1 {
-            let from_old_party_index = 1;
+        for msg in p2p_msg1_from_p1 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 0 {
-                p2p_messages_1_to_p0.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p0.push(msg.clone())
             }
             if to_party_index == 2 {
-                p2p_messages_1_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p2.push(msg.clone())
             }
             if to_party_index == 3 {
-                p2p_messages_1_to_p3.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p3.push(msg.clone())
             }
         }
-        for (to_party_index, msg) in p2p_msg1_from_p2 {
-            let from_old_party_index = 2;
+        for msg in p2p_msg1_from_p2 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 0 {
-                p2p_messages_1_to_p0.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p0.push(msg.clone())
             }
             if to_party_index == 1 {
-                p2p_messages_1_to_p1.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p1.push(msg.clone())
             }
             if to_party_index == 3 {
-                p2p_messages_1_to_p3.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p3.push(msg.clone())
             }
         }
-        for (to_party_index, msg) in p2p_msg1_from_p3 {
-            let from_old_party_index = 3;
+        for msg in p2p_msg1_from_p3 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 0 {
-                p2p_messages_1_to_p0.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p0.push(msg.clone())
             }
             if to_party_index == 1 {
-                p2p_messages_1_to_p1.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p1.push(msg.clone())
             }
             if to_party_index == 2 {
-                p2p_messages_1_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_1_to_p2.push(msg.clone())
             }
         }
 
@@ -1777,52 +1811,52 @@ mod test {
         let mut p2p_messages_2_to_p2 = vec![];
         let mut p2p_messages_2_to_p3 = vec![];
         // collect
-        for (to_party_index, msg) in p2p_msg2_from_p0 {
-            let from_old_party_index = 0;
+        for msg in p2p_msg2_from_p0 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 1 {
-                p2p_messages_2_to_p1.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p1.push(msg.clone())
             }
             if to_party_index == 2 {
-                p2p_messages_2_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p2.push(msg.clone())
             }
             if to_party_index == 3 {
-                p2p_messages_2_to_p3.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p3.push(msg.clone())
             }
         }
-        for (to_party_index, msg) in p2p_msg2_from_p1 {
-            let from_old_party_index = 1;
+        for msg in p2p_msg2_from_p1 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 0 {
-                p2p_messages_2_to_p0.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p0.push(msg.clone())
             }
             if to_party_index == 2 {
-                p2p_messages_2_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p2.push(msg.clone())
             }
             if to_party_index == 3 {
-                p2p_messages_2_to_p3.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p3.push(msg.clone())
             }
         }
-        for (to_party_index, msg) in p2p_msg2_from_p2 {
-            let from_old_party_index = 2;
+        for msg in p2p_msg2_from_p2 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 0 {
-                p2p_messages_2_to_p0.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p0.push(msg.clone())
             }
             if to_party_index == 1 {
-                p2p_messages_2_to_p1.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p1.push(msg.clone())
             }
             if to_party_index == 3 {
-                p2p_messages_2_to_p3.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p3.push(msg.clone())
             }
         }
-        for (to_party_index, msg) in p2p_msg2_from_p3 {
-            let from_old_party_index = 3;
+        for msg in p2p_msg2_from_p3 {
+            let to_party_index = msg.to_party as usize;
             if to_party_index == 0 {
-                p2p_messages_2_to_p0.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p0.push(msg.clone())
             }
             if to_party_index == 1 {
-                p2p_messages_2_to_p1.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p1.push(msg.clone())
             }
             if to_party_index == 2 {
-                p2p_messages_2_to_p2.push((from_old_party_index, msg.clone()))
+                p2p_messages_2_to_p2.push(msg.clone())
             }
         }
 

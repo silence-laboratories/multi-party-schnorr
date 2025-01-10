@@ -1,7 +1,7 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-use crate::common::utils::{HashBytes, SessionId};
+use crate::common::utils::{BaseP2PMessage, HashBytes, SessionId};
 use elliptic_curve::{group::GroupEncoding, Group};
 use std::hash::Hash;
 use std::mem;
@@ -33,13 +33,17 @@ impl QCBroadcastMsg1 {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 pub struct QCP2PMsg1 {
+    /// Participant index of the sender
+    pub from_party: u8,
+    /// Participant index of the receiver
+    pub to_party: u8,
     /// Participants commitment_2
     pub commitment_2: HashBytes,
 }
 
 impl QCP2PMsg1 {
     pub fn external_size() -> usize {
-        mem::size_of::<HashBytes>()
+        mem::size_of::<HashBytes>() + 2
     }
 }
 
@@ -50,6 +54,10 @@ pub struct QCP2PMsg2<G>
 where
     G: Group + GroupEncoding,
 {
+    /// Participant index of the sender
+    pub from_party: u8,
+    /// Participant index of the receiver
+    pub to_party: u8,
     /// p_i
     pub p_i: G::Scalar,
     /// r_2_i
@@ -63,7 +71,7 @@ where
     G: Group + GroupEncoding,
 {
     pub fn external_size() -> usize {
-        mem::size_of::<G::Scalar>() + 32 + 32
+        mem::size_of::<G::Scalar>() + 32 + 32 + 2
     }
 }
 
@@ -98,5 +106,28 @@ where
     pub fn external_size(l: usize) -> usize {
         let point_size = G::generator().to_bytes().as_ref().len();
         1 + 32 + 8 + l * point_size
+    }
+}
+
+impl BaseP2PMessage for QCP2PMsg1 {
+    fn from_party(&self) -> usize {
+        self.from_party as usize
+    }
+
+    fn to_party(&self) -> usize {
+        self.to_party as usize
+    }
+}
+
+impl<G> BaseP2PMessage for QCP2PMsg2<G>
+where
+    G: Group + GroupEncoding,
+{
+    fn from_party(&self) -> usize {
+        self.from_party as usize
+    }
+
+    fn to_party(&self) -> usize {
+        self.to_party as usize
     }
 }
