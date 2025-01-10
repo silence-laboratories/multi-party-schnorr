@@ -1,10 +1,13 @@
 use elliptic_curve::ops::Reduce;
-use k256::{schnorr::Signature, ProjectivePoint, U256};
+use k256::{schnorr::Signature, ProjectivePoint, Scalar, U256};
 
 use messages::{SignComplete, SignMsg3};
 use sha2::{Digest, Sha256};
 
-use crate::{common::traits::Round, keygen::Keyshare};
+use crate::{
+    common::traits::{Round, ScalarReduce},
+    keygen::Keyshare,
+};
 
 use super::*;
 
@@ -59,29 +62,44 @@ impl Round for SignReady<ProjectivePoint> {
     fn process(self, msg_to_sign: Self::Input) -> Self::Output {
         use elliptic_curve::point::AffineCoordinates;
         let hash = Sha256::digest(&msg_to_sign);
-        let big_p = self.public_key.to_affine();
+        // let big_p = self.public_key.to_affine();
+        let x_only_pubkey = taproot_public_key(&self.public_key).unwrap();
+        let tweak: [u8; 32] = Sha256::new()
+            .chain_update(TAP_TWEAK_HASH)
+            .chain_update(x_only_pubkey.to_bytes())
+            .finalize()
+            .into();
+        let tweak_scalar = Scalar::reduce_from_bytes(&tweak);
+
+        let tweaked_pubkey =
+            (self.public_key + ProjectivePoint::GENERATOR * tweak_scalar).to_affine();
+
         let big_r = self.big_r.to_affine();
         let mut k_i = self.k_i;
-        let mut d_i = self.d_i;
+        let internal_share = self.d_i;
 
         if big_r.y_is_odd().unwrap_u8() == 1 {
             k_i = -k_i;
         }
 
-        if big_p.y_is_odd().unwrap_u8() == 1 {
-            d_i = -d_i;
+        let party_count = self.pid_list.len();
+        let mut tweaked_share =
+            internal_share + tweak_scalar * Scalar::from(party_count as u64).invert().unwrap();
+
+        if tweaked_pubkey.y_is_odd().unwrap_u8() == 1 {
+            tweaked_share = -tweaked_share;
         }
 
         let e = <k256::Scalar as Reduce<U256>>::reduce_bytes(
             &Sha256::new()
                 .chain_update(CHALLENGE_TAG_HASH)
                 .chain_update(big_r.x())
-                .chain_update(big_p.x())
+                .chain_update(tweaked_pubkey.x())
                 .chain_update(hash)
                 .finalize(),
         );
 
-        let s_i = k_i + d_i * e;
+        let s_i = k_i + tweaked_share * e;
 
         let msg3 = SignMsg3 {
             from_party: self.party_id,
@@ -90,7 +108,7 @@ impl Round for SignReady<ProjectivePoint> {
         };
 
         let next = PartialSign {
-            public_key: self.public_key,
+            public_key: ProjectivePoint::from(tweaked_pubkey),
             party_id: self.party_id,
             threshold: self.threshold,
             session_id: self.session_id,
