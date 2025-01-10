@@ -160,7 +160,7 @@ pub trait BaseP2PMessage {
     #[allow(clippy::wrong_self_convention)]
     fn from_party(&self) -> usize;
 
-    // Returns participant of the receiver
+    // Returns participant index of the receiver
     fn to_party(&self) -> usize;
 }
 
