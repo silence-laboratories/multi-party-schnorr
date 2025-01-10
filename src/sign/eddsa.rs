@@ -27,7 +27,7 @@ impl Round for SignReady<EdwardsPoint> {
         let digest = Sha512::new()
             .chain(self.big_r.to_bytes())
             .chain(big_a)
-            .chain(self.msg_hash);
+            .chain(&self.msg_payload);
 
         let e = Scalar::from_bytes_mod_order_wide(&digest.finalize().into());
         let s_i = self.k_i + self.d_i * e;
@@ -45,7 +45,7 @@ impl Round for SignReady<EdwardsPoint> {
             public_key: self.public_key,
             big_r: self.big_r,
             s_i,
-            msg_hash: self.msg_hash,
+            msg_payload: self.msg_payload,
             pid_list: self.pid_list,
         };
 
@@ -76,7 +76,7 @@ impl Round for PartialSign<EdwardsPoint> {
         let signature = ed25519_dalek::Signature::from_bytes(&sig_bytes);
 
         VerifyingKey::from(self.public_key)
-            .verify(&self.msg_hash, &signature)
+            .verify(&self.msg_payload, &signature)
             .map_err(|_| SignError::InvalidSignature)?;
 
         let sign_complete = SignComplete {
@@ -91,16 +91,15 @@ impl Round for PartialSign<EdwardsPoint> {
 
 #[cfg(test)]
 pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
-    use sha2::Sha256;
-
     use crate::{common::utils::run_round, sign::SignerParty};
     let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
-    let msg_hash = Sha256::digest(msg);
 
     let mut rng = rand::thread_rng();
     let parties = shares
         .iter()
-        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg_hash.into(), &mut rng))
+        .map(|keyshare| {
+            SignerParty::<_, EdwardsPoint>::new(keyshare.clone().into(), msg.into(), &mut rng)
+        })
         .collect::<Vec<_>>();
 
     // Pre-Signature phase

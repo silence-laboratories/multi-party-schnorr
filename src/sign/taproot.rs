@@ -96,7 +96,7 @@ impl Round for SignReady<ProjectivePoint> {
                 .chain_update(CHALLENGE_TAG_HASH)
                 .chain_update(big_r.x())
                 .chain_update(tweaked_big_p.x())
-                .chain_update(self.msg_hash)
+                .chain_update(&self.msg_payload)
                 .finalize(),
         );
 
@@ -115,7 +115,7 @@ impl Round for SignReady<ProjectivePoint> {
             session_id: self.session_id,
             big_r: self.big_r,
             s_i,
-            msg_hash: self.msg_hash,
+            msg_payload: self.msg_payload,
             pid_list: self.pid_list,
         };
 
@@ -162,7 +162,7 @@ impl Round for PartialSign<ProjectivePoint> {
         //     self.public_key + ProjectivePoint::GENERATOR * Scalar::from(self.pid_list.len() as u64);
         taproot_public_key(&tweaked_pubkey)
             .unwrap()
-            .verify_prehash(&self.msg_hash, &signature)
+            .verify_prehash(&self.msg_payload, &signature)
             .map_err(|_| SignError::InvalidSignature)?;
 
         let sign_complete = SignComplete {
@@ -187,12 +187,14 @@ impl Round for PartialSign<ProjectivePoint> {
 pub fn run_sign(shares: &[Keyshare<k256::ProjectivePoint>]) -> Signature {
     use crate::common::utils::run_round;
     let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
-    let hash = Sha256::digest(msg);
+    let hash: [u8; 32] = Sha256::digest(msg).into();
 
     let mut rng = rand::thread_rng();
     let parties = shares
         .iter()
-        .map(|keyshare| SignerParty::new(keyshare.clone().into(), hash.into(), &mut rng))
+        .map(|keyshare| {
+            SignerParty::<_, ProjectivePoint>::new(keyshare.clone().into(), hash, &mut rng)
+        })
         .collect::<Vec<_>>();
 
     // Pre-Signature phase

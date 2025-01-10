@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use crypto_bigint::subtle::ConstantTimeEq;
+use curve25519_dalek::EdwardsPoint;
 use elliptic_curve::{group::GroupEncoding, Group};
 
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
@@ -34,7 +35,9 @@ where
     G: Group + GroupEncoding,
 {
     pub party_id: u8,
-    pub msg_hash: [u8; 32],
+    ///  for ed25519 signing, message is a byte array
+    /// for taproot signing, message is a 32 byte hash
+    pub msg_payload: Vec<u8>,
     pub(crate) keyshare: Arc<Keyshare<G>>,
     pub(crate) rand_params: SignEntropy<G>,
     pub(crate) seed: [u8; 32],
@@ -73,7 +76,7 @@ pub struct SignReady<G: Group> {
     pub key_id: [u8; 32],
     pub(crate) k_i: G::Scalar,
     pub party_id: u8,
-    pub msg_hash: [u8; 32],
+    pub msg_payload: Vec<u8>,
 }
 /// State of Signer party after processing all SignMsg3 messages
 pub struct PartialSign<G: Group> {
@@ -83,20 +86,39 @@ pub struct PartialSign<G: Group> {
     pub(crate) big_r: G,
     pub public_key: G,
     pub(crate) s_i: G::Scalar,
-    pub(crate) msg_hash: [u8; 32],
+    pub(crate) msg_payload: Vec<u8>,
     pub(crate) pid_list: Vec<u8>,
 }
 
-impl<G: Group + GroupEncoding> SignerParty<R0, G> {
+impl SignerParty<R0, EdwardsPoint> {
     /// Create a new signer party with the given keyshare
     pub fn new<R: CryptoRng + RngCore>(
-        keyshare: Arc<Keyshare<G>>,
+        keyshare: Arc<Keyshare<EdwardsPoint>>,
+        message: Vec<u8>,
+        rng: &mut R,
+    ) -> Self {
+        Self {
+            party_id: keyshare.party_id(),
+            msg_payload: message,
+            keyshare,
+            rand_params: SignEntropy::generate(rng),
+            seed: rng.gen(),
+            state: R0,
+        }
+    }
+}
+
+#[cfg(any(feature = "taproot", test))]
+impl SignerParty<R0, k256::ProjectivePoint> {
+    /// Create a new signer party with the given keyshare
+    pub fn new<R: CryptoRng + RngCore>(
+        keyshare: Arc<Keyshare<k256::ProjectivePoint>>,
         msg_hash: [u8; 32],
         rng: &mut R,
     ) -> Self {
         Self {
             party_id: keyshare.party_id(),
-            msg_hash,
+            msg_payload: msg_hash.to_vec(),
             keyshare,
             rand_params: SignEntropy::generate(rng),
             seed: rng.gen(),
@@ -128,7 +150,7 @@ impl<G: Group + GroupEncoding> Round for SignerParty<R0, G> {
 
         let next_state = SignerParty {
             party_id: self.party_id,
-            msg_hash: self.msg_hash,
+            msg_payload: self.msg_payload,
             keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: R1 {
@@ -192,8 +214,11 @@ where
             return Err(SignError::InvalidParticipantSet);
         }
 
-        let final_sid =
-            calculate_final_session_id(party_ids.iter().copied(), &sid_list, Some(&self.msg_hash));
+        let final_sid = calculate_final_session_id(
+            party_ids.iter().copied(),
+            &sid_list,
+            Some(&self.msg_payload),
+        );
 
         use sha2::digest::Update;
         let dlog_sid = Sha256::new()
@@ -217,7 +242,7 @@ where
 
         let next = SignerParty {
             party_id: self.party_id,
-            msg_hash: self.msg_hash,
+            msg_payload: self.msg_payload,
             keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: R2 {
@@ -312,7 +337,7 @@ where
             session_id: self.state.final_session_id,
             k_i: self.rand_params.k_i,
             party_id: self.party_id,
-            msg_hash: self.msg_hash,
+            msg_payload: self.msg_payload,
         };
 
         Ok(next)

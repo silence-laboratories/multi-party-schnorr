@@ -76,7 +76,7 @@ use curve25519_dalek::EdwardsPoint;
 use multi_party_schnorr::common::utils::{run_keygen, run_round};
 use multi_party_schnorr::sign::SignerParty;
 use rand::seq::SliceRandom;
-use sha2::{Digest, Sha256};
+use std::sync::Arc;
 
 fn main() {
     const N: usize = 5;
@@ -95,11 +95,9 @@ fn main() {
         .collect();
 
     let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
-    // We expect the message to be hashed before signing.
-    let hash = Sha256::digest(msg);
     let parties = subset
-        .iter()
-        .map(|keyshare| SignerParty::new(keyshare.clone().into(), hash.into(), &mut rng))
+        .into_iter()
+        .map(|keyshare| SignerParty::<_, EdwardsPoint>::new(Arc::new(keyshare).clone(), msg.into(), &mut rng))
         .collect::<Vec<_>>();
 
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
