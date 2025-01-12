@@ -64,6 +64,12 @@ impl Round for SignReady<ProjectivePoint> {
     /// * `msg_hash` - 32 bytes hash of the message to sign. It must be the output of a secure hash function.
     fn process(self, _: ()) -> Self::Output {
         use elliptic_curve::point::AffineCoordinates;
+
+        if self.msg_payload.len() != 32 {
+            // TODO: remove this panic, handle this better
+            panic!("Message must be 32 bytes, remove this check later");
+        }
+
         let x_only_pubkey = taproot_public_key(&self.public_key).unwrap();
         let tweak: [u8; 32] = Sha256::new()
             .chain_update(TAP_TWEAK_HASH)
@@ -187,13 +193,13 @@ impl Round for PartialSign<ProjectivePoint> {
 pub fn run_sign(shares: &[Keyshare<k256::ProjectivePoint>]) -> Signature {
     use crate::common::utils::run_round;
     let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
-    let hash: [u8; 32] = Sha256::digest(msg).into();
+    let hash = Sha256::digest(msg);
 
     let mut rng = rand::thread_rng();
     let parties = shares
         .iter()
         .map(|keyshare| {
-            SignerParty::<_, ProjectivePoint>::new(keyshare.clone().into(), hash, &mut rng)
+            SignerParty::<_, ProjectivePoint>::new(keyshare.clone().into(), hash.to_vec(), &mut rng)
         })
         .collect::<Vec<_>>();
 
