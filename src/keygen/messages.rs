@@ -4,9 +4,9 @@ use crypto_bigint::subtle::ConstantTimeEq;
 use derivation_path::{ChildIndex, DerivationPath};
 use elliptic_curve::{group::GroupEncoding, Group};
 use hmac::{Hmac, Mac};
-use sl_mpc_mate::bip32::BIP32Error;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use sl_mpc_mate::bip32::BIP32Error;
 
 use crate::{
     common::{
@@ -229,6 +229,7 @@ where
             s_i_0,
             lost_keyshare_party_ids,
             expected_public_key: self.public_key,
+            root_chain_code: self.root_chain_code,
         }
     }
 }

@@ -8,10 +8,6 @@ use std::{str::FromStr, sync::Arc};
 use crypto_bigint::subtle::ConstantTimeEq;
 use elliptic_curve::{group::GroupEncoding, Group};
 
-use rand::{CryptoRng, Rng, RngCore, SeedableRng};
-use rand_chacha::ChaCha20Rng;
-use sha2::{Digest, Sha256};
-use derivation_path::DerivationPath;
 use crate::{
     common::{
         get_lagrange_coeff,
@@ -22,6 +18,10 @@ use crate::{
     keygen::Keyshare,
     sign::validate_input_messages,
 };
+use derivation_path::DerivationPath;
+use rand::{CryptoRng, Rng, RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
+use sha2::{Digest, Sha256};
 
 use super::{
     messages::{SignMsg1, SignMsg2},
@@ -36,7 +36,7 @@ where
     pub party_id: u8,
     pub message: Vec<u8>,
     pub derivation_path: DerivationPath,
-    
+
     pub(crate) keyshare: Arc<Keyshare<G>>,
     pub(crate) rand_params: SignEntropy<G>,
     pub(crate) seed: [u8; 32],
@@ -93,7 +93,7 @@ impl<G: Group + GroupEncoding> SignerParty<R0, G> {
     pub fn new<R: CryptoRng + RngCore>(
         keyshare: Arc<Keyshare<G>>,
         message: Vec<u8>,
-        derivation_path:&str,
+        derivation_path: &str,
         rng: &mut R,
     ) -> Self {
         Self {
@@ -132,7 +132,7 @@ impl<G: Group + GroupEncoding> Round for SignerParty<R0, G> {
         let next_state = SignerParty {
             party_id: self.party_id,
             message: self.message,
-            derivation_path:self.derivation_path,
+            derivation_path: self.derivation_path,
             keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: R1 {
@@ -222,7 +222,7 @@ where
         let next = SignerParty {
             party_id: self.party_id,
             message: self.message,
-            derivation_path:self.derivation_path,
+            derivation_path: self.derivation_path,
             keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: R2 {
