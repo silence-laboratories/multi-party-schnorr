@@ -9,8 +9,6 @@ use crypto_bigint::subtle::ConstantTimeEq;
 
 use elliptic_curve::{group::GroupEncoding, Group};
 
-use std::sync::Arc;
-
 use ff::PrimeField;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
@@ -42,7 +40,6 @@ where
     G: Group + GroupEncoding,
 {
     params: QCParams<G>,
-    old_keyshare: Arc<Keyshare<G>>,
     rand_params: QCEntropyOld<G>,
     state: T,
 }
@@ -53,7 +50,7 @@ where
     G: Group + GroupEncoding,
 {
     params: QCParams<G>,
-    old_keyshare: Arc<Keyshare<G>>,
+    party_id: u8,
     rand_params: QCEntropyOld<G>,
     state: T,
 }
@@ -146,7 +143,7 @@ where
         old_parties: Vec<usize>,
         new_parties: Vec<usize>,
         old_party_ids: Vec<(usize, u8)>,
-        old_keyshare: Arc<Keyshare<G>>,
+        old_keyshare: &Keyshare<G>,
         key_id: Option<[u8; 32]>,
         seed: [u8; 32],
         extra_data: Option<Vec<u8>>,
@@ -187,7 +184,6 @@ where
                 key_id,
                 extra_data,
             },
-            old_keyshare,
             rand_params,
             state: R0,
         })
@@ -215,7 +211,6 @@ impl<G: GroupElem> Round for QCPartyOld<R0, G> {
 
         let next_state = QCPartyOld {
             params: self.params,
-            old_keyshare: self.old_keyshare,
             rand_params: self.rand_params,
             state: R1Old {
                 big_p_i_poly,
@@ -337,7 +332,6 @@ where
 
         let next_state = QCPartyOld {
             params: self.params,
-            old_keyshare: self.old_keyshare,
             rand_params: self.rand_params,
             state: R2Old {
                 sid_i_list,
@@ -434,7 +428,7 @@ where
         old_parties: Vec<usize>,
         new_parties: Vec<usize>,
         old_party_ids: Vec<(usize, u8)>,
-        old_keyshare: Arc<Keyshare<G>>,
+        old_keyshare: &Keyshare<G>,
         key_id: Option<[u8; 32]>,
         seed: [u8; 32],
         extra_data: Option<Vec<u8>>,
@@ -472,7 +466,7 @@ where
                 key_id,
                 extra_data,
             },
-            old_keyshare,
+            party_id: old_keyshare.party_id,
             rand_params,
             state: R0,
         })
@@ -500,7 +494,7 @@ impl<G: GroupElem> Round for QCPartyOldToNew<R0, G> {
 
         let next_state = QCPartyOldToNew {
             params: self.params,
-            old_keyshare: self.old_keyshare,
+            party_id: self.party_id,
             rand_params: self.rand_params,
             state: R1Old {
                 big_p_i_poly,
@@ -562,7 +556,7 @@ where
 
         // For old to new party
         let mut p_i_list: Pairs<G::Scalar, u8> = Pairs::new();
-        let my_old_party_id = self.old_keyshare.party_id;
+        let my_old_party_id = self.party_id;
         let my_new_party_id =
             new_party_id(&self.params.new_parties, self.params.party_index).unwrap();
         let x_i = new_x_i_list[my_new_party_id as usize];
@@ -604,7 +598,7 @@ where
 
         let next_state = QCPartyOldToNew {
             params: self.params,
-            old_keyshare: self.old_keyshare,
+            party_id: self.party_id,
             rand_params: self.rand_params,
             state: R2OldToNew {
                 final_session_id,
@@ -691,7 +685,7 @@ where
 
         let next_state = QCPartyOldToNew {
             params: self.params,
-            old_keyshare: self.old_keyshare,
+            party_id: self.party_id,
             rand_params: self.rand_params,
             state: R3OldToNew {
                 final_session_id: self.state.final_session_id,
@@ -731,7 +725,7 @@ where
         broadcast_msgs_2.sort_by_key(|msg| msg.from_party);
 
         let mut p_i_list = self.state.p_i_list;
-        let mut root_chain_code_list = Pairs::new_with_item(self.old_keyshare.party_id, [0u8; 32]);
+        let mut root_chain_code_list = Pairs::new_with_item(self.party_id, [0u8; 32]);
 
         for p2p_msg2 in &p2p_messages {
             if p2p_msg2.to_party as usize != self.params.party_index {
@@ -1282,7 +1276,6 @@ mod test {
     use curve25519_dalek::EdwardsPoint;
     use k256::ProjectivePoint;
     use rand::Rng;
-    use std::sync::Arc;
 
     #[test]
     fn quorum_change_all_new() {
@@ -1306,7 +1299,7 @@ mod test {
             old_parties.clone(),
             new_parties.clone(),
             old_party_ids.clone(),
-            Arc::new(old_keyshare_p0),
+            &old_keyshare_p0,
             None,
             rng.gen(),
             None,
@@ -1320,7 +1313,7 @@ mod test {
             old_parties.clone(),
             new_parties.clone(),
             old_party_ids.clone(),
-            Arc::new(old_keyshare_p1),
+            &old_keyshare_p1,
             None,
             rng.gen(),
             None,
@@ -1513,7 +1506,7 @@ mod test {
             old_parties.clone(),
             new_parties.clone(),
             old_party_ids.clone(),
-            Arc::new(old_keyshare_p1),
+            &old_keyshare_p1,
             None,
             rng.gen(),
             None,
@@ -1527,7 +1520,7 @@ mod test {
             old_parties.clone(),
             new_parties.clone(),
             old_party_ids.clone(),
-            Arc::new(old_keyshare_p0),
+            &old_keyshare_p0,
             None,
             rng.gen(),
             None,
@@ -1677,7 +1670,7 @@ mod test {
             old_parties.clone(),
             new_parties.clone(),
             old_party_ids.clone(),
-            Arc::new(old_keyshare_p0),
+            &old_keyshare_p0,
             None,
             rng.gen(),
             None,
@@ -1691,7 +1684,7 @@ mod test {
             old_parties.clone(),
             new_parties.clone(),
             old_party_ids.clone(),
-            Arc::new(old_keyshare_p1),
+            &old_keyshare_p1,
             None,
             rng.gen(),
             None,
@@ -1705,7 +1698,7 @@ mod test {
             old_parties.clone(),
             new_parties.clone(),
             old_party_ids.clone(),
-            Arc::new(old_keyshare_p2),
+            &old_keyshare_p2,
             None,
             rng.gen(),
             None,
@@ -1719,7 +1712,7 @@ mod test {
             old_parties.clone(),
             new_parties.clone(),
             old_party_ids.clone(),
-            Arc::new(old_keyshare_p3),
+            &old_keyshare_p3,
             None,
             rng.gen(),
             None,
