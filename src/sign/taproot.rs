@@ -1,4 +1,6 @@
+use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::ops::Reduce;
+
 use k256::{schnorr::Signature, ProjectivePoint, Scalar, U256};
 use signature::hazmat::PrehashVerifier;
 
@@ -166,6 +168,12 @@ impl Round for PartialSign<ProjectivePoint> {
         let tweaked_pubkey = self.public_key + ProjectivePoint::GENERATOR * tweak_scalar;
         // let test_tweak =
         //     self.public_key + ProjectivePoint::GENERATOR * Scalar::from(self.pid_list.len() as u64);
+        //
+        //
+        tracing::info!(
+            "Verifying signature with tweaked pubkey: {}",
+            hex::encode(tweaked_pubkey.to_bytes())
+        );
         taproot_public_key(&tweaked_pubkey)
             .unwrap()
             .verify_prehash(&self.msg_payload, &signature)
