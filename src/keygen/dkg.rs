@@ -1,8 +1,9 @@
 use crypto_bigint::subtle::ConstantTimeEq;
 use crypto_box::{PublicKey, SecretKey};
 use elliptic_curve::{group::GroupEncoding, Group};
+use std::ops::Neg;
 
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 
 use ff::{Field, PrimeField};
 use rand::{Rng, SeedableRng};
@@ -408,7 +409,7 @@ where
             .collect::<Result<Vec<_>, KeygenError>>()?;
 
         // 12.6(c)
-        let d_i_share = d_i_vals.iter().sum();
+        let d_i_share: G::Scalar = d_i_vals.iter().sum();
 
         let empty_poly = (0..self.params.t).map(|_| G::identity()).collect();
 
@@ -470,6 +471,24 @@ where
             sha2::Sha256::digest(public_key.to_bytes()).into()
         };
 
+        #[cfg(any(feature = "taproot", test))]
+        let (public_key, d_i_share) = match std::any::type_name::<G>() {
+            // If the type is ProjectivePoint, then we are using Taproot
+            // We return the tweaked public key
+            "k256::arithmetic::projective::ProjectivePoint" => {
+                use elliptic_curve::point::AffineCoordinates;
+                let taproot_pubkey = (&public_key as &dyn Any)
+                    .downcast_ref::<k256::ProjectivePoint>()
+                    .unwrap();
+                if taproot_pubkey.to_affine().y_is_odd().unwrap_u8() == 1 {
+                    (public_key.neg(), d_i_share.neg())
+                } else {
+                    (public_key, d_i_share)
+                }
+            }
+            // Otherwise, we return the compressed public key
+            _ => (public_key, d_i_share),
+        };
         let keyshare = Keyshare {
             threshold: self.params.t,
             total_parties: self.params.n,
