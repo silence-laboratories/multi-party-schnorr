@@ -219,7 +219,7 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
                     d_i,
                     &mut rng,
                 )
-                .ok_or(KeygenError::EncryptionError)?;
+                    .ok_or(KeygenError::EncryptionError)?;
 
                 Ok(enc_data)
             })
@@ -270,7 +270,7 @@ where
         let n = self.params.n as usize;
         // We pass None for expected_sid because we don't know the final session id yet.
         // We don't expect the session-ids to be equal for all messages in this round.
-        let messages = validate_input_messages(messages, self.params.t, None)?;
+        let messages = validate_input_messages(messages, self.params.n, None)?;
         let mut sid_i_list = Vec::with_capacity(n);
         let mut commitment_list = Vec::with_capacity(n);
         let mut party_id_list = Vec::with_capacity(n);
@@ -348,7 +348,7 @@ where
 
     fn process(self, messages: Self::Input) -> Self::Output {
         let messages =
-            validate_input_messages(messages, self.params.t, Some(self.state.final_session_id))?;
+            validate_input_messages(messages, self.params.n, Some(self.state.final_session_id))?;
 
         messages.par_iter().try_for_each(|msg| {
             // 12.6(b)-i Verify commitments.
@@ -506,10 +506,10 @@ fn hash_commitment<G: GroupElem>(
 
 fn validate_input_messages<M: BaseMessage>(
     mut messages: Vec<M>,
-    t: u8,
+    n: u8,
     expected_sid: Option<SessionId>,
 ) -> Result<Vec<M>, KeygenError> {
-    if messages.len() < t as usize {
+    if messages.len() != n as usize {
         return Err(KeygenError::InvalidMsgCount);
     }
 
