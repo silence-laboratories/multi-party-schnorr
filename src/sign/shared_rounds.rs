@@ -19,6 +19,7 @@ use crate::{
     sign::validate_input_messages,
 };
 use derivation_path::DerivationPath;
+use ff::Field;
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256};
@@ -252,7 +253,7 @@ where
         let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
 
         let mut big_r_i = self.state.big_r_i;
-
+        let mut participants: u32 = 2;
         for (idx, msg) in msgs.iter().enumerate() {
             if msg.from_party == self.keyshare.party_id() {
                 continue;
@@ -283,8 +284,8 @@ where
                 &msg.blind_factor,
                 &commitment,
             )
-            .then_some(())
-            .ok_or(SignError::InvalidCommitment(msg.from_party))?;
+                .then_some(())
+                .ok_or(SignError::InvalidCommitment(msg.from_party))?;
 
             let mut h = Sha256::new();
             h.update(b"SL-EDDSA-SIGN");
@@ -300,12 +301,21 @@ where
                 .ok_or(SignError::InvalidDLogProof(msg.from_party))?;
 
             big_r_i += msg_big_r_i;
+            participants = (idx + 1) as u32;
         }
 
         // FIXME: do we need copied?
         let coeff = get_lagrange_coeff::<G>(&self.party_id, self.state.pid_list.iter().copied());
 
         let d_i = coeff * self.keyshare.shamir_share();
+
+        let (additive_offset, derived_public_key) =
+            self.keyshare.derive_with_offset(&self.derivation_path).unwrap(); // FIXME: report error
+        let threshold_inv = <G as Group>::Scalar::from(participants as u64).invert().unwrap(); // threshold > 0 so it has an invert
+        let additive_offset = additive_offset * threshold_inv;
+
+        let d_i = d_i + additive_offset;
+        // let pk_i = G::Scalar:: * d_i;
 
         let next = SignReady {
             key_id: self.keyshare.key_id,
