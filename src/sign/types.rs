@@ -29,7 +29,6 @@ pub enum SignError {
     #[error("Invalid party ids on messages list")]
     /// Invalid party ids on messages list
     InvalidParticipantSet,
-
     /// Party key not found
     #[error("Party key not found")]
     PartyKeyNotFound,
@@ -42,6 +41,9 @@ pub enum SignError {
     /// Received duplicate party id
     #[error("Received duplicate party id")]
     DuplicatePartyId,
+    /// Received duplicate session id
+    #[error("Received duplicate session id")]
+    DuplicateSessionId,
     /// Invalid party ids
     #[error("Invalid party ids")]
     InvalidMsgPartyId,
@@ -82,4 +84,6 @@ pub enum SignError {
 
     #[error("Invalid signature")]
     InvalidSignature,
+    #[error("Invalid threshold")]
+    InvalidThreshold,
 }

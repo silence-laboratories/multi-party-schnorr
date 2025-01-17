@@ -176,8 +176,13 @@ macro_rules! impl_basemessage {
 pub fn calculate_final_session_id(
     party_ids: impl Iterator<Item = u8>,
     sid_i_list: &[SessionId],
+    msg: Option<&[u8]>,
 ) -> SessionId {
     let mut hasher = Sha256::new();
+
+    if let Some(x) = msg {
+        hasher.update(x);
+    }
 
     party_ids.for_each(|pid| hasher.update((pid as u32).to_be_bytes()));
     sid_i_list.iter().for_each(|sid| hasher.update(sid));

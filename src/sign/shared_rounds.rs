@@ -1,9 +1,7 @@
-//! This module contains the implementation of the Pre Sign protocol.
-//! Pre Sign can be computed without using the message, therefore it can be pre computed.
-//!
-//! The code for Pre Sign is generic over the elliptic curve group.
+//! This module contains the shared round logic (first 2 rounds) for all signing protocols.
+//! The logic is generic over the elliptic curve group.
 //! Since the final signing is done differently for different schemes, that part is not generic and
-//! is implemented as specific modules.
+//! is implemented as specific modules. (e.g `taproot.rs` and `eddsa.rs`)
 //!
 use std::sync::Arc;
 
@@ -36,6 +34,7 @@ where
     G: Group + GroupEncoding,
 {
     pub party_id: u8,
+    pub message: Vec<u8>,
     pub(crate) keyshare: Arc<Keyshare<G>>,
     pub(crate) rand_params: SignEntropy<G>,
     pub(crate) seed: [u8; 32],
@@ -48,6 +47,7 @@ pub struct R0;
 /// Round 1 state of Signer party
 pub struct R1<G> {
     big_r_i: G,
+    commitment_r_i: [u8; 32],
 }
 
 /// Round 2 state of Signer party
@@ -88,9 +88,14 @@ pub struct PartialSign<G: Group> {
 
 impl<G: Group + GroupEncoding> SignerParty<R0, G> {
     /// Create a new signer party with the given keyshare
-    pub fn new<R: CryptoRng + RngCore>(keyshare: Arc<Keyshare<G>>, rng: &mut R) -> Self {
+    pub fn new<R: CryptoRng + RngCore>(
+        keyshare: Arc<Keyshare<G>>,
+        message: Vec<u8>,
+        rng: &mut R,
+    ) -> Self {
         Self {
             party_id: keyshare.party_id(),
+            message,
             keyshare,
             rand_params: SignEntropy::generate(rng),
             seed: rng.gen(),
@@ -122,9 +127,13 @@ impl<G: Group + GroupEncoding> Round for SignerParty<R0, G> {
 
         let next_state = SignerParty {
             party_id: self.party_id,
+            message: self.message,
             keyshare: self.keyshare,
             rand_params: self.rand_params,
-            state: R1 { big_r_i },
+            state: R1 {
+                big_r_i,
+                commitment_r_i,
+            },
             seed: self.seed,
         };
 
@@ -148,17 +157,30 @@ where
 
         msgs.sort_by_key(|m| m.from_party);
 
-        for msg in msgs {
+        for msg in &msgs {
             commitment_list.push(msg.commitment_r_i);
             sid_list.push(msg.session_id);
             party_ids.push(msg.from_party);
+        }
+
+        //check if the input commitments match
+        msgs.iter()
+            .any(|msg| {
+                msg.from_party == self.party_id && msg.commitment_r_i == self.state.commitment_r_i
+            })
+            .then_some(())
+            .ok_or(SignError::InvalidParticipantSet)?;
+
+        //check sids are included
+        if !sid_list.contains(&self.rand_params.session_id) {
+            return Err(SignError::InvalidParticipantSet);
         }
 
         // Check for duplicate party ids
         let num_parties = party_ids.len();
         party_ids.dedup();
 
-        if party_ids.len() != num_parties {
+        if party_ids.len() != num_parties || !party_ids.contains(&self.party_id) {
             return Err(SignError::InvalidParticipantSet);
         }
 
@@ -169,7 +191,8 @@ where
             return Err(SignError::InvalidParticipantSet);
         }
 
-        let final_sid = calculate_final_session_id(party_ids.iter().copied(), &sid_list);
+        let final_sid =
+            calculate_final_session_id(party_ids.iter().copied(), &sid_list, Some(&self.message));
 
         use sha2::digest::Update;
         let dlog_sid = Sha256::new()
@@ -193,6 +216,7 @@ where
 
         let next = SignerParty {
             party_id: self.party_id,
+            message: self.message,
             keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: R2 {
