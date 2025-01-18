@@ -19,7 +19,7 @@ use crate::{
     sign::validate_input_messages,
 };
 use derivation_path::DerivationPath;
-use ff::{Field, PrimeField};
+use ff::Field;
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256};
@@ -76,7 +76,6 @@ pub struct SignReady<G: Group> {
     pub key_id: [u8; 32],
     pub(crate) k_i: G::Scalar,
     pub party_id: u8,
-
 }
 /// State of Signer party after processing all SignMsg3 messages
 pub struct PartialSign<G: Group> {
@@ -88,7 +87,6 @@ pub struct PartialSign<G: Group> {
     pub(crate) s_i: G::Scalar,
     pub(crate) msg_to_sign: Vec<u8>,
     pub(crate) pid_list: Vec<u8>,
-
 }
 
 impl<G: Group + GroupEncoding> SignerParty<R0, G> {
@@ -254,6 +252,7 @@ where
     fn process(self, msgs: Self::Input) -> Self::Output {
         let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
 
+        println!("{:?}", self.keyshare.public_key);
         let mut big_r_i = self.state.big_r_i;
         let mut participants: u32 = 0;
         for (idx, msg) in msgs.iter().enumerate() {
@@ -286,8 +285,8 @@ where
                 &msg.blind_factor,
                 &commitment,
             )
-                .then_some(())
-                .ok_or(SignError::InvalidCommitment(msg.from_party))?;
+            .then_some(())
+            .ok_or(SignError::InvalidCommitment(msg.from_party))?;
 
             let mut h = Sha256::new();
             h.update(b"SL-EDDSA-SIGN");
@@ -303,22 +302,26 @@ where
                 .ok_or(SignError::InvalidDLogProof(msg.from_party))?;
 
             big_r_i += msg_big_r_i;
-            participants += 1 as u32;
+            participants += 1_u32;
         }
-        participants += 1 as u32;
+        //total participants= |message I received| + 1
+        participants += 1_u32;
         // FIXME: do we need copied?
         let coeff = get_lagrange_coeff::<G>(&self.party_id, self.state.pid_list.iter().copied());
 
         let d_i = coeff * self.keyshare.shamir_share();
 
-        let (additive_offset, derived_public_key) =
-            self.keyshare.derive_with_offset(&self.derivation_path).unwrap(); // FIXME: report error
-        println!("{:?}", participants);
-        let threshold_inv = <G as Group>::Scalar::from(participants as u64).invert().unwrap(); // threshold > 0 so it has an invert
+        let (additive_offset, derived_public_key) = self
+            .keyshare
+            .derive_with_offset(&self.derivation_path)
+            .unwrap(); // FIXME: report error
+        let threshold_inv = <G as Group>::Scalar::from(participants as u64)
+            .invert()
+            .unwrap(); // threshold > 0 so it has an invert
         let additive_offset = additive_offset * threshold_inv;
 
+        //tweak the secret key share by the computed additive offset
         let d_i = d_i + additive_offset;
-        let pk_i = G::generator() * d_i;
 
         let next = SignReady {
             key_id: self.keyshare.key_id,
@@ -326,7 +329,7 @@ where
             big_r: big_r_i,
             d_i,
             pid_list: self.state.pid_list,
-            public_key: derived_public_key,
+            public_key: derived_public_key, //replase the public key for that signature with the tweaked public key
             session_id: self.state.final_session_id,
             k_i: self.rand_params.k_i,
             party_id: self.party_id,

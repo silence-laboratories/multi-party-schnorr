@@ -62,7 +62,6 @@ impl Round for PartialSign<EdwardsPoint> {
             if msg.from_party == self.party_id {
                 continue;
             }
-
             s += msg.s_i;
         }
 
@@ -71,6 +70,7 @@ impl Round for PartialSign<EdwardsPoint> {
         sig_bytes[32..].copy_from_slice(&s.to_bytes());
         let signature = ed25519_dalek::Signature::from_bytes(&sig_bytes);
 
+        println!("{:?}", self.public_key);
         VerifyingKey::from(self.public_key)
             .verify(&self.msg_to_sign, &signature)
             .map_err(|_| SignError::InvalidSignature)?;
@@ -93,7 +93,7 @@ pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
     let mut rng = rand::thread_rng();
     let parties = shares
         .iter()
-        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg.into(), "m/2", &mut rng))
+        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg.into(), "m/0", &mut rng))
         .collect::<Vec<_>>();
 
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();

@@ -3,6 +3,7 @@ use std::hash::Hash;
 use crypto_bigint::subtle::ConstantTimeEq;
 use derivation_path::{ChildIndex, DerivationPath};
 use elliptic_curve::{group::GroupEncoding, Group};
+use ff::Field;
 use hmac::{Hmac, Mac};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -137,10 +138,9 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
     where
         <G as Group>::Scalar: ScalarReduce<[u8; 32]>,
     {
-        let zero: &[u8; 32] = b"00000000000000000000000000000000";
         let mut pubkey = *self.public_key();
         let mut chain_code = self.root_chain_code();
-        let mut additive_offset = G::Scalar::reduce_from_bytes(zero);
+        let mut additive_offset = G::Scalar::ZERO;
         for child_num in chain_path {
             let (il_int, child_pubkey, child_chain_code) =
                 self.derive_child_pubkey(&pubkey, chain_code, child_num)?;
