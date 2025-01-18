@@ -154,6 +154,16 @@ pub trait BaseMessage {
     fn party_id(&self) -> u8;
 }
 
+/// Common trait for all MPC P2P messages.
+pub trait BaseP2PMessage {
+    // Returns participant index of the sender
+    #[allow(clippy::wrong_self_convention)]
+    fn from_party(&self) -> usize;
+
+    // Returns participant index of the receiver
+    fn to_party(&self) -> usize;
+}
+
 #[macro_export]
 /// Macro to implement the BaseMessage trait for a message type.
 macro_rules! impl_basemessage {
