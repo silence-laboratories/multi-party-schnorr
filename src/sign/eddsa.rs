@@ -20,7 +20,6 @@ impl Round for SignReady<EdwardsPoint> {
     /// * `msg_to_sign` - The message to sign in bytes
     fn process(self, msg_to_sign: Self::Input) -> Self::Output {
         let big_a = self.public_key.to_bytes();
-
         use sha2::digest::Update;
         let digest = Sha512::new()
             .chain(self.big_r.to_bytes())
@@ -59,7 +58,6 @@ impl Round for PartialSign<EdwardsPoint> {
     fn process(self, messages: Self::Input) -> Self::Output {
         let messages = validate_input_messages(messages, &self.pid_list)?;
         let mut s = self.s_i;
-
         for msg in messages {
             if msg.from_party == self.party_id {
                 continue;
@@ -95,7 +93,7 @@ pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
     let mut rng = rand::thread_rng();
     let parties = shares
         .iter()
-        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg.into(), "m", &mut rng))
+        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg.into(), "m/2", &mut rng))
         .collect::<Vec<_>>();
 
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
