@@ -219,7 +219,7 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
                     d_i,
                     &mut rng,
                 )
-                .ok_or(KeygenError::EncryptionError)?;
+                    .ok_or(KeygenError::EncryptionError)?;
 
                 Ok(enc_data)
             })
@@ -291,7 +291,8 @@ where
             party_id_list.push(party_pubkey_idx);
         }
 
-        let final_sid = calculate_final_session_id(party_id_list.iter().copied(), &sid_i_list);
+        let final_sid =
+            calculate_final_session_id(party_id_list.iter().copied(), &sid_i_list, None);
 
         // 12.4(b)
         let mut rng = ChaCha20Rng::from_seed(self.seed);
