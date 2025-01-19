@@ -10,6 +10,7 @@ pub mod sign;
 
 /// Common utility functions and types
 pub mod common;
+pub mod derive;
 
 pub const VERSION: u16 = 1;
 
