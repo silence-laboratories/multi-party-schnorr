@@ -7,6 +7,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use thiserror::Error;
 
+#[allow(dead_code)]
 #[derive(Error, Debug)]
 pub enum DeriveError {
     #[error("Invalid party ids on messages list")]
@@ -22,6 +23,7 @@ where
 }
 impl<G: Group + GroupEncoding> DeriveParty<G> {
     /// Create a new derivation party with the given keyshare
+    #[allow(dead_code)]
     pub fn new(keyshare: Arc<Keyshare<G>>, derivation_path: &str) -> Self {
         Self {
             keyshare,
