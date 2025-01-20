@@ -221,7 +221,7 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
                     d_i,
                     &mut rng,
                 )
-                    .ok_or(KeygenError::EncryptionError)?;
+                .ok_or(KeygenError::EncryptionError)?;
 
                 Ok(enc_data)
             })
@@ -304,7 +304,6 @@ where
             .fold(Sha256::new(), |hash, chain_id| hash.chain_update(chain_id))
             .finalize()
             .into();
-
 
         // 12.4(b)
         let mut rng = ChaCha20Rng::from_seed(self.seed);

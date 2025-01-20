@@ -183,6 +183,7 @@ where
                 public_key: old_keyshare.public_key,
                 key_id,
                 extra_data,
+                root_chain_code: old_keyshare.root_chain_code,
             },
             rand_params,
             state: R0,
@@ -465,6 +466,7 @@ where
                 public_key: old_keyshare.public_key,
                 key_id,
                 extra_data,
+                root_chain_code: old_keyshare.root_chain_code,
             },
             party_id: old_keyshare.party_id,
             rand_params,
@@ -867,6 +869,7 @@ where
             d_i: p_i,
             public_key,
             extra_data: self.params.extra_data,
+            root_chain_code: self.params.root_chain_code,
         };
         Ok(keyshare)
     }
@@ -889,6 +892,7 @@ where
         key_id: Option<[u8; 32]>,
         seed: [u8; 32],
         extra_data: Option<Vec<u8>>,
+        root_chain_code: [u8; 32],
     ) -> Result<Self, QCError> {
         let mut old_party_id_pairs = Pairs::new();
         for (party_index, party_id) in old_party_ids {
@@ -916,6 +920,7 @@ where
                 public_key: expected_public_key,
                 key_id,
                 extra_data,
+                root_chain_code,
             },
             rand_params,
             state: R0,
@@ -1211,6 +1216,7 @@ where
             d_i: p_i,
             public_key,
             extra_data: self.params.extra_data,
+            root_chain_code: self.params.root_chain_code,
         };
         Ok(keyshare)
     }
@@ -1283,6 +1289,7 @@ mod test {
 
         let [old_keyshare_p0, old_keyshare_p1] = run_keygen::<2, 2, EdwardsPoint>();
         let expected_public_key = old_keyshare_p0.public_key;
+        let root_chain_code = old_keyshare_p0.root_chain_code;
 
         // test for unordered case
         let total_parties = 5;
@@ -1331,6 +1338,7 @@ mod test {
             None,
             rng.gen(),
             None,
+            root_chain_code,
         )
         .unwrap();
 
@@ -1345,6 +1353,7 @@ mod test {
             None,
             rng.gen(),
             None,
+            root_chain_code,
         )
         .unwrap();
 
@@ -1359,6 +1368,7 @@ mod test {
             None,
             rng.gen(),
             None,
+            root_chain_code,
         )
         .unwrap();
 
@@ -1490,7 +1500,7 @@ mod test {
 
         let [old_keyshare_p0, old_keyshare_p1] = run_keygen::<2, 2, EdwardsPoint>();
         let expected_public_key = old_keyshare_p0.public_key;
-
+        let root_chain_code = old_keyshare_p0.root_chain_code;
         // test for unordered case
         let total_parties = 3;
         let new_t = 2;
@@ -1538,6 +1548,7 @@ mod test {
             None,
             rng.gen(),
             None,
+            root_chain_code,
         )
         .unwrap();
 

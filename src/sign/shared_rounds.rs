@@ -4,15 +4,6 @@
 //! is implemented as specific modules. (e.g `taproot.rs` and `eddsa.rs`)
 //!
 use std::{str::FromStr, sync::Arc};
-use std::sync::Arc;
-
-use crypto_bigint::subtle::ConstantTimeEq;
-use elliptic_curve::{group::GroupEncoding, Group};
-
-
-use rand::{CryptoRng, Rng, RngCore, SeedableRng};
-use rand_chacha::ChaCha20Rng;
-use sha2::{Digest, Sha256};
 
 use crate::{
     common::{
@@ -24,12 +15,13 @@ use crate::{
     keygen::Keyshare,
     sign::validate_input_messages,
 };
+use crypto_bigint::subtle::ConstantTimeEq;
 use derivation_path::DerivationPath;
+use elliptic_curve::{group::GroupEncoding, Group};
 use ff::Field;
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256};
-
 
 use super::{
     messages::{SignMsg1, SignMsg2},
@@ -228,7 +220,8 @@ where
 
         let next = SignerParty {
             party_id: self.party_id,
-            message: self.message,            derivation_path: self.derivation_path,
+            message: self.message,
+            derivation_path: self.derivation_path,
             keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: R2 {
