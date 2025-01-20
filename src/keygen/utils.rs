@@ -153,6 +153,7 @@ where
         root_chain_code,
         &mut rng,
     );
+
     let parties = setup_refresh(shares.unwrap(), &mut rng).unwrap();
 
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();

@@ -4,9 +4,15 @@
 //! is implemented as specific modules. (e.g `taproot.rs` and `eddsa.rs`)
 //!
 use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use crypto_bigint::subtle::ConstantTimeEq;
 use elliptic_curve::{group::GroupEncoding, Group};
+
+
+use rand::{CryptoRng, Rng, RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
+use sha2::{Digest, Sha256};
 
 use crate::{
     common::{
@@ -24,6 +30,7 @@ use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256};
 
+
 use super::{
     messages::{SignMsg1, SignMsg2},
     types::{SignEntropy, SignError},
@@ -37,7 +44,6 @@ where
     pub party_id: u8,
     pub message: Vec<u8>,
     pub derivation_path: DerivationPath,
-
     pub(crate) keyshare: Arc<Keyshare<G>>,
     pub(crate) rand_params: SignEntropy<G>,
     pub(crate) seed: [u8; 32],
@@ -222,8 +228,7 @@ where
 
         let next = SignerParty {
             party_id: self.party_id,
-            message: self.message,
-            derivation_path: self.derivation_path,
+            message: self.message,            derivation_path: self.derivation_path,
             keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: R2 {
@@ -255,6 +260,7 @@ where
         println!("{:?}", self.keyshare.public_key);
         let mut big_r_i = self.state.big_r_i;
         let mut participants: u32 = 0;
+
         for (idx, msg) in msgs.iter().enumerate() {
             if msg.from_party == self.keyshare.party_id() {
                 continue;
@@ -306,6 +312,7 @@ where
         }
         //total participants= |message I received| + 1
         participants += 1_u32;
+
         // FIXME: do we need copied?
         let coeff = get_lagrange_coeff::<G>(&self.party_id, self.state.pid_list.iter().copied());
 
