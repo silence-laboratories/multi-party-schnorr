@@ -24,6 +24,24 @@ pub fn get_lagrange_coeff<G: Group>(
     coeff
 }
 
+/// Split the private keys into shamir shares
+pub fn shamir_split_private_key<G: Group, R: CryptoRng + RngCore>(
+    private_key: &G::Scalar,
+    t: u8,
+    n: u8,
+    rng: &mut R,
+) -> Result<Vec<G::Scalar>, SignError> {
+    if t < 2 || t > n {
+        return Err(SignError::InvalidThreshold);
+    }
+    let mut poly: Polynomial<G> = Polynomial::random(rng, (t - 1) as usize);
+    poly.set_constant(*private_key);
+    let res = (0..n)
+        .map(|pid| poly.evaluate_at(&G::Scalar::from((pid + 1) as u64)))
+        .collect();
+    Ok(res)
+}
+
 pub fn schnorr_split_private_key<G: Group, R: CryptoRng + RngCore>(
     private_key: &G::Scalar,
     t: u8,
