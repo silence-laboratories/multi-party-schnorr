@@ -42,19 +42,11 @@ where
     type Input = ();
 
     fn process(self, _: ()) -> Self::Output {
-        // let coeff = get_lagrange_coeff::<G>(&self.party_id, pid_list);
-        // let d_i = coeff * self.keyshare.shamir_share();
-
         let (_additive_offset, derived_public_key) = self
             .keyshare
             .derive_with_offset(&self.derivation_path)
             .unwrap(); // FIXME: report error
-                       // let threshold_inv = <G as Group>::Scalar::from(self.keyshare.total_parties as u64)
-                       //     .invert()
-                       //     .unwrap(); // threshold > 0 so it has an invert
-                       //                // let additive_offset = additive_offset * threshold_inv;
-                       //                //tweak the secret key share by the computed additive offset
-                       //                // let d_i = d_i + additive_offset;
+
         Ok(derived_public_key)
     }
 }

@@ -303,7 +303,7 @@ where
             big_r_i += msg_big_r_i;
             participants += 1_u32;
         }
-        //total participants= |message I received| + 1
+        //total participants = |message I received| + 1
         participants += 1_u32;
 
         // FIXME: do we need copied?
