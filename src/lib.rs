@@ -10,6 +10,7 @@ pub mod sign;
 
 /// Common utility functions and types
 pub mod common;
+pub mod derive;
 pub mod quorum_change;
 
 pub const VERSION: u16 = 1;

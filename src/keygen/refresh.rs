@@ -24,6 +24,7 @@ where
 
     /// expected public key for key_refresh
     pub expected_public_key: G,
+    pub root_chain_code: [u8; 32],
 }
 
 impl<G> KeyRefreshData<G>
@@ -37,6 +38,7 @@ where
         party_id: u8,
         threshold: u8,
         total_parties: u8,
+        root_chain_code: [u8; 32],
     ) -> Self {
         KeyRefreshData {
             threshold,
@@ -45,6 +47,7 @@ where
             s_i_0: <G::Scalar as Field>::ZERO,
             lost_keyshare_party_ids,
             expected_public_key,
+            root_chain_code,
         }
     }
 

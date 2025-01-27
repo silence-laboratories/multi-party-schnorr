@@ -3,14 +3,7 @@
 //! Since the final signing is done differently for different schemes, that part is not generic and
 //! is implemented as specific modules. (e.g `taproot.rs` and `eddsa.rs`)
 //!
-use std::sync::Arc;
-
-use crypto_bigint::subtle::ConstantTimeEq;
-use elliptic_curve::{group::GroupEncoding, Group};
-
-use rand::{CryptoRng, Rng, RngCore, SeedableRng};
-use rand_chacha::ChaCha20Rng;
-use sha2::{Digest, Sha256};
+use std::{str::FromStr, sync::Arc};
 
 use crate::{
     common::{
@@ -22,6 +15,13 @@ use crate::{
     keygen::Keyshare,
     sign::validate_input_messages,
 };
+use crypto_bigint::subtle::ConstantTimeEq;
+use derivation_path::DerivationPath;
+use elliptic_curve::{group::GroupEncoding, Group};
+use ff::Field;
+use rand::{CryptoRng, Rng, RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
+use sha2::{Digest, Sha256};
 
 use super::{
     messages::{SignMsg1, SignMsg2},
@@ -35,6 +35,7 @@ where
 {
     pub party_id: u8,
     pub message: Vec<u8>,
+    pub derivation_path: DerivationPath,
     pub(crate) keyshare: Arc<Keyshare<G>>,
     pub(crate) rand_params: SignEntropy<G>,
     pub(crate) seed: [u8; 32],
@@ -91,12 +92,14 @@ impl<G: Group + GroupEncoding> SignerParty<R0, G> {
     pub fn new<R: CryptoRng + RngCore>(
         keyshare: Arc<Keyshare<G>>,
         message: Vec<u8>,
+        derivation_path: &str,
         rng: &mut R,
     ) -> Self {
         Self {
             party_id: keyshare.party_id(),
             message,
             keyshare,
+            derivation_path: DerivationPath::from_str(derivation_path).unwrap(),
             rand_params: SignEntropy::generate(rng),
             seed: rng.gen(),
             state: R0,
@@ -128,6 +131,7 @@ impl<G: Group + GroupEncoding> Round for SignerParty<R0, G> {
         let next_state = SignerParty {
             party_id: self.party_id,
             message: self.message,
+            derivation_path: self.derivation_path,
             keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: R1 {
@@ -217,6 +221,7 @@ where
         let next = SignerParty {
             party_id: self.party_id,
             message: self.message,
+            derivation_path: self.derivation_path,
             keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: R2 {
@@ -245,7 +250,9 @@ where
     fn process(self, msgs: Self::Input) -> Self::Output {
         let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
 
+        println!("{:?}", self.keyshare.public_key);
         let mut big_r_i = self.state.big_r_i;
+        let mut participants: u32 = 0;
 
         for (idx, msg) in msgs.iter().enumerate() {
             if msg.from_party == self.keyshare.party_id() {
@@ -294,12 +301,27 @@ where
                 .ok_or(SignError::InvalidDLogProof(msg.from_party))?;
 
             big_r_i += msg_big_r_i;
+            participants += 1_u32;
         }
+        //total participants = |message I received| + 1
+        participants += 1_u32;
 
         // FIXME: do we need copied?
         let coeff = get_lagrange_coeff::<G>(&self.party_id, self.state.pid_list.iter().copied());
 
         let d_i = coeff * self.keyshare.shamir_share();
+
+        let (additive_offset, derived_public_key) = self
+            .keyshare
+            .derive_with_offset(&self.derivation_path)
+            .unwrap(); // FIXME: report error
+        let threshold_inv = <G as Group>::Scalar::from(participants as u64)
+            .invert()
+            .unwrap(); // threshold > 0 so it has an invert
+        let additive_offset = additive_offset * threshold_inv;
+
+        //tweak the secret key share by the computed additive offset
+        let d_i = d_i + additive_offset;
 
         let next = SignReady {
             key_id: self.keyshare.key_id,
@@ -307,7 +329,7 @@ where
             big_r: big_r_i,
             d_i,
             pid_list: self.state.pid_list,
-            public_key: self.keyshare.public_key,
+            public_key: derived_public_key, //replase the public key for that signature with the tweaked public key
             session_id: self.state.final_session_id,
             k_i: self.rand_params.k_i,
             party_id: self.party_id,

@@ -1,9 +1,13 @@
 use std::hash::Hash;
 
 use crypto_bigint::subtle::ConstantTimeEq;
+use derivation_path::{ChildIndex, DerivationPath};
 use elliptic_curve::{group::GroupEncoding, Group};
+use ff::Field;
+use hmac::{Hmac, Mac};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use sl_mpc_mate::bip32::BIP32Error;
 
 use crate::{
     common::{
@@ -19,6 +23,7 @@ use crate::{
 use crate::common::utils::{serde_point, serde_vec_point};
 
 use super::KeyRefreshData;
+const KEY_SIZE: usize = 32;
 
 /// Type for the key generation protocol's message 1.
 ///
@@ -33,6 +38,9 @@ pub struct KeygenMsg1 {
 
     /// Participants commitment
     pub commitment: HashBytes,
+
+    //chain code for that party
+    pub chain_code_id: [u8; 32],
 }
 
 /// Type for the key generation protocol's message 2.
@@ -48,6 +56,9 @@ where
 
     /// Sesssion id
     pub session_id: SessionId,
+
+    /// Sesroot chain code
+    pub root_chain_code: SessionId,
 
     /// Random 32 bytes
     pub r_i: [u8; 32],
@@ -92,6 +103,7 @@ where
     pub key_id: [u8; 32],
     /// Extra data
     pub extra_data: Option<Vec<u8>>,
+    pub root_chain_code: [u8; 32],
 }
 
 impl<G: Group + GroupEncoding> Keyshare<G> {
@@ -122,6 +134,71 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
             Some(val) => val,
             None => &[],
         }
+    }
+    pub fn root_chain_code(&self) -> [u8; 32] {
+        self.root_chain_code
+    }
+    pub fn derive_with_offset(
+        &self,
+        chain_path: &DerivationPath,
+    ) -> Result<(G::Scalar, G), BIP32Error>
+    where
+        <G as Group>::Scalar: ScalarReduce<[u8; 32]>,
+    {
+        let mut pubkey = *self.public_key();
+        let mut chain_code = self.root_chain_code();
+        let mut additive_offset = G::Scalar::ZERO;
+        for child_num in chain_path {
+            let (il_int, child_pubkey, child_chain_code) =
+                self.derive_child_pubkey(&pubkey, chain_code, child_num)?;
+            pubkey = child_pubkey;
+            chain_code = child_chain_code;
+            additive_offset += il_int;
+        }
+
+        // Perform the mod q operation to get the additive offset
+        Ok((additive_offset, pubkey))
+    }
+    pub fn derive_child_pubkey(
+        &self,
+        parent_pubkey: &G,
+        parent_chain_code: [u8; 32],
+        child_number: &ChildIndex,
+    ) -> Result<(G::Scalar, G, [u8; 32]), BIP32Error>
+    where
+        G::Scalar: ScalarReduce<[u8; 32]>,
+    {
+        let mut hmac_hasher = Hmac::<sha2::Sha512>::new_from_slice(&parent_chain_code)
+            .map_err(|_| BIP32Error::InvalidChainCode)?;
+
+        if child_number.is_normal() {
+            hmac_hasher.update(parent_pubkey.to_bytes().as_ref());
+        } else {
+            return Err(BIP32Error::HardenedChildNotSupported);
+        }
+        hmac_hasher.update(&child_number.to_bits().to_be_bytes());
+        let result = hmac_hasher.finalize().into_bytes();
+        let (il_int, child_chain_code) = result.split_at(KEY_SIZE);
+        let il_int = il_int[0..32].try_into().unwrap();
+        // Has a chance of 1 in 2^127
+
+        // if il_int > constants::BASEPOINT_ORDER {
+        //     return Err(BIP32Error::InvalidChildScalar);
+        // }
+        let pubkey = G::generator() * G::Scalar::reduce_from_bytes(il_int);
+
+        let child_pubkey = pubkey + parent_pubkey;
+
+        // Return error if child pubkey is the point at infinity
+        if child_pubkey == G::identity() {
+            return Err(BIP32Error::PubkeyPointAtInfinity);
+        }
+
+        Ok((
+            G::Scalar::reduce_from_bytes(il_int),
+            child_pubkey,
+            child_chain_code.try_into().unwrap(),
+        ))
     }
 }
 
@@ -159,6 +236,7 @@ where
             s_i_0,
             lost_keyshare_party_ids,
             expected_public_key: self.public_key,
+            root_chain_code: self.root_chain_code,
         }
     }
 }

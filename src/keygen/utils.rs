@@ -1,7 +1,7 @@
 use elliptic_curve::Group;
 use ff::Field;
 
-use rand::{CryptoRng, Rng, RngCore};
+use rand::{random, CryptoRng, Rng, RngCore};
 
 use crate::common::schnorr_split_private_key;
 use crate::common::traits::{GroupElem, ScalarReduce};
@@ -112,6 +112,7 @@ where
                 pid as u8,
                 T as u8,
                 N as u8,
+                keyshares[0].root_chain_code,
             )
         } else {
             keyshares[pid].get_refresh_data(Some(lost_party_ids.clone()))
@@ -141,9 +142,18 @@ pub fn run_import<const T: usize, const N: usize, G: GroupElem>() -> Result<(), 
 where
     G::Scalar: ScalarReduce<[u8; 32]>,
 {
+    //TODO: for testing purposes create a random key and chain code. In production those should be inputs
     let mut rng = rand::thread_rng();
+    let root_chain_code: [u8; 32] = random::<[u8; 32]>();
     let private_key = G::Scalar::random(&mut rng);
-    let shares = schnorr_split_private_key::<G, _>(&private_key, T as u8, N as u8, &mut rng);
+    let shares = schnorr_split_private_key::<G, _>(
+        &private_key,
+        T as u8,
+        N as u8,
+        root_chain_code,
+        &mut rng,
+    );
+
     let parties = setup_refresh(shares.unwrap(), &mut rng).unwrap();
 
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
