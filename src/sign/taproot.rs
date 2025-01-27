@@ -146,7 +146,7 @@ pub fn run_sign(shares: &[Keyshare<k256::ProjectivePoint>]) -> Signature {
     let mut rng = rand::thread_rng();
     let parties = shares
         .iter()
-        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg.into(), &mut rng))
+        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg.into(), "m", &mut rng))
         .collect::<Vec<_>>();
 
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();

@@ -56,8 +56,10 @@ where
 /// State of a keygen party after processing the first message.
 pub struct R2 {
     final_session_id: SessionId,
+    root_chain_code: [u8; 32],
     commitment_list: Vec<HashBytes>,
     sid_i_list: Vec<SessionId>,
+    chain_codes_list: Vec<[u8; 32]>,
 }
 
 fn validate_input(
@@ -219,7 +221,7 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
                     d_i,
                     &mut rng,
                 )
-                    .ok_or(KeygenError::EncryptionError)?;
+                .ok_or(KeygenError::EncryptionError)?;
 
                 Ok(enc_data)
             })
@@ -228,6 +230,7 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
         // 12.2(d)
         let commitment = hash_commitment(
             self.rand_params.session_id,
+            self.rand_params.chain_code_id,
             self.params.party_id,
             &big_a_i,
             &c_i_j,
@@ -239,6 +242,7 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
             from_party: self.params.party_id,
             session_id: self.rand_params.session_id,
             commitment,
+            chain_code_id: self.rand_params.chain_code_id,
         };
 
         let next_state = KeygenParty {
@@ -270,10 +274,11 @@ where
         let n = self.params.n as usize;
         // We pass None for expected_sid because we don't know the final session id yet.
         // We don't expect the session-ids to be equal for all messages in this round.
-        let messages = validate_input_messages(messages, self.params.n, None)?;
+        let messages = validate_input_messages(messages, self.params.t, None)?;
         let mut sid_i_list = Vec::with_capacity(n);
         let mut commitment_list = Vec::with_capacity(n);
         let mut party_id_list = Vec::with_capacity(n);
+        let mut chain_codes_list = Vec::with_capacity(n);
 
         // 12.4(a)
         for message in &messages {
@@ -289,10 +294,16 @@ where
             sid_i_list.push(message.session_id);
             commitment_list.push(message.commitment);
             party_id_list.push(party_pubkey_idx);
+            chain_codes_list.push(message.chain_code_id);
         }
 
         let final_sid =
             calculate_final_session_id(party_id_list.iter().copied(), &sid_i_list, None);
+        let root_chain_code: [u8; 32] = chain_codes_list
+            .iter()
+            .fold(Sha256::new(), |hash, chain_id| hash.chain_update(chain_id))
+            .finalize()
+            .into();
 
         // 12.4(b)
         let mut rng = ChaCha20Rng::from_seed(self.seed);
@@ -313,8 +324,9 @@ where
 
         // 12.4(d)
         let msg2 = KeygenMsg2 {
-            session_id: final_sid,
             from_party: self.params.party_id,
+            session_id: final_sid,
+            root_chain_code,
             big_a_i_poly: self.state.big_a_i.coeffs,
             c_i_list: self.state.c_i_j,
             r_i: self.rand_params.r_i,
@@ -325,8 +337,10 @@ where
             params: self.params,
             state: R2 {
                 final_session_id: final_sid,
+                root_chain_code,
                 commitment_list,
                 sid_i_list,
+                chain_codes_list,
             },
             key_refresh_data: self.key_refresh_data,
             rand_params: self.rand_params,
@@ -348,16 +362,23 @@ where
 
     fn process(self, messages: Self::Input) -> Self::Output {
         let messages =
-            validate_input_messages(messages, self.params.n, Some(self.state.final_session_id))?;
+            validate_input_messages(messages, self.params.t, Some(self.state.final_session_id))?;
 
         messages.par_iter().try_for_each(|msg| {
             // 12.6(b)-i Verify commitments.
             let party_id = msg.party_id();
-            let sid = self.state.sid_i_list[party_id as usize];
+            let sid: [u8; 32] = self.state.sid_i_list[party_id as usize];
+            let chain_code_id: [u8; 32] = self.state.chain_codes_list[party_id as usize];
 
             let commitment = self.state.commitment_list[party_id as usize];
-            let commit_hash =
-                hash_commitment(sid, party_id, &msg.big_a_i_poly, &msg.c_i_list, &msg.r_i);
+            let commit_hash = hash_commitment(
+                sid,
+                chain_code_id,
+                party_id,
+                &msg.big_a_i_poly,
+                &msg.c_i_list,
+                &msg.r_i,
+            );
             let commit_cond = bool::from(commit_hash.ct_eq(&commitment));
 
             // 12.6(b)-ii Verify DLog proofs
@@ -469,7 +490,6 @@ where
         } else {
             sha2::Sha256::digest(public_key.to_bytes()).into()
         };
-
         let keyshare = Keyshare {
             threshold: self.params.t,
             total_parties: self.params.n,
@@ -478,6 +498,7 @@ where
             d_i: d_i_share,
             public_key,
             extra_data: self.params.extra_data,
+            root_chain_code: self.state.root_chain_code,
         };
         Ok(keyshare)
     }
@@ -485,6 +506,7 @@ where
 
 fn hash_commitment<G: GroupElem>(
     session_id: SessionId,
+    chain_code_id: [u8; 32],
     party_id: u8,
     big_f_i_vec: &[G],
     ciphertexts: &[EncryptedScalar],
@@ -493,6 +515,7 @@ fn hash_commitment<G: GroupElem>(
     let mut hasher = Sha256::new()
         .chain_update(b"SL-Keygen-Commitment")
         .chain_update(session_id.as_ref())
+        .chain_update(chain_code_id.as_ref())
         .chain_update(party_id.to_be_bytes());
     for point in big_f_i_vec.iter() {
         sha2::Digest::update(&mut hasher, point.to_bytes());
@@ -506,10 +529,10 @@ fn hash_commitment<G: GroupElem>(
 
 fn validate_input_messages<M: BaseMessage>(
     mut messages: Vec<M>,
-    n: u8,
+    t: u8,
     expected_sid: Option<SessionId>,
 ) -> Result<Vec<M>, KeygenError> {
-    if messages.len() != n as usize {
+    if messages.len() < t as usize {
         return Err(KeygenError::InvalidMsgCount);
     }
 

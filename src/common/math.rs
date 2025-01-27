@@ -28,6 +28,7 @@ pub fn schnorr_split_private_key<G: Group, R: CryptoRng + RngCore>(
     private_key: &G::Scalar,
     t: u8,
     n: u8,
+    root_chain_code: [u8; 32],
     rng: &mut R,
 ) -> Result<Vec<KeyRefreshData<G>>, SignError> {
     if t < 2 || t > n {
@@ -50,6 +51,7 @@ pub fn schnorr_split_private_key<G: Group, R: CryptoRng + RngCore>(
                 s_i_0,
                 lost_keyshare_party_ids: vec![],
                 expected_public_key,
+                root_chain_code,
             }
         })
         .collect();
@@ -62,6 +64,7 @@ pub fn schnorr_split_private_key_with_lost<G: Group, R: CryptoRng + RngCore>(
     t: u8,
     n: u8,
     lost_ids: Option<Vec<u8>>,
+    root_chain_code: [u8; 32],
     rng: &mut R,
 ) -> Result<Vec<KeyRefreshData<G>>, SignError> {
     if t < 2 || t > n {
@@ -86,6 +89,7 @@ pub fn schnorr_split_private_key_with_lost<G: Group, R: CryptoRng + RngCore>(
             s_i_0,
             lost_keyshare_party_ids: lost_ids.clone(),
             expected_public_key,
+            root_chain_code,
         });
     }
 
