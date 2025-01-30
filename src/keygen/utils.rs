@@ -1,3 +1,4 @@
+use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::Group;
 use ff::Field;
 
@@ -12,7 +13,10 @@ use super::R0;
 
 use super::{messages::Keyshare, KeygenError, KeygenParty};
 
-pub fn setup_keygen<G: Group>(t: u8, n: u8) -> Result<Vec<KeygenParty<R0, G>>, KeygenError> {
+pub fn setup_keygen<G: Group + GroupEncoding>(
+    t: u8,
+    n: u8,
+) -> Result<Vec<KeygenParty<R0, G>>, KeygenError> {
     let mut rng = rand::thread_rng();
     // Initializing the keygen for each party.
     let (party_key_list, party_pubkey_list) = generate_pki(n.into(), &mut rng);
