@@ -1,4 +1,4 @@
-use elliptic_curve::Group;
+use elliptic_curve::{group::GroupEncoding, Group};
 use ff::Field;
 
 use crate::common::traits::GroupElem;
@@ -9,7 +9,7 @@ use crate::common::utils::serde_point;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyRefreshData<G>
 where
-    G: Group,
+    G: Group + GroupEncoding,
 {
     /// Party id of the key share
     pub party_id: u8,

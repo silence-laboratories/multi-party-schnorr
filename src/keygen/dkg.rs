@@ -32,7 +32,7 @@ pub const DKG_LABEL: &[u8] = b"SilenceLaboratories-Schnorr-DKG";
 /// The keygen party is a state machine that implements the keygen protocol.
 pub struct KeygenParty<T, G>
 where
-    G: Group,
+    G: Group + GroupEncoding,
 {
     params: KeygenParams,
     rand_params: KeyEntropy<G>,
@@ -98,7 +98,7 @@ fn validate_input(
 
 impl<G> KeygenParty<R0, G>
 where
-    G: Group,
+    G: Group + GroupEncoding,
 {
     /// Create a new keygen party.
     #[allow(clippy::too_many_arguments)]

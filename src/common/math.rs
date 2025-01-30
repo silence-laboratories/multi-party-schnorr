@@ -1,4 +1,5 @@
 use crypto_bigint::subtle::ConstantTimeEq;
+use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::Group;
 use ff::Field;
 use rand::{CryptoRng, RngCore};
@@ -24,7 +25,7 @@ pub fn get_lagrange_coeff<G: Group>(
     coeff
 }
 
-pub fn schnorr_split_private_key<G: Group, R: CryptoRng + RngCore>(
+pub fn schnorr_split_private_key<G: Group + GroupEncoding, R: CryptoRng + RngCore>(
     private_key: &G::Scalar,
     t: u8,
     n: u8,
@@ -59,7 +60,7 @@ pub fn schnorr_split_private_key<G: Group, R: CryptoRng + RngCore>(
 }
 
 /// Split the private keys into shares,
-pub fn schnorr_split_private_key_with_lost<G: Group, R: CryptoRng + RngCore>(
+pub fn schnorr_split_private_key_with_lost<G: Group + GroupEncoding, R: CryptoRng + RngCore>(
     private_key: &G::Scalar,
     t: u8,
     n: u8,
