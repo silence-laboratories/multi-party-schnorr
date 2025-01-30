@@ -23,6 +23,7 @@ where
     pub(crate) lost_keyshare_party_ids: Vec<u8>,
 
     /// expected public key for key_refresh
+    #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
     pub expected_public_key: G,
     pub root_chain_code: [u8; 32],
 }
