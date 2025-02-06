@@ -93,7 +93,14 @@ pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
     let mut rng = rand::thread_rng();
     let parties = shares
         .iter()
-        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg.into(), "m/0", &mut rng))
+        .map(|keyshare| {
+            SignerParty::new(
+                keyshare.clone().into(),
+                msg.into(),
+                "m/0".parse().unwrap(),
+                &mut rng,
+            )
+        })
         .collect::<Vec<_>>();
 
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
