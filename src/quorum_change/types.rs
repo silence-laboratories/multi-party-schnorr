@@ -33,10 +33,8 @@ where
     /// Optional key id that will be used for the keygen protocol.
     /// If None then hash of the public key will be used.
     pub key_id: Option<[u8; 32]>,
-
     /// Extra data
     pub extra_data: Option<Vec<u8>>,
-    pub root_chain_code: [u8; 32],
 }
 
 /// All random params needed for QuorumChange protocol.
@@ -135,4 +133,7 @@ pub enum QCError {
     /// Public key mismatch
     #[error("Public key mismatch")]
     PublicKeyMismatch,
+
+    #[error("Invalid root chain code")]
+    InvalidRootChainCode,
 }

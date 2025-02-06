@@ -52,6 +52,7 @@ where
     params: QCParams<G>,
     party_id: u8,
     rand_params: QCEntropyOld<G>,
+    root_chain_code: [u8; 32],
     state: T,
 }
 
@@ -183,7 +184,6 @@ where
                 public_key: old_keyshare.public_key,
                 key_id,
                 extra_data,
-                root_chain_code: old_keyshare.root_chain_code,
             },
             rand_params,
             state: R0,
@@ -466,11 +466,11 @@ where
                 public_key: old_keyshare.public_key,
                 key_id,
                 extra_data,
-                root_chain_code: old_keyshare.root_chain_code,
             },
             party_id: old_keyshare.party_id,
             rand_params,
             state: R0,
+            root_chain_code: old_keyshare.root_chain_code,
         })
     }
 }
@@ -498,6 +498,7 @@ impl<G: GroupElem> Round for QCPartyOldToNew<R0, G> {
             params: self.params,
             party_id: self.party_id,
             rand_params: self.rand_params,
+            root_chain_code: self.root_chain_code,
             state: R1Old {
                 big_p_i_poly,
                 commitment_1,
@@ -602,6 +603,7 @@ where
             params: self.params,
             party_id: self.party_id,
             rand_params: self.rand_params,
+            root_chain_code: self.root_chain_code,
             state: R2OldToNew {
                 final_session_id,
                 sid_i_list,
@@ -689,6 +691,7 @@ where
             params: self.params,
             party_id: self.party_id,
             rand_params: self.rand_params,
+            root_chain_code: self.root_chain_code,
             state: R3OldToNew {
                 final_session_id: self.state.final_session_id,
                 sid_i_list: self.state.sid_i_list,
@@ -869,7 +872,7 @@ where
             d_i: p_i,
             public_key,
             extra_data: self.params.extra_data,
-            root_chain_code: self.params.root_chain_code,
+            root_chain_code: self.root_chain_code,
         };
         Ok(keyshare)
     }
@@ -892,7 +895,6 @@ where
         key_id: Option<[u8; 32]>,
         seed: [u8; 32],
         extra_data: Option<Vec<u8>>,
-        root_chain_code: [u8; 32],
     ) -> Result<Self, QCError> {
         let mut old_party_id_pairs = Pairs::new();
         for (party_index, party_id) in old_party_ids {
@@ -920,7 +922,6 @@ where
                 public_key: expected_public_key,
                 key_id,
                 extra_data,
-                root_chain_code,
             },
             rand_params,
             state: R0,
@@ -1113,6 +1114,16 @@ where
 
             root_chain_code_list.push(from_party_id, p2p_msg2.root_chain_code);
         }
+
+        // check that root_chain_code_list contains the same elements
+        let root_chain_code_list = root_chain_code_list.remove_ids();
+        let root_chain_code = root_chain_code_list[0];
+        if !root_chain_code_list
+            .iter()
+            .all(|&item| item == root_chain_code)
+        {
+            return Err(QCError::InvalidRootChainCode);
+        };
         if p_i_list.remove_ids().len() != self.params.old_parties.len() {
             return Err(QCError::InvalidMessage);
         }
@@ -1216,7 +1227,7 @@ where
             d_i: p_i,
             public_key,
             extra_data: self.params.extra_data,
-            root_chain_code: self.params.root_chain_code,
+            root_chain_code: root_chain_code_list[0],
         };
         Ok(keyshare)
     }
@@ -1289,7 +1300,6 @@ mod test {
 
         let [old_keyshare_p0, old_keyshare_p1] = run_keygen::<2, 2, EdwardsPoint>();
         let expected_public_key = old_keyshare_p0.public_key;
-        let root_chain_code = old_keyshare_p0.root_chain_code;
 
         // test for unordered case
         let total_parties = 5;
@@ -1338,7 +1348,6 @@ mod test {
             None,
             rng.gen(),
             None,
-            root_chain_code,
         )
         .unwrap();
 
@@ -1353,7 +1362,6 @@ mod test {
             None,
             rng.gen(),
             None,
-            root_chain_code,
         )
         .unwrap();
 
@@ -1368,7 +1376,6 @@ mod test {
             None,
             rng.gen(),
             None,
-            root_chain_code,
         )
         .unwrap();
 
@@ -1500,7 +1507,6 @@ mod test {
 
         let [old_keyshare_p0, old_keyshare_p1] = run_keygen::<2, 2, EdwardsPoint>();
         let expected_public_key = old_keyshare_p0.public_key;
-        let root_chain_code = old_keyshare_p0.root_chain_code;
         // test for unordered case
         let total_parties = 3;
         let new_t = 2;
@@ -1548,7 +1554,6 @@ mod test {
             None,
             rng.gen(),
             None,
-            root_chain_code,
         )
         .unwrap();
 
