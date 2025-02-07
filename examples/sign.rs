@@ -19,7 +19,14 @@ fn main() {
 
     let parties = subset
         .iter()
-        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg.into(), "m", &mut rng))
+        .map(|keyshare| {
+            SignerParty::new(
+                keyshare.clone().into(),
+                msg.into(),
+                "m".parse().unwrap(),
+                &mut rng,
+            )
+        })
         .collect::<Vec<_>>();
 
     // Pre-Signature phase
