@@ -3,7 +3,7 @@
 //! Since the final signing is done differently for different schemes, that part is not generic and
 //! is implemented as specific modules. (e.g `taproot.rs` and `eddsa.rs`)
 //!
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     common::{
@@ -92,14 +92,14 @@ impl<G: Group + GroupEncoding> SignerParty<R0, G> {
     pub fn new<R: CryptoRng + RngCore>(
         keyshare: Arc<Keyshare<G>>,
         message: Vec<u8>,
-        derivation_path: &str,
+        derivation_path: DerivationPath,
         rng: &mut R,
     ) -> Self {
         Self {
             party_id: keyshare.party_id(),
             message,
             keyshare,
-            derivation_path: DerivationPath::from_str(derivation_path).unwrap(),
+            derivation_path,
             rand_params: SignEntropy::generate(rng),
             seed: rng.gen(),
             state: R0,
