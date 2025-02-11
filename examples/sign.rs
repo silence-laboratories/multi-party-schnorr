@@ -20,7 +20,7 @@ fn main() {
     let parties = subset
         .iter()
         .map(|keyshare| {
-            SignerParty::new(
+            SignerParty::<_, EdwardsPoint>::new(
                 keyshare.clone().into(),
                 msg.into(),
                 "m".parse().unwrap(),

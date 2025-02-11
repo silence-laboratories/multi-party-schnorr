@@ -94,7 +94,7 @@ pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
     let parties = shares
         .iter()
         .map(|keyshare| {
-            SignerParty::new(
+            SignerParty::<_, EdwardsPoint>::new(
                 keyshare.clone().into(),
                 msg.into(),
                 "m/0".parse().unwrap(),

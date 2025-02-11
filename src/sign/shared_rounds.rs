@@ -16,6 +16,7 @@ use crate::{
     sign::validate_input_messages,
 };
 use crypto_bigint::subtle::ConstantTimeEq;
+use curve25519_dalek::EdwardsPoint;
 use derivation_path::DerivationPath;
 use elliptic_curve::{group::GroupEncoding, Group};
 use ff::Field;
@@ -71,6 +72,7 @@ pub struct SignReady<G: Group> {
     pub pid_list: Vec<u8>,
     pub threshold: u8,
     pub public_key: G,
+    pub message: Vec<u8>,
     pub key_id: [u8; 32],
     pub(crate) k_i: G::Scalar,
     pub party_id: u8,
@@ -87,10 +89,10 @@ pub struct PartialSign<G: Group> {
     pub(crate) pid_list: Vec<u8>,
 }
 
-impl<G: Group + GroupEncoding> SignerParty<R0, G> {
+impl SignerParty<R0, EdwardsPoint> {
     /// Create a new signer party with the given keyshare
     pub fn new<R: CryptoRng + RngCore>(
-        keyshare: Arc<Keyshare<G>>,
+        keyshare: Arc<Keyshare<EdwardsPoint>>,
         message: Vec<u8>,
         derivation_path: DerivationPath,
         rng: &mut R,
@@ -98,6 +100,27 @@ impl<G: Group + GroupEncoding> SignerParty<R0, G> {
         Self {
             party_id: keyshare.party_id(),
             message,
+            keyshare,
+            derivation_path,
+            rand_params: SignEntropy::generate(rng),
+            seed: rng.gen(),
+            state: R0,
+        }
+    }
+}
+
+#[cfg(any(feature = "taproot", test))]
+impl SignerParty<R0, k256::ProjectivePoint> {
+    /// Create a new signer party with the given keyshare
+    pub fn new<R: CryptoRng + RngCore>(
+        keyshare: Arc<Keyshare<k256::ProjectivePoint>>,
+        message: [u8; 32],
+        derivation_path: DerivationPath,
+        rng: &mut R,
+    ) -> Self {
+        Self {
+            party_id: keyshare.party_id(),
+            message: message.to_vec(),
             keyshare,
             derivation_path,
             rand_params: SignEntropy::generate(rng),
@@ -331,6 +354,7 @@ where
             pid_list: self.state.pid_list,
             public_key: derived_public_key, //replase the public key for that signature with the tweaked public key
             session_id: self.state.final_session_id,
+            message: self.message,
             k_i: self.rand_params.k_i,
             party_id: self.party_id,
         };
