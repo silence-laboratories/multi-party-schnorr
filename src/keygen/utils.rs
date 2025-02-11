@@ -2,7 +2,7 @@ use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::Group;
 use ff::Field;
 
-use rand::{random, CryptoRng, Rng, RngCore};
+use rand::{CryptoRng, Rng, RngCore};
 
 use crate::common::schnorr_split_private_key;
 use crate::common::traits::{GroupElem, ScalarReduce};
@@ -148,15 +148,8 @@ where
 {
     //TODO: for testing purposes create a random key and chain code. In production those should be inputs
     let mut rng = rand::thread_rng();
-    let root_chain_code: [u8; 32] = random::<[u8; 32]>();
     let private_key = G::Scalar::random(&mut rng);
-    let shares = schnorr_split_private_key::<G, _>(
-        &private_key,
-        T as u8,
-        N as u8,
-        root_chain_code,
-        &mut rng,
-    );
+    let shares = schnorr_split_private_key::<G, _>(&private_key, T as u8, N as u8, None, &mut rng);
 
     let parties = setup_refresh(shares.unwrap(), &mut rng).unwrap();
 
