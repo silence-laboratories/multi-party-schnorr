@@ -104,7 +104,7 @@ fn main() {
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
     let ready_parties = run_round(parties, msgs);
     let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-        run_round(ready_parties, msg.into()).into_iter().unzip();
+        run_round(ready_parties, ()).into_iter().unzip();
     let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
         run_round(parties, partial_sigs).into_iter().unzip();
 

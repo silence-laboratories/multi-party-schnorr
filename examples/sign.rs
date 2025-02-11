@@ -22,7 +22,7 @@ fn main() {
         .map(|keyshare| {
             SignerParty::<_, EdwardsPoint>::new(
                 keyshare.clone().into(),
-                msg.into(),
+                msg.to_vec(),
                 "m".parse().unwrap(),
                 &mut rng,
             )
@@ -36,7 +36,7 @@ fn main() {
 
     // Signature phase
     let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-        run_round(ready_parties, msg.into()).into_iter().unzip();
+        run_round(ready_parties, ()).into_iter().unzip();
 
     let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
         run_round(parties, partial_sigs).into_iter().unzip();

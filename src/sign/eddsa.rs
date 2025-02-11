@@ -11,20 +11,19 @@ use super::{
 };
 
 impl Round for SignReady<EdwardsPoint> {
-    type Input = Vec<u8>;
+    type Input = ();
 
     type Output = Result<(PartialSign<EdwardsPoint>, SignMsg3<EdwardsPoint>), SignError>;
 
     /// The signer party processes the message to sign and returns the partial signature
     /// # Arguments
-    /// * `msg_to_sign` - The message to sign in bytes
-    fn process(self, msg_to_sign: Self::Input) -> Self::Output {
+    fn process(self, _: Self::Input) -> Self::Output {
         let big_a = self.public_key.to_bytes();
         use sha2::digest::Update;
         let digest = Sha512::new()
             .chain(self.big_r.to_bytes())
             .chain(big_a)
-            .chain(&msg_to_sign);
+            .chain(&self.message);
 
         let e = Scalar::from_bytes_mod_order_wide(&digest.finalize().into());
         let s_i = self.k_i + self.d_i * e;
@@ -42,7 +41,7 @@ impl Round for SignReady<EdwardsPoint> {
             public_key: self.public_key,
             big_r: self.big_r,
             s_i,
-            msg_to_sign,
+            msg_to_sign: self.message,
             pid_list: self.pid_list,
         };
 
@@ -108,7 +107,7 @@ pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
     let ready_parties = run_round(parties, msgs);
 
     let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-        run_round(ready_parties, msg.into()).into_iter().unzip();
+        run_round(ready_parties, ()).into_iter().unzip();
 
     let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
         run_round(parties, partial_sigs).into_iter().unzip();
