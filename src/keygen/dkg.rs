@@ -60,13 +60,6 @@ pub struct R2 {
     chain_codes_list: Vec<[u8; 32]>,
 }
 
-pub trait PubkeyFormat<G: Group> {
-    // Return the public key and the share of the secret key after performing any formating required.
-    fn pubkey_format(public_key: G, d_i_share: G::Scalar) -> (G, G::Scalar) {
-        (public_key, d_i_share)
-    }
-}
-
 fn validate_input(
     t: u8,
     n: u8,

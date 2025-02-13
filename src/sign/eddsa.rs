@@ -69,7 +69,6 @@ impl Round for PartialSign<EdwardsPoint> {
         sig_bytes[32..].copy_from_slice(&s.to_bytes());
         let signature = ed25519_dalek::Signature::from_bytes(&sig_bytes);
 
-        println!("{:?}", self.public_key);
         VerifyingKey::from(self.public_key)
             .verify(&self.msg_to_sign, &signature)
             .map_err(|_| SignError::InvalidSignature)?;

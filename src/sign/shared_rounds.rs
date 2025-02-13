@@ -273,7 +273,6 @@ where
     fn process(self, msgs: Self::Input) -> Self::Output {
         let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
 
-        println!("{:?}", self.keyshare.public_key);
         let mut big_r_i = self.state.big_r_i;
         let mut participants: u32 = 0;
 
