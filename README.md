@@ -97,14 +97,14 @@ fn main() {
     let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
     let parties = subset
         .iter()
-        .map(|keyshare| SignerParty::new(keyshare.clone().into(), msg.into(), "m".parse().unwrap(), &mut rng))
+        .map(|keyshare| SignerParty::<_,EdwardsPoint>::new(keyshare.clone().into(), msg.into(), "m".parse().unwrap(), &mut rng))
         .collect::<Vec<_>>();
 
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
     let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
     let ready_parties = run_round(parties, msgs);
     let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-        run_round(ready_parties, msg.into()).into_iter().unzip();
+        run_round(ready_parties, ()).into_iter().unzip();
     let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
         run_round(parties, partial_sigs).into_iter().unzip();
 

@@ -2,6 +2,7 @@ use crypto_bigint::subtle::ConstantTimeEq;
 use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::Group;
 use ff::Field;
+use rand::Rng;
 use rand::{CryptoRng, RngCore};
 use sl_mpc_mate::math::Polynomial;
 
@@ -29,7 +30,7 @@ pub fn schnorr_split_private_key<G: Group + GroupEncoding, R: CryptoRng + RngCor
     private_key: &G::Scalar,
     t: u8,
     n: u8,
-    root_chain_code: [u8; 32],
+    root_chain_code: Option<[u8; 32]>,
     rng: &mut R,
 ) -> Result<Vec<KeyRefreshData<G>>, SignError> {
     if t < 2 || t > n {
@@ -37,6 +38,7 @@ pub fn schnorr_split_private_key<G: Group + GroupEncoding, R: CryptoRng + RngCor
     }
     let mut poly: Polynomial<G> = Polynomial::random(rng, (t - 1) as usize);
     poly.set_constant(*private_key);
+    let root_chain_code = root_chain_code.unwrap_or_else(|| rng.gen());
 
     let expected_public_key = G::generator() * private_key;
     let res = (0..n)
@@ -65,7 +67,7 @@ pub fn schnorr_split_private_key_with_lost<G: Group + GroupEncoding, R: CryptoRn
     t: u8,
     n: u8,
     lost_ids: Option<Vec<u8>>,
-    root_chain_code: [u8; 32],
+    root_chain_code: Option<[u8; 32]>,
     rng: &mut R,
 ) -> Result<Vec<KeyRefreshData<G>>, SignError> {
     if t < 2 || t > n {
@@ -78,6 +80,7 @@ pub fn schnorr_split_private_key_with_lost<G: Group + GroupEncoding, R: CryptoRn
     let expected_public_key = G::generator() * private_key;
     let partys_with_keyshares = (0..n).filter(|pid| !lost_ids.contains(pid));
     let mut shares = vec![];
+    let root_chain_code = root_chain_code.unwrap_or_else(|| rng.gen());
 
     for pid in partys_with_keyshares.clone() {
         let d_i: G::Scalar = poly.evaluate_at(&G::Scalar::from((pid + 1) as u64));
