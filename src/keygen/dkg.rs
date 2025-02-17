@@ -12,7 +12,7 @@ use std::sync::Arc;
 use crate::common::{
     traits::{GroupElem, Round, ScalarReduce},
     utils::{
-        calculate_final_session_id, decrypt_message, encrypt_message, BaseMessage, EncryptedScalar,
+        calculate_final_session_id, decrypt_message, encrypt_message, BaseMessage, EncryptedData,
         HashBytes, SessionId,
     },
     DLogProof,
@@ -47,17 +47,15 @@ where
     G: Group + GroupEncoding,
 {
     big_a_i: GroupPolynomial<G>,
-    c_i_j: Vec<EncryptedScalar>,
+    c_i_j: Vec<EncryptedData>,
     commitment: HashBytes,
 }
 
 /// State of a keygen party after processing the first message.
 pub struct R2 {
     final_session_id: SessionId,
-    root_chain_code: [u8; 32],
     commitment_list: Vec<HashBytes>,
     sid_i_list: Vec<SessionId>,
-    chain_codes_list: Vec<[u8; 32]>,
 }
 
 fn validate_input(
@@ -213,10 +211,14 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
                     .polynomial
                     .evaluate_at(&G::Scalar::from((party_id + 1) as u64));
 
+                let mut plaintext = [0u8; 64];
+                plaintext[..32].copy_from_slice(d_i.to_repr().as_ref());
+                plaintext[32..].copy_from_slice(&self.rand_params.chain_code_id);
+
                 let enc_data = encrypt_message::<_, G>(
                     (&self.params.dec_key, self.params.party_id),
                     (ek_i, party_id),
-                    d_i,
+                    plaintext,
                     &mut rng,
                 )
                 .ok_or(KeygenError::EncryptionError)?;
@@ -228,7 +230,6 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
         // 12.2(d)
         let commitment = hash_commitment(
             self.rand_params.session_id,
-            self.rand_params.chain_code_id,
             self.params.party_id,
             &big_a_i,
             &c_i_j,
@@ -240,7 +241,6 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
             from_party: self.params.party_id,
             session_id: self.rand_params.session_id,
             commitment,
-            chain_code_id: self.rand_params.chain_code_id,
         };
 
         let next_state = KeygenParty {
@@ -276,7 +276,6 @@ where
         let mut sid_i_list = Vec::with_capacity(n);
         let mut commitment_list = Vec::with_capacity(n);
         let mut party_id_list = Vec::with_capacity(n);
-        let mut chain_codes_list = Vec::with_capacity(n);
 
         // 12.4(a)
         for message in &messages {
@@ -292,16 +291,15 @@ where
             sid_i_list.push(message.session_id);
             commitment_list.push(message.commitment);
             party_id_list.push(party_pubkey_idx);
-            chain_codes_list.push(message.chain_code_id);
         }
 
         let final_sid =
             calculate_final_session_id(party_id_list.iter().copied(), &sid_i_list, None);
-        let root_chain_code: [u8; 32] = chain_codes_list
-            .iter()
-            .fold(Sha256::new(), |hash, chain_id| hash.chain_update(chain_id))
-            .finalize()
-            .into();
+        // let root_chain_code: [u8; 32] = chain_codes_list
+        //     .iter()
+        //     .fold(Sha256::new(), |hash, chain_id| hash.chain_update(chain_id))
+        //     .finalize()
+        //     .into();
 
         // 12.4(b)
         let mut rng = ChaCha20Rng::from_seed(self.seed);
@@ -324,7 +322,6 @@ where
         let msg2 = KeygenMsg2 {
             from_party: self.params.party_id,
             session_id: final_sid,
-            root_chain_code,
             big_a_i_poly: self.state.big_a_i.coeffs,
             c_i_list: self.state.c_i_j,
             r_i: self.rand_params.r_i,
@@ -335,10 +332,8 @@ where
             params: self.params,
             state: R2 {
                 final_session_id: final_sid,
-                root_chain_code,
                 commitment_list,
                 sid_i_list,
-                chain_codes_list,
             },
             key_refresh_data: self.key_refresh_data,
             rand_params: self.rand_params,
@@ -366,17 +361,9 @@ where
             // 12.6(b)-i Verify commitments.
             let party_id = msg.party_id();
             let sid: [u8; 32] = self.state.sid_i_list[party_id as usize];
-            let chain_code_id: [u8; 32] = self.state.chain_codes_list[party_id as usize];
-
             let commitment = self.state.commitment_list[party_id as usize];
-            let commit_hash = hash_commitment(
-                sid,
-                chain_code_id,
-                party_id,
-                &msg.big_a_i_poly,
-                &msg.c_i_list,
-                &msg.r_i,
-            );
+            let commit_hash =
+                hash_commitment(sid, party_id, &msg.big_a_i_poly, &msg.c_i_list, &msg.r_i);
             let commit_cond = bool::from(commit_hash.ct_eq(&commitment));
 
             // 12.6(b)-ii Verify DLog proofs
@@ -402,35 +389,35 @@ where
             Ok::<(), KeygenError>(())
         })?;
 
+        let mut d_i_vals = Vec::with_capacity(messages.len());
+        let mut chain_code_hasher = Sha256::new();
         // 12.6(c)
-        let d_i_vals = messages
-            .iter()
-            .map(|msg| {
-                let encrypted_d_i = &msg.c_i_list[self.params.party_id as usize];
-                let sender_pubkey =
-                    find_enc_key(msg.party_id(), &self.params.party_enc_keys).unwrap();
+        for msg in &messages {
+            let encrypted_d_i = &msg.c_i_list[self.params.party_id as usize];
+            let sender_pubkey = find_enc_key(msg.party_id(), &self.params.party_enc_keys).unwrap();
 
-                let d_i_bytes = decrypt_message(&self.params.dec_key, sender_pubkey, encrypted_d_i)
-                    .ok_or(KeygenError::DecryptionError)?;
+            let plaintext = decrypt_message(&self.params.dec_key, sender_pubkey, encrypted_d_i)
+                .ok_or(KeygenError::DecryptionError)?;
 
-                // Decode the scalar from the bytes.
-                let mut encoding = <G::Scalar as PrimeField>::Repr::default();
-                encoding.as_mut().copy_from_slice(&d_i_bytes);
+            let (d_i_bytes, chain_code_sid) = plaintext.split_at(32);
 
-                let d_i = G::Scalar::from_repr(encoding);
-                if d_i.is_none().into() {
-                    return Err(KeygenError::InvalidDiPlaintext);
-                }
+            // Decode the scalar from the bytes.
+            let mut encoding = <G::Scalar as PrimeField>::Repr::default();
+            encoding.as_mut().copy_from_slice(d_i_bytes);
 
-                Ok(d_i.unwrap())
-            })
-            .collect::<Result<Vec<_>, KeygenError>>()?;
+            let d_i = G::Scalar::from_repr(encoding);
+            if d_i.is_none().into() {
+                return Err(KeygenError::InvalidDiPlaintext);
+            }
 
-        // 12.6(c)
+            d_i_vals.push(d_i.unwrap());
+            sha2::Digest::update(&mut chain_code_hasher, chain_code_sid);
+        }
+
         let d_i_share: G::Scalar = d_i_vals.iter().sum();
+        let root_chain_code: [u8; 32] = chain_code_hasher.finalize().into();
 
         let empty_poly = (0..self.params.t).map(|_| G::identity()).collect();
-
         let mut big_a_poly = GroupPolynomial::new(empty_poly);
 
         // Validate polynomial constant terms
@@ -516,7 +503,7 @@ where
             d_i: d_i_share,
             public_key,
             extra_data: self.params.extra_data,
-            root_chain_code: self.state.root_chain_code,
+            root_chain_code,
         };
         Ok(keyshare)
     }
@@ -524,16 +511,14 @@ where
 
 fn hash_commitment<G: GroupElem>(
     session_id: SessionId,
-    chain_code_id: [u8; 32],
     party_id: u8,
     big_f_i_vec: &[G],
-    ciphertexts: &[EncryptedScalar],
+    ciphertexts: &[EncryptedData],
     r_i: &[u8; 32],
 ) -> HashBytes {
     let mut hasher = Sha256::new()
         .chain_update(b"SL-Keygen-Commitment")
         .chain_update(session_id.as_ref())
-        .chain_update(chain_code_id.as_ref())
         .chain_update(party_id.to_be_bytes());
     for point in big_f_i_vec.iter() {
         sha2::Digest::update(&mut hasher, point.to_bytes());

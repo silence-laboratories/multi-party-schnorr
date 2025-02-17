@@ -13,7 +13,7 @@ use crate::{
     common::{
         get_lagrange_coeff,
         traits::{GroupElem, ScalarReduce},
-        utils::{EncryptedScalar, HashBytes, SessionId},
+        utils::{EncryptedData, HashBytes, SessionId},
         DLogProof,
     },
     impl_basemessage,
@@ -38,9 +38,6 @@ pub struct KeygenMsg1 {
 
     /// Participants commitment
     pub commitment: HashBytes,
-
-    //chain code for that party
-    pub chain_code_id: [u8; 32],
 }
 
 /// Type for the key generation protocol's message 2.
@@ -57,9 +54,6 @@ where
     /// Sesssion id
     pub session_id: SessionId,
 
-    /// Sesroot chain code
-    pub root_chain_code: SessionId,
-
     /// Random 32 bytes
     pub r_i: [u8; 32],
 
@@ -68,7 +62,7 @@ where
     pub big_a_i_poly: Vec<G>,
 
     /// Ciphertext list
-    pub c_i_list: Vec<EncryptedScalar>,
+    pub c_i_list: Vec<EncryptedData>,
 
     /// Participants dlog proof
     #[cfg_attr(

@@ -41,7 +41,7 @@ fn main() {
     let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
         run_round(parties, partial_sigs).into_iter().unzip();
 
-    println!("Time: {:?}ms", start.elapsed());
+    println!("Time: {:?}", start.elapsed());
     for sig in signatures {
         println!("Signature: {}", bs58::encode(sig.to_bytes()).into_string())
     }
