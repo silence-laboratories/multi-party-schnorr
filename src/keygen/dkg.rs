@@ -390,7 +390,7 @@ where
         })?;
 
         let mut d_i_vals = Vec::with_capacity(messages.len());
-        let mut chain_code_hasher = Sha256::new();
+        let mut chain_code_hasher = Sha256::new().chain_update(b"SL-Keygen-ChainCode");
         // 12.6(c)
         for msg in &messages {
             let encrypted_d_i = &msg.c_i_list[self.params.party_id as usize];
