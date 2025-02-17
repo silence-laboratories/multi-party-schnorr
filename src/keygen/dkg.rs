@@ -295,11 +295,6 @@ where
 
         let final_sid =
             calculate_final_session_id(party_id_list.iter().copied(), &sid_i_list, None);
-        // let root_chain_code: [u8; 32] = chain_codes_list
-        //     .iter()
-        //     .fold(Sha256::new(), |hash, chain_id| hash.chain_update(chain_id))
-        //     .finalize()
-        //     .into();
 
         // 12.4(b)
         let mut rng = ChaCha20Rng::from_seed(self.seed);
