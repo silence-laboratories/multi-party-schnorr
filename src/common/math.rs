@@ -1,13 +1,11 @@
 use crypto_bigint::subtle::ConstantTimeEq;
-use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::Group;
 use ff::Field;
-use rand::Rng;
 use rand::{CryptoRng, RngCore};
 use sl_mpc_mate::math::Polynomial;
 
 use crate::keygen::KeyRefreshData;
-use crate::sign::SignError;
+
 pub fn get_lagrange_coeff<G: Group>(
     my_party_id: &u8,
     party_ids: impl IntoIterator<Item = u8>,
@@ -26,22 +24,17 @@ pub fn get_lagrange_coeff<G: Group>(
     coeff
 }
 
-pub fn schnorr_split_private_key<G: Group + GroupEncoding, R: CryptoRng + RngCore>(
+pub fn schnorr_split_private_key<G: Group, R: CryptoRng + RngCore>(
     private_key: &G::Scalar,
     t: u8,
     n: u8,
-    root_chain_code: Option<[u8; 32]>,
     rng: &mut R,
-) -> Result<Vec<KeyRefreshData<G>>, SignError> {
-    if t < 2 || t > n {
-        return Err(SignError::InvalidThreshold);
-    }
+) -> Vec<KeyRefreshData<G>> {
     let mut poly: Polynomial<G> = Polynomial::random(rng, (t - 1) as usize);
     poly.set_constant(*private_key);
-    let root_chain_code = root_chain_code.unwrap_or_else(|| rng.gen());
 
     let expected_public_key = G::generator() * private_key;
-    let res = (0..n)
+    (0..n)
         .map(|pid| {
             let d_i: G::Scalar = poly.evaluate_at(&G::Scalar::from((pid + 1) as u64));
             // TODO: REMOVE THIS allocation
@@ -54,25 +47,19 @@ pub fn schnorr_split_private_key<G: Group + GroupEncoding, R: CryptoRng + RngCor
                 s_i_0,
                 lost_keyshare_party_ids: vec![],
                 expected_public_key,
-                root_chain_code,
             }
         })
-        .collect();
-    Ok(res)
+        .collect()
 }
 
 /// Split the private keys into shares,
-pub fn schnorr_split_private_key_with_lost<G: Group + GroupEncoding, R: CryptoRng + RngCore>(
+pub fn schnorr_split_private_key_with_lost<G: Group, R: CryptoRng + RngCore>(
     private_key: &G::Scalar,
     t: u8,
     n: u8,
     lost_ids: Option<Vec<u8>>,
-    root_chain_code: Option<[u8; 32]>,
     rng: &mut R,
-) -> Result<Vec<KeyRefreshData<G>>, SignError> {
-    if t < 2 || t > n {
-        return Err(SignError::InvalidThreshold);
-    }
+) -> Vec<KeyRefreshData<G>> {
     let mut poly: Polynomial<G> = Polynomial::random(rng, (t - 1) as usize);
     poly.set_constant(*private_key);
 
@@ -80,7 +67,6 @@ pub fn schnorr_split_private_key_with_lost<G: Group + GroupEncoding, R: CryptoRn
     let expected_public_key = G::generator() * private_key;
     let partys_with_keyshares = (0..n).filter(|pid| !lost_ids.contains(pid));
     let mut shares = vec![];
-    let root_chain_code = root_chain_code.unwrap_or_else(|| rng.gen());
 
     for pid in partys_with_keyshares.clone() {
         let d_i: G::Scalar = poly.evaluate_at(&G::Scalar::from((pid + 1) as u64));
@@ -93,11 +79,10 @@ pub fn schnorr_split_private_key_with_lost<G: Group + GroupEncoding, R: CryptoRn
             s_i_0,
             lost_keyshare_party_ids: lost_ids.clone(),
             expected_public_key,
-            root_chain_code,
         });
     }
 
-    Ok(shares)
+    shares
 }
 
 /// Helper method to combine the secret shares into the private key

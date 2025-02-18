@@ -1,15 +1,16 @@
-use elliptic_curve::{group::GroupEncoding, Group};
+use elliptic_curve::Group;
 use ff::Field;
+// * MY CODE: COMMENTED OUT
+// use serde::Serialize;
 
 use crate::common::traits::GroupElem;
 
-#[cfg(feature = "serde")]
-use crate::common::utils::serde_point;
-
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// * MY CODE: COMMENTED OUT
+// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug)] // * MY CODE: ADDED
 pub struct KeyRefreshData<G>
 where
-    G: Group + GroupEncoding,
+    G: Group,
 {
     /// Party id of the key share
     pub party_id: u8,
@@ -26,9 +27,7 @@ where
     pub(crate) lost_keyshare_party_ids: Vec<u8>,
 
     /// expected public key for key_refresh
-    #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
     pub expected_public_key: G,
-    pub root_chain_code: [u8; 32],
 }
 
 impl<G> KeyRefreshData<G>
@@ -42,7 +41,6 @@ where
         party_id: u8,
         threshold: u8,
         total_parties: u8,
-        root_chain_code: [u8; 32],
     ) -> Self {
         KeyRefreshData {
             threshold,
@@ -51,7 +49,6 @@ where
             s_i_0: <G::Scalar as Field>::ZERO,
             lost_keyshare_party_ids,
             expected_public_key,
-            root_chain_code,
         }
     }
 

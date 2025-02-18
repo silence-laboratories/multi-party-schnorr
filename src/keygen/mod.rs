@@ -5,7 +5,7 @@ pub use refresh::*;
 
 mod types;
 
-mod messages;
+pub mod messages; // Make messages module public
 
 pub use dkg::*;
 pub use messages::*;

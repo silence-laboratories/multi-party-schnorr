@@ -4,10 +4,11 @@ mod types;
 /// Messages used in the signing protocol
 pub mod messages;
 
-mod shared_rounds;
+// * MY CODE: ADDED
+pub mod presign;
 use std::collections::HashSet;
 
-pub use shared_rounds::*;
+pub use presign::*;
 
 /// Taproot signing protocol
 #[cfg(any(feature = "taproot", test))]

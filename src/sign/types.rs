@@ -6,6 +6,8 @@ use thiserror::Error;
 use crate::common::utils::SessionId;
 
 /// All random params needed for sign protocol
+// * MY CODE: ADDED, derive Debug and Clone
+#[derive(Debug, Clone)]
 pub struct SignEntropy<G: Group> {
     pub(crate) session_id: SessionId,
     pub(crate) k_i: G::Scalar,
@@ -29,6 +31,7 @@ pub enum SignError {
     #[error("Invalid party ids on messages list")]
     /// Invalid party ids on messages list
     InvalidParticipantSet,
+
     /// Party key not found
     #[error("Party key not found")]
     PartyKeyNotFound,
@@ -41,9 +44,6 @@ pub enum SignError {
     /// Received duplicate party id
     #[error("Received duplicate party id")]
     DuplicatePartyId,
-    /// Received duplicate session id
-    #[error("Received duplicate session id")]
-    DuplicateSessionId,
     /// Invalid party ids
     #[error("Invalid party ids")]
     InvalidMsgPartyId,
@@ -84,6 +84,4 @@ pub enum SignError {
 
     #[error("Invalid signature")]
     InvalidSignature,
-    #[error("Invalid threshold")]
-    InvalidThreshold,
 }

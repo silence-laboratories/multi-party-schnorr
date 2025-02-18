@@ -1,9 +1,22 @@
-//! This module contains the shared round logic (first 2 rounds) for all signing protocols.
-//! The logic is generic over the elliptic curve group.
+//! This module contains the implementation of the Pre Sign protocol.
+//! Pre Sign can be computed without using the message, therefore it can be pre computed.
+//!
+//! The code for Pre Sign is generic over the elliptic curve group.
 //! Since the final signing is done differently for different schemes, that part is not generic and
-//! is implemented as specific modules. (e.g `taproot.rs` and `eddsa.rs`)
+//! is implemented as specific modules.
 //!
 use std::sync::Arc;
+
+use crypto_bigint::subtle::ConstantTimeEq;
+// * MY CODE: ADDED
+use crypto_box::{PublicKey, SecretKey};
+// * MY CODE: ADDED
+use curve25519_dalek::Scalar;
+use elliptic_curve::{group::GroupEncoding, Group};
+
+use rand::{CryptoRng, Rng, RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
+use sha2::{Digest, Sha256};
 
 use crate::{
     common::{
@@ -15,14 +28,9 @@ use crate::{
     keygen::Keyshare,
     sign::validate_input_messages,
 };
-use crypto_bigint::subtle::ConstantTimeEq;
-use curve25519_dalek::EdwardsPoint;
-use derivation_path::DerivationPath;
-use elliptic_curve::{group::GroupEncoding, Group};
-use ff::Field;
-use rand::{CryptoRng, Rng, RngCore, SeedableRng};
-use rand_chacha::ChaCha20Rng;
-use sha2::{Digest, Sha256};
+use crate::common::utils::{EncryptedScalar, Seed}; // * MY CODE: ADDED, import EncryptedScalar and Seed
+// * MY CODE: ADDED
+use crate::keygen::KeygenError;
 
 use super::{
     messages::{SignMsg1, SignMsg2},
@@ -30,30 +38,39 @@ use super::{
 };
 
 /// Signer party
+// * MY CODE: ADDED, derive Debug and Clone
+#[derive(Debug, Clone)]
 pub struct SignerParty<T, G>
 where
     G: Group + GroupEncoding,
 {
     pub party_id: u8,
-    pub message: Vec<u8>,
-    pub derivation_path: DerivationPath,
-    pub(crate) keyshare: Arc<Keyshare<G>>,
-    pub(crate) rand_params: SignEntropy<G>,
-    pub(crate) seed: [u8; 32],
-    pub(crate) state: T,
+    // * MY CODE: ADDED, made the field public
+    pub keyshare: Arc<Keyshare<G>>,
+    // * MY CODE: ADDED, made the field public
+    pub rand_params: SignEntropy<G>,
+    // * MY CODE: ADDED, made the field public
+    pub seed: [u8; 32],
+    // * MY CODE: ADDED, made the field public
+    pub state: T,
 }
 
 /// Initial state of a round based protocol.
+// * MY CODE: ADDED, derive Debug and Clone
+#[derive(Debug, Clone)]
 pub struct R0;
 
 /// Round 1 state of Signer party
+// * MY CODE: ADDED, derive Debug and Clone
+#[derive(Debug, Clone)]
 pub struct R1<G> {
     big_r_i: G,
-    commitment_r_i: [u8; 32],
 }
 
 /// Round 2 state of Signer party
 /// State before processing all SignMsg2 messages
+// * MY CODE: ADDED, derive Debug and Clone
+#[derive(Debug, Clone)]
 pub struct R2<G> {
     final_session_id: SessionId,
     big_r_i: G,
@@ -65,64 +82,46 @@ pub struct R2<G> {
 /// State of Signer party after processing all SignMsg2 messages.
 /// Party is ready to sign a message
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// * MY CODE: ADDED, derive Debug and Clone
+#[derive(Debug, Clone)]
 pub struct SignReady<G: Group> {
     pub session_id: SessionId,
-    pub(crate) big_r: G,
-    pub(crate) d_i: G::Scalar,
+    // * MY CODE: ADDED, made the field public
+    pub big_r: G,
+    // * MY CODE: ADDED, made the field public
+    pub d_i: G::Scalar,
     pub pid_list: Vec<u8>,
     pub threshold: u8,
     pub public_key: G,
-    pub message: Vec<u8>,
     pub key_id: [u8; 32],
-    pub(crate) k_i: G::Scalar,
+    // * MY CODE: ADDED, made the field public
+    pub k_i: G::Scalar,
     pub party_id: u8,
 }
 /// State of Signer party after processing all SignMsg3 messages
+#[derive(Debug, Clone)]
 pub struct PartialSign<G: Group> {
     pub party_id: u8,
-    pub(crate) session_id: SessionId,
+    // * MY CODE: ADDED, made the field public
+    pub session_id: SessionId,
     pub threshold: u8,
-    pub(crate) big_r: G,
+    // * MY CODE: ADDED, made the field public
+    pub big_r: G,
     pub public_key: G,
-    pub(crate) s_i: G::Scalar,
-    pub(crate) msg_to_sign: Vec<u8>,
-    pub(crate) pid_list: Vec<u8>,
+    // * MY CODE: ADDED, made the field public
+    pub s_i: G::Scalar,
+    // * MY CODE: ADDED, made the field public
+    pub msg_to_sign: Vec<u8>,
+    // * MY CODE: ADDED, made the field public
+    pub pid_list: Vec<u8>,
 }
 
-impl SignerParty<R0, EdwardsPoint> {
+impl<G: Group + GroupEncoding> SignerParty<R0, G> {
     /// Create a new signer party with the given keyshare
-    pub fn new<R: CryptoRng + RngCore>(
-        keyshare: Arc<Keyshare<EdwardsPoint>>,
-        message: Vec<u8>,
-        derivation_path: DerivationPath,
-        rng: &mut R,
-    ) -> Self {
+    pub fn new<R: CryptoRng + RngCore>(keyshare: Arc<Keyshare<G>>, rng: &mut R) -> Self {
         Self {
             party_id: keyshare.party_id(),
-            message,
             keyshare,
-            derivation_path,
-            rand_params: SignEntropy::generate(rng),
-            seed: rng.gen(),
-            state: R0,
-        }
-    }
-}
-
-#[cfg(any(feature = "taproot", test))]
-impl SignerParty<R0, k256::ProjectivePoint> {
-    /// Create a new signer party with the given keyshare
-    pub fn new<R: CryptoRng + RngCore>(
-        keyshare: Arc<Keyshare<k256::ProjectivePoint>>,
-        message: [u8; 32],
-        derivation_path: DerivationPath,
-        rng: &mut R,
-    ) -> Self {
-        Self {
-            party_id: keyshare.party_id(),
-            message: message.to_vec(),
-            keyshare,
-            derivation_path,
             rand_params: SignEntropy::generate(rng),
             seed: rng.gen(),
             state: R0,
@@ -135,6 +134,11 @@ impl<G: Group + GroupEncoding> Round for SignerParty<R0, G> {
     type Input = ();
 
     type Output = Result<(SignerParty<R1<G>, G>, SignMsg1), SignError>;
+
+    // * MY CODE: ADDED
+    type Scalar = G::Scalar; // Properly associate `Scalar` with `G::Scalar`
+    // * MY CODE: ADDED
+    type GroupElem = G; // Associate GroupElem with G (e.g., EdwardsPoint)
 
     fn process(self, _: ()) -> Self::Output {
         let big_r_i = G::generator() * self.rand_params.k_i;
@@ -153,18 +157,39 @@ impl<G: Group + GroupEncoding> Round for SignerParty<R0, G> {
 
         let next_state = SignerParty {
             party_id: self.party_id,
-            message: self.message,
-            derivation_path: self.derivation_path,
             keyshare: self.keyshare,
             rand_params: self.rand_params,
-            state: R1 {
-                big_r_i,
-                commitment_r_i,
-            },
+            state: R1 { big_r_i },
             seed: self.seed,
         };
 
         Ok((next_state, msg1))
+    }
+
+    // * MY CODE: ADDED
+    fn from_saved_state(serialized_state: Vec<u8>, private_key: Arc<SecretKey>, party_pubkey_list: Vec<(u8, PublicKey)>, seed: [u8; 32], coefficients_scalars: Vec<Self::Scalar>, coefficients_points: Vec<Self::GroupElem>, session_id: SessionId, c_i_j: Vec<EncryptedScalar>, r_i: [u8; 32]) -> Result<Self, KeygenError>
+    {
+        todo!()
+    }
+
+    // * MY CODE: ADDED, from_saved_state_r2 
+    fn from_saved_state_r2(
+        private_key: Arc<SecretKey>,
+        party_pubkey_list: Vec<(u8, PublicKey)>,
+        seed: Seed,
+        coefficients_scalars: Vec<Self::Scalar>,
+        session_id: SessionId,
+        shared_session_id: SessionId,
+        sid_i_list: Vec<SessionId>,
+        commitment_list: Vec<HashBytes>,
+        r_i: [u8; 32]
+    ) -> Result<Self, KeygenError> {
+        todo!()
+    }
+
+    // * MY CODE: ADDED, from_saved_state_r1
+    fn from_saved_state_r1(commitment: [u8; 32], coefficients_scalars: Vec<Self::Scalar>, shared_session_id: SessionId, c_i_j: Vec<EncryptedScalar>, r_i: [u8; 32], seed: Seed) -> Result<Self, KeygenError> {
+        todo!()
     }
 }
 
@@ -176,6 +201,9 @@ where
     type Input = Vec<SignMsg1>;
 
     type Output = Result<(SignerParty<R2<G>, G>, SignMsg2<G>), SignError>;
+    // * MY CODE: ADDED
+    type Scalar = G::Scalar; // Properly associate `Scalar` with `G::Scalar`
+    type GroupElem = G; // Associate GroupElem with G (e.g., EdwardsPoint)
 
     fn process(self, mut msgs: Self::Input) -> Self::Output {
         let mut commitment_list = Vec::with_capacity(self.keyshare.threshold as usize);
@@ -184,30 +212,17 @@ where
 
         msgs.sort_by_key(|m| m.from_party);
 
-        for msg in &msgs {
+        for msg in msgs {
             commitment_list.push(msg.commitment_r_i);
             sid_list.push(msg.session_id);
             party_ids.push(msg.from_party);
-        }
-
-        //check if the input commitments match
-        msgs.iter()
-            .any(|msg| {
-                msg.from_party == self.party_id && msg.commitment_r_i == self.state.commitment_r_i
-            })
-            .then_some(())
-            .ok_or(SignError::InvalidParticipantSet)?;
-
-        //check sids are included
-        if !sid_list.contains(&self.rand_params.session_id) {
-            return Err(SignError::InvalidParticipantSet);
         }
 
         // Check for duplicate party ids
         let num_parties = party_ids.len();
         party_ids.dedup();
 
-        if party_ids.len() != num_parties || !party_ids.contains(&self.party_id) {
+        if party_ids.len() != num_parties {
             return Err(SignError::InvalidParticipantSet);
         }
 
@@ -218,8 +233,7 @@ where
             return Err(SignError::InvalidParticipantSet);
         }
 
-        let final_sid =
-            calculate_final_session_id(party_ids.iter().copied(), &sid_list, Some(&self.message));
+        let final_sid = calculate_final_session_id(party_ids.iter().copied(), &sid_list);
 
         use sha2::digest::Update;
         let dlog_sid = Sha256::new()
@@ -243,8 +257,6 @@ where
 
         let next = SignerParty {
             party_id: self.party_id,
-            message: self.message,
-            derivation_path: self.derivation_path,
             keyshare: self.keyshare,
             rand_params: self.rand_params,
             state: R2 {
@@ -259,6 +271,32 @@ where
 
         Ok((next, msg2))
     }
+
+    // * MY CODE: ADDED
+    fn from_saved_state(serialized_state: Vec<u8>, private_key: Arc<SecretKey>, party_pubkey_list: Vec<(u8, PublicKey)>, seed: [u8; 32], coefficients_scalars: Vec<Self::Scalar>, coefficients_points: Vec<Self::GroupElem>, session_id: SessionId, c_i_j: Vec<EncryptedScalar>, r_i: [u8; 32]) -> Result<Self, KeygenError>
+    {
+        todo!()
+    }
+
+    // * MY CODE: ADDED, from_saved_state_r2 
+    fn from_saved_state_r2(
+        private_key: Arc<SecretKey>,
+        party_pubkey_list: Vec<(u8, PublicKey)>,
+        seed: Seed,
+        coefficients_scalars: Vec<Self::Scalar>,
+        session_id: SessionId,
+        shared_session_id: SessionId,
+        sid_i_list: Vec<SessionId>,
+        commitment_list: Vec<HashBytes>,
+        r_i: [u8; 32]
+    ) -> Result<Self, KeygenError> {
+        todo!()
+    }
+
+    // * MY CODE: ADDED, from_saved_state_r1
+    fn from_saved_state_r1(commitment: [u8; 32], coefficients_scalars: Vec<Self::Scalar>, shared_session_id: SessionId, c_i_j: Vec<EncryptedScalar>, r_i: [u8; 32], seed: Seed) -> Result<Self, KeygenError> {
+        todo!()
+    }
 }
 
 impl<G: GroupElem> Round for SignerParty<R2<G>, G>
@@ -269,12 +307,15 @@ where
     type Input = Vec<SignMsg2<G>>;
 
     type Output = Result<SignReady<G>, SignError>;
+    // * MY CODE: ADDED
+    type Scalar = G::Scalar; // Properly associate `Scalar` with `G::Scalar`
+    // * MY CODE: ADDED
+    type GroupElem = G; // Associate GroupElem with G (e.g., EdwardsPoint)
 
     fn process(self, msgs: Self::Input) -> Self::Output {
         let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
 
         let mut big_r_i = self.state.big_r_i;
-        let mut participants: u32 = 0;
 
         for (idx, msg) in msgs.iter().enumerate() {
             if msg.from_party == self.keyshare.party_id() {
@@ -323,27 +364,12 @@ where
                 .ok_or(SignError::InvalidDLogProof(msg.from_party))?;
 
             big_r_i += msg_big_r_i;
-            participants += 1_u32;
         }
-        //total participants = |message I received| + 1
-        participants += 1_u32;
 
         // FIXME: do we need copied?
         let coeff = get_lagrange_coeff::<G>(&self.party_id, self.state.pid_list.iter().copied());
 
         let d_i = coeff * self.keyshare.shamir_share();
-
-        let (additive_offset, derived_public_key) = self
-            .keyshare
-            .derive_with_offset(&self.derivation_path)
-            .unwrap(); // FIXME: report error
-        let threshold_inv = <G as Group>::Scalar::from(participants as u64)
-            .invert()
-            .unwrap(); // threshold > 0 so it has an invert
-        let additive_offset = additive_offset * threshold_inv;
-
-        //tweak the secret key share by the computed additive offset
-        let d_i = d_i + additive_offset;
 
         let next = SignReady {
             key_id: self.keyshare.key_id,
@@ -351,18 +377,43 @@ where
             big_r: big_r_i,
             d_i,
             pid_list: self.state.pid_list,
-            public_key: derived_public_key, //replase the public key for that signature with the tweaked public key
+            public_key: self.keyshare.public_key,
             session_id: self.state.final_session_id,
-            message: self.message,
             k_i: self.rand_params.k_i,
             party_id: self.party_id,
         };
 
         Ok(next)
     }
+    // * MY CODE: ADDED
+    fn from_saved_state(serialized_state: Vec<u8>, private_key: Arc<SecretKey>, party_pubkey_list: Vec<(u8, PublicKey)>, seed: [u8; 32], coefficients_scalars: Vec<Self::Scalar>, coefficients_points: Vec<Self::GroupElem>, session_id: SessionId, c_i_j: Vec<EncryptedScalar>, r_i: [u8; 32]) -> Result<Self, KeygenError>
+    {
+        todo!()
+    }
+
+    // * MY CODE: ADDED, from_saved_state_r2 
+    fn from_saved_state_r2(
+        private_key: Arc<SecretKey>,
+        party_pubkey_list: Vec<(u8, PublicKey)>,
+        seed: Seed,
+        coefficients_scalars: Vec<Self::Scalar>,
+        session_id: SessionId,
+        shared_session_id: SessionId,
+        sid_i_list: Vec<SessionId>,
+        commitment_list: Vec<HashBytes>,
+        r_i: [u8; 32]
+    ) -> Result<Self, KeygenError> {
+        todo!()
+    }
+
+    // * MY CODE: ADDED, from_saved_state_r1
+    fn from_saved_state_r1(commitment: [u8; 32], coefficients_scalars: Vec<Self::Scalar>, shared_session_id: SessionId, c_i_j: Vec<EncryptedScalar>, r_i: [u8; 32], seed: Seed) -> Result<Self, KeygenError> {
+        todo!()
+    }
 }
 
-fn hash_commitment_r_i<G: Group + GroupEncoding>(
+// TODO: CHANGED TO pub
+pub fn hash_commitment_r_i<G: Group + GroupEncoding>(
     session_id: &SessionId,
     party_id: u8,
     big_r_i: &G,
@@ -378,7 +429,8 @@ fn hash_commitment_r_i<G: Group + GroupEncoding>(
         .into()
 }
 
-fn verify_commitment_r_i<G: Group + GroupEncoding>(
+// TODO: CHANGED TO pub
+pub fn verify_commitment_r_i<G: Group + GroupEncoding>(
     sid: &SessionId,
     pid: u8,
     big_r_i: &G,
