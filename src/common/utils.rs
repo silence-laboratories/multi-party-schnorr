@@ -18,7 +18,7 @@ use crate::keygen::{utils::setup_keygen, Keyshare};
 use super::traits::{GroupElem, Round, ScalarReduce};
 
 // Encryption is done inplace, so the size of the ciphertext is the size of the message plus the tag size.
-pub const SCALAR_CIPHERTEXT_SIZE: usize = 32 + <SalsaBox as AeadCore>::TagSize::USIZE;
+pub const SCALAR_CIPHERTEXT_SIZE: usize = 64 + <SalsaBox as AeadCore>::TagSize::USIZE;
 
 // Custom serde serializer
 #[cfg(feature = "serde")]
@@ -115,7 +115,11 @@ pub mod serde_vec_point {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, Debug, bytemuck::AnyBitPattern, bytemuck::NoUninit)]
 #[repr(C)]
-pub struct EncryptedScalar {
+/// Encrypted data
+/// Specific to the keygen protocol
+/// It is an encryption of 64 bytes of data.
+/// The data:  [polynomial evaluation c_i_j (32 bytes) || chain_code_session_id (32 bytes)] for the party_{i}
+pub struct EncryptedData {
     pub sender_pid: u8,
     pub receiver_pid: u8,
     #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
@@ -124,13 +128,11 @@ pub struct EncryptedScalar {
     pub nonce: [u8; <SalsaBox as AeadCore>::NonceSize::USIZE],
 }
 
-const _: () = assert!(core::mem::align_of::<EncryptedScalar>() == 1);
-
 // Not using the SessionId type from sl_mpc_mate because it is not serializable.
 pub type SessionId = [u8; 32];
 pub type HashBytes = [u8; 32];
 
-impl EncryptedScalar {
+impl EncryptedData {
     pub fn new(
         ciphertext: [u8; SCALAR_CIPHERTEXT_SIZE],
         nonce: [u8; 24],
@@ -203,9 +205,9 @@ pub fn calculate_final_session_id(
 pub fn encrypt_message<R: CryptoRngCore, G: GroupElem>(
     sender_secret_info: (&SecretKey, u8),
     receiver_public_info: (&PublicKey, u8),
-    message: G::Scalar,
+    message: [u8; 64],
     rng: &mut R,
-) -> Option<EncryptedScalar> {
+) -> Option<EncryptedData> {
     // FIXME: Handle this better
     if std::mem::size_of::<<G::Scalar as PrimeField>::Repr>() != 32 {
         panic!("We don't support scalars of size other than 32 bytes!");
@@ -213,10 +215,10 @@ pub fn encrypt_message<R: CryptoRngCore, G: GroupElem>(
     let sender_box = SalsaBox::new(receiver_public_info.0, sender_secret_info.0);
     let nonce = SalsaBox::generate_nonce(rng);
     sender_box
-        .encrypt(&nonce, message.to_repr().as_ref())
+        .encrypt(&nonce, message.as_ref())
         .ok()
         .and_then(|data| {
-            Some(EncryptedScalar::new(
+            Some(EncryptedData::new(
                 data.try_into().ok()?,
                 nonce.into(),
                 sender_secret_info.1,
@@ -228,8 +230,8 @@ pub fn encrypt_message<R: CryptoRngCore, G: GroupElem>(
 pub fn decrypt_message(
     receiver_private_key: &SecretKey,
     sender_public_key: &PublicKey,
-    enc_data: &EncryptedScalar,
-) -> Option<Vec<u8>> {
+    enc_data: &EncryptedData,
+) -> Option<[u8; 64]> {
     let receiver_box = SalsaBox::new(sender_public_key, receiver_private_key);
     receiver_box
         .decrypt(
@@ -237,6 +239,7 @@ pub fn decrypt_message(
             enc_data.ciphertext.as_slice(),
         )
         .ok()
+        .and_then(|data| data.try_into().ok())
 }
 
 /// Helper method to generate PKI for a set of parties.
