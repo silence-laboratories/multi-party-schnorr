@@ -28,7 +28,7 @@ use crate::{
     keygen::Keyshare,
     sign::validate_input_messages,
 };
-use crate::common::utils::{EncryptedScalar, Seed}; // * MY CODE: ADDED, import EncryptedScalar and Seed
+use crate::common::utils::{EncryptedScalar, Seed, SerializableEdwardsPoint}; // * MY CODE: ADDED, import EncryptedScalar and Seed
 // * MY CODE: ADDED
 use crate::keygen::KeygenError;
 
@@ -93,6 +93,8 @@ pub struct SignReady<G: Group> {
     pub pid_list: Vec<u8>,
     pub threshold: u8,
     pub public_key: G,
+    // * MY CODE: ADDED, add serialized public key
+    pub aggregated_public_key: SerializableEdwardsPoint,       // Added aggregated public key
     pub key_id: [u8; 32],
     // * MY CODE: ADDED, made the field public
     pub k_i: G::Scalar,
@@ -107,7 +109,9 @@ pub struct PartialSign<G: Group> {
     pub threshold: u8,
     // * MY CODE: ADDED, made the field public
     pub big_r: G,
-    pub public_key: G,
+    pub public_key: G,                  // Individual public key
+    // * MY CODE: ADDED, add serialized public key
+    pub aggregated_public_key: SerializableEdwardsPoint,       // ✅ Added aggregated public key
     // * MY CODE: ADDED, made the field public
     pub s_i: G::Scalar,
     // * MY CODE: ADDED, made the field public
@@ -378,6 +382,7 @@ where
             d_i,
             pid_list: self.state.pid_list,
             public_key: self.keyshare.public_key,
+            aggregated_public_key: self.keyshare.aggregated_public_key.clone(), // ✅ Added aggregated public key
             session_id: self.state.final_session_id,
             k_i: self.rand_params.k_i,
             party_id: self.party_id,

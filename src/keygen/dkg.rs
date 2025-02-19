@@ -29,10 +29,14 @@ use sl_mpc_mate::math::Polynomial;
 // use serde::Serialize;
 // * MY CODE: ADDED, Seed and Value
 use serde_json::Value;
-use crate::common::utils::Seed;
+// * MY CODE: ADDED, imports
+use crate::common::utils::{Seed, SerializableEdwardsPoint};
 // * MY CODE: ADDED, imports
 use bytemuck;
 use std::fmt::Write;
+// * MY CODE: ADDED, imports
+use curve25519_dalek::edwards::CompressedEdwardsY;
+use curve25519_dalek::traits::Identity;
 
 // * MY CODE: ADDED
 pub trait GroupPolynomialExtension<G>
@@ -1801,10 +1805,9 @@ where
             if !bool::from(expected_point.ct_eq(&calc_point)) {
                 // * MY CODE: ADDED, print the error message
                 println!("Error: invalid d_i/ given group polynomial");
-                // TODO: * MY CODE: COMMENTED OUT, should be uncommented 
-                // return Err(KeygenError::Abort(
-                //     "invalid d_i share/ given group polynomial",
-                // ));
+                return Err(KeygenError::Abort(
+                    "invalid d_i share/ given group polynomial",
+                ));
             } else {
                 // * MY CODE: ADDED, print the success message
                 println!("d_i/ given group polynomial is valid");
@@ -1813,20 +1816,51 @@ where
         }
 
         // * MY CODE: COMMENTED OUT
+        // * MY CODE: ADDED, adding logs
+        // TODO: remove this log:
+        println!("d_i_share: {:?}", d_i_share);
+
+        println!("Evaluation point: {:?}", G::Scalar::from((self.params.party_id + 1) as u64));
+        println!("Polynomial coefficients: {:?}", big_a_poly);
+
+        println!("Polynomial coefficients: {:?}", big_a_poly.coeffs); // the same output as above
+        for (i, coeff) in big_a_poly.coeffs.iter().enumerate() { // the same output as above
+            println!("Polynomial coefficient {}: {:?}", i, coeff);
+        }
+
         let public_key = big_a_poly.get_constant();
         //
         // 12.6(e)
         let expected_point: G = G::generator() * d_i_share;
         let calc_point =
-             big_a_poly.evaluate_at(&G::Scalar::from((self.params.party_id + 1) as u64));
+            big_a_poly.evaluate_at(&G::Scalar::from((self.params.party_id + 1) as u64));
+
+        // * MY CODE: ADDED, print
+        println!("Expected point: {:?}", expected_point);
+        println!("Calculated point: {:?}", calc_point);
+        println!("Compressed Expected Point: {:?}", expected_point.to_bytes().as_ref());
+        println!("Compressed Calculated Point: {:?}", calc_point.to_bytes().as_ref());
+
+
+        println!("Public key: {:?}", public_key);
+
+        // This test is working as expected, the points are equal in compressed coordinates, regardless of the point representation
+        // it is the same point in affine coordinates (space)
+        
+        // * MY CODE: ADDED, are_group_elements_equal
+        // TODO: this check will be removed: it is just for debugging purposes
+        if !are_group_elements_equal(&expected_point, &calc_point) {
+            println!("❌ Points are NOT equal (after compression check)");
+        } else {
+            println!("✅ Points match in compressed (affine) coordinates");
+        }
 
         if !bool::from(expected_point.ct_eq(&calc_point)) {
             // * MY CODE: ADDED, print the error message
             println!("Error: invalid d_i_share/ given group polynomial");
-            // TODO: * MY CODE: COMMENTED OUT, should be uncommented 
-            // return Err(KeygenError::Abort(
-            //     "invalid d_i share/ given group polynomial",
-            // ));
+            return Err(KeygenError::Abort(
+                "invalid d_i share/ given group polynomial",
+            ));
         } else {
             // * MY CODE: ADDED, print the success message
             println!("d_i_share/ given group polynomial is valid");
@@ -1840,13 +1874,28 @@ where
             key_id: [1; 32], // * MY CODE: ADDED, TODO: key_id is not set
             d_i: d_i_share,
             public_key,
+            // * MY CODE: ADDED
+            aggregated_public_key: SerializableEdwardsPoint::default(),
             extra_data: self.params.extra_data,
         };
         Ok(keyshare)
     }
 
-    // * MY CODE: ADDED, from_saved_state_r2
-    // serialized_state: Vec<u8>
+    // * MY CODE: ADDED
+    fn from_saved_state(serialized_state: Vec<u8>, private_key: Arc<SecretKey>, party_pubkey_list: Vec<(u8, PublicKey)>, seed: [u8; 32], coefficients_scalars: Vec<Self::Scalar>, coefficients_points: Vec<Self::GroupElem>, session_id: SessionId, c_i_j: Vec<EncryptedScalar>, r_i: [u8; 32]) -> Result<Self, KeygenError>
+    where
+        Self: Sized
+    {
+        todo!()
+    }
+
+    // * MY CODE: ADDED, from_saved_state_r1
+    fn from_saved_state_r1(commitment: [u8; 32], coefficients_scalars: Vec<Self::Scalar>, shared_session_id: SessionId, c_i_j: Vec<EncryptedScalar>, r_i: [u8; 32], seed: Seed) -> Result<Self, KeygenError>
+    where
+        Self: Sized
+    {
+        todo!()
+    }
     fn from_saved_state_r2(
         private_key: Arc<SecretKey>,
         party_pubkey_list: Vec<(u8, PublicKey)>,
@@ -1904,18 +1953,10 @@ where
             key_refresh_data: None,
         })
     }
-
-    fn from_saved_state(serialized_state: Vec<u8>, private_key: Arc<SecretKey>, party_pubkey_list: Vec<(u8, PublicKey)>, seed: [u8; 32], coefficients_scalars: Vec<Self::Scalar>, coefficients_points: Vec<Self::GroupElem>, session_id: SessionId, c_i_j: Vec<EncryptedScalar>, r_i: [u8; 32]) -> Result<Self, KeygenError>
-    where
-        Self: Sized
-    {
-        todo!()
-    }
-
-    // * MY CODE: ADDED, from_saved_state_r1
-    fn from_saved_state_r1(commitment: [u8; 32], coefficients_scalars: Vec<Self::Scalar>, shared_session_id: SessionId, c_i_j: Vec<EncryptedScalar>, r_i: [u8; 32], seed: Seed) -> Result<Self, KeygenError> {
-        todo!()
-    }
+}
+// * MY CODE: ADDED, compare group elements, temp verification
+fn are_group_elements_equal<G: GroupElem + GroupEncoding>(point1: &G, point2: &G) -> bool {
+    point1.to_bytes().as_ref() == point2.to_bytes().as_ref()
 }
 
 // * MY CODE: ADDED, add debug print
@@ -1986,6 +2027,11 @@ pub fn validate_input_messages<M: BaseMessage>(
     }
 
     messages.sort_by_key(|msg| msg.party_id());
+    // * MY CODE: ADDED, print the party_id and session_id
+    println!("message server party_id: {:?}", messages[0].party_id());
+    println!("message client party_id: {:?}", messages[1].party_id());
+    println!("message server session_id: {:?}", messages[0].session_id());
+    println!("message client session_id: {:?}", messages[1].session_id());
 
     messages
         .iter()

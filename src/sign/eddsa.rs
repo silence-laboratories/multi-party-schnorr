@@ -47,7 +47,8 @@ impl Round for SignReady<EdwardsPoint> {
             party_id: self.party_id,
             threshold: self.threshold,
             session_id: self.session_id,
-            public_key: self.public_key,
+            public_key: self.public_key,                        // Individual public key (A_i)
+            aggregated_public_key: self.aggregated_public_key, // Correct aggregated key (A = Σ A_i)
             big_r: self.big_r,
             s_i,
             msg_to_sign,
@@ -108,6 +109,7 @@ impl Round for PartialSign<EdwardsPoint> {
         println!("Party ID: {}", self.party_id);
         println!("Session ID: {:?}", self.session_id);
         println!("Public Key: {:?}", self.public_key);
+        println!("Aggregated Public Key: {:?}", self.aggregated_public_key);
         println!("Initial s_i: {:?}", self.s_i);
         println!("Number of messages to process: {}", messages.len());
 
@@ -133,7 +135,7 @@ impl Round for PartialSign<EdwardsPoint> {
 
         // * MY CODE: ADDED, print the details, for debugging
         println!("📝 Generated Signature (R || s): {:?}", sig_bytes);
-        println!("🔑 Verifying with Public Key: {:?}", self.public_key);
+        println!("🔑 Verifying with Public Key: {:?}", self.aggregated_public_key);
         println!("📨 Message to Sign (Hash): {:?}", self.msg_to_sign);
 
 
@@ -152,7 +154,7 @@ impl Round for PartialSign<EdwardsPoint> {
 
         } else if self.party_id == 0 && !messages.is_empty() {
             // For Server - Verify only the first message
-            println!("🔍🗄️ Server (party_id = 0) verifying aggregated signature...");
+            println!("🔍🤝️ Server (party_id = 0) verifying aggregated signature... 🗄");
             // * MY CODE: ADDED, restore the original code, to verify the signature for all messages, for server side
             if let Err(e) = VerifyingKey::from(self.public_key).verify(&self.msg_to_sign, &signature) {
                 println!("❌🚨 Server Signature Verification Failed: {:?}", e);

@@ -1,6 +1,8 @@
 // * MY CODE: ADDED
 use std::error::Error;
 // * MY CODE: ADDED
+use std::fmt;
+// * MY CODE: ADDED
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -12,6 +14,8 @@ use crypto_box::{
 use crypto_bigint::generic_array::typenum::Unsigned;
 // * MY CODE: ADDED
 use crypto_bigint::{Encoding, generic_array::GenericArray, rand_core::CryptoRngCore};
+// * MY CODE: ADDED
+use curve25519_dalek::edwards::CompressedEdwardsY;
 // * MY CODE: ADDED
 use curve25519_dalek::EdwardsPoint;
 // * MY CODE: ADDED
@@ -29,9 +33,18 @@ use sha2::{Digest, Sha256};
 use hex::{encode as hex_encode, decode as hex_decode};
 // * MY CODE: ADDED
 use curve25519_dalek::scalar::Scalar;
-use serde::{Deserialize, Serialize}; // * MY CODE: ADDED, for serialization
+// * MY CODE: ADDED
+use curve25519_dalek::traits::{Identity, IsIdentity};
+// * MY CODE: ADDED
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+// * MY CODE: ADDED
+use serde::de::Visitor;
+// * MY CODE: ADDED
+use std::convert::TryFrom;
+// use crate::common::utils::ser_edwards_point_v0::SerializableEdwardsPoint; // * MY CODE: ADDED, for serialization
 
-use crate::keygen::{utils::setup_keygen, Keyshare, validate_input, validate_input_basic};
+// * MY CODE: ADDED
+use crate::keygen::{utils::setup_keygen, Keyshare, validate_input, validate_input_basic, KeygenError};
 // * MY CODE: ADDED
 use crate::sign::messages::SignMsg1;
 
@@ -39,6 +52,101 @@ use super::traits::{GroupElem, Round, ScalarReduce};
 
 // Encryption is done inplace, so the size of the ciphertext is the size of the message plus the tag size.
 pub const SCALAR_CIPHERTEXT_SIZE: usize = 32 + <SalsaBox as AeadCore>::TagSize::USIZE;
+
+// * MY CODE: ADDED, SerializableEdwardsPoint
+/// Wrapper struct for EdwardsPoint
+#[derive(Clone, Debug)]
+pub struct SerializableEdwardsPoint(pub EdwardsPoint);
+
+impl SerializableEdwardsPoint {
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self.0.to_bytes()
+    }
+}
+
+// * MY CODE: ADDED
+impl Default for SerializableEdwardsPoint {
+    fn default() -> Self {
+        SerializableEdwardsPoint(curve25519_dalek::traits::Identity::identity())
+    }
+}
+
+// * MY CODE: ADDED
+impl<G> From<G> for SerializableEdwardsPoint
+where
+    G: Identity + IsIdentity + GroupEncoding,
+{
+    fn from(aggregated_public_key: G) -> Self {
+        let compressed = aggregated_public_key.to_bytes();
+        let compressed_bytes: &[u8] = compressed.as_ref();
+
+        // ✅ Simplified error handling using unwrap_or_else
+        let compressed_point = CompressedEdwardsY::from_slice(compressed_bytes)
+            .unwrap_or_else(|_| {
+                println!("❌ Invalid compressed bytes during conversion to SerializableEdwardsPoint");
+                CompressedEdwardsY::identity() // Fallback to identity if compression fails
+            });
+
+        let edwards_point = compressed_point.decompress().unwrap_or_else(|| {
+            println!("❌ Invalid aggregated public key format during decompression");
+            <EdwardsPoint as Identity>::identity() // ✅ Disambiguated, Fallback to identity if decompression fails
+        });
+
+        SerializableEdwardsPoint(edwards_point)
+    }
+}
+
+// * MY CODE: ADDED
+impl From<SerializableEdwardsPoint> for EdwardsPoint {
+    fn from(wrapper: SerializableEdwardsPoint) -> Self {
+        wrapper.0
+    }
+}
+
+// * MY CODE: ADDED
+impl Serialize for SerializableEdwardsPoint {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let serialized_bytes = self.0.to_bytes(); // Direct serialization, already got here as compressed
+        println!("📦 [Server] Serialized Aggregated Public Key Bytes: {:?}", serialized_bytes);
+        // let compressed = self.0.compress().to_bytes(); // not needed since we already have compressed bytes
+        // println!("📦 [Server] Compressed Serialized Aggregated Public Key Bytes: {:?}", compressed);
+        serializer.serialize_bytes(&serialized_bytes)
+    }
+}
+
+// * MY CODE: ADDED
+impl<'de> Deserialize<'de> for SerializableEdwardsPoint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let received_compressed_bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
+        println!("📦 [Client] Compressed Serialized Aggregated Public Key Bytes: {:?}", received_compressed_bytes); // compressed serialized_bytes
+        if received_compressed_bytes.len() != 32 {
+            println!("❌ Received invalid byte length: {}", received_compressed_bytes.len());
+            return Err(serde::de::Error::custom("Invalid byte length for CompressedEdwardsY"));
+        }
+
+        let compressed = CompressedEdwardsY::from_slice(received_compressed_bytes.as_ref()).map_err(|_| {
+            println!("❌ Invalid byte slice for CompressedEdwardsY: {:?}", received_compressed_bytes);
+            serde::de::Error::custom("Invalid byte slice for CompressedEdwardsY")
+        })?;
+        let decompressed = compressed.decompress().ok_or_else(|| {
+            println!("❌ Point decompression failed for bytes: {:?}", received_compressed_bytes);
+            serde::de::Error::custom("Point decompression failed")
+        })?;
+        // let compressed = curve25519_dalek::edwards::CompressedEdwardsY::from_slice(&compressed_bytes)
+        //     .map_err(|_| serde::de::Error::custom("Invalid byte slice for CompressedEdwardsY"))?;
+        // let decompressed = compressed
+        //     .decompress()
+        //     .ok_or_else(|| serde::de::Error::custom("Invalid compressed EdwardsPoint"))?;
+
+        Ok(SerializableEdwardsPoint(decompressed))
+    }
+}
 
 // Custom serde serializer
 #[cfg(feature = "serde")]

@@ -29,7 +29,8 @@ use crate::{
 };
 
 #[cfg(feature = "serde")]
-use crate::common::utils::{serde_point, serde_vec_point};
+use crate::common::utils::{serde_vec_point, serde_point}; // ser_vec_point
+use crate::common::utils::SerializableEdwardsPoint; // serde_point NOT WORKING GOOD, ser_edwards_point
 
 use super::KeyRefreshData;
 
@@ -112,8 +113,12 @@ where
     /// Public key of the generated key.
     #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
     pub public_key: G,
+    // #[cfg_attr(feature = "serde", serde(with = "ser_edwards_point"))]
+    pub aggregated_public_key: SerializableEdwardsPoint,
+
     /// Key ID
     pub key_id: [u8; 32],
+
     /// Extra data
     pub extra_data: Option<Vec<u8>>,
 }
@@ -177,6 +182,7 @@ where
         party_id: u8,
         d_i: G::Scalar,
         public_key: G,
+        aggregated_public_key: SerializableEdwardsPoint,
         key_id: [u8; 32],
         extra_data: Option<Vec<u8>>,
     ) -> Self {
@@ -186,6 +192,7 @@ where
             party_id,
             d_i,
             public_key,
+            aggregated_public_key,
             key_id,
             extra_data,
         }
@@ -234,6 +241,7 @@ impl Keyshare<EdwardsPoint> {
         (d_i_serialized, public_key_serialized)
     }
 
+    // TODO: pass party_id as parameter
     pub fn deserialize(d_i_str: &str, pub_key_str: &str) -> Result<Self, String> {
         let d_i = deserialize_scalar_from_base58(d_i_str)?;
         let public_key = deserialize_public_key_from_base58(pub_key_str)?;
@@ -243,9 +251,10 @@ impl Keyshare<EdwardsPoint> {
             // * MY CODE: ADDED, set total_parties to 2
             total_parties: 2,
             // * MY CODE: ADDED, set party_id to 0
-            party_id: 0,
+            party_id: 0, // TODO: assign party_id from parameter
             d_i,
-            public_key,
+            public_key: public_key.clone(),
+            aggregated_public_key: SerializableEdwardsPoint::default() , // public_key
             key_id: [0u8; 32],
             extra_data: None,
         })
@@ -291,27 +300,41 @@ where
 // * MY CODE: ADDED, Serialize and Deserialize for private key and public key - base58 encoding with checksum
 /// Generic function to deserialize a Base58 string back into a Scalar (private key)
 // * MY CODE: ADDED, make the function public
+/// Deserializes a Base58-encoded scalar, supporting both 32-byte (raw) and 36-byte (checksum included) formats.
 pub fn deserialize_scalar_from_base58(encoded_str: &str) -> Result<Scalar, String> {
     let decoded_bytes = bs58::decode(encoded_str)
         .with_alphabet(bs58::Alphabet::BITCOIN)
         .into_vec()
         .map_err(|e| format!("Base58 decode error: {}", e))?;
 
-    if decoded_bytes.len() != 36 {
-        return Err("Invalid decoded length".to_string());
-    }
+    match decoded_bytes.len() {
+        36 => {
+            // Case: 36-byte scalar with checksum
+            let (data, checksum) = decoded_bytes.split_at(32);
+            let expected_checksum: [u8; 4] = Sha256::digest(Sha256::digest(data))[..4]
+                .try_into()
+                .expect("Checksum length error");
 
-    let (data, checksum) = decoded_bytes.split_at(32);
-    let expected_checksum: [u8; 4] = Sha256::digest(Sha256::digest(&data))[..4]
+            if checksum != expected_checksum {
+                return Err("Checksum verification failed".to_string());
+            }
+
+            deserialize_scalar_from_bytes(data)
+        }
+        32 => {
+            // Case: 32-byte raw scalar (no checksum)
+            deserialize_scalar_from_bytes(&decoded_bytes)
+        }
+        _ => Err("Invalid decoded length. Expected 32 or 36 bytes.".to_string()),
+    }
+}
+
+/// Helper function to safely convert a 32-byte slice into a `Scalar`
+fn deserialize_scalar_from_bytes(data: &[u8]) -> Result<Scalar, String> {
+    let scalar_bytes: [u8; 32] = data
         .try_into()
-        .expect("Checksum length error");
+        .map_err(|_| "Failed to convert bytes to scalar".to_string())?;
 
-    if checksum != expected_checksum {
-        return Err("Checksum verification failed".to_string());
-    }
-
-    // Convert byte slice into an array
-    let scalar_bytes: [u8; 32] = data.try_into().map_err(|_| "Failed to convert bytes to scalar".to_string())?;
     Ok(Scalar::from_bytes_mod_order(scalar_bytes))
 }
 
@@ -333,31 +356,41 @@ pub fn serialize_public_key_to_base58(public_key: &EdwardsPoint) -> String {
 
 // * MY CODE: ADDED, Serialize and Deserialize for private key and public key - base58 encoding with checksum
 /// Generic function to deserialize a Base58-encoded string back into an EdwardsPoint (public key)
+/// supporting both 36-byte (checksum included) and 32-byte (raw) encoded keys.
 pub fn deserialize_public_key_from_base58(encoded_str: &str) -> Result<EdwardsPoint, String> {
     let decoded_bytes = bs58::decode(encoded_str)
         .with_alphabet(bs58::Alphabet::BITCOIN)
         .into_vec()
         .map_err(|e| format!("Base58 decode error: {}", e))?;
 
-    if decoded_bytes.len() != 36 {
-        return Err("Invalid decoded length".to_string());
+    match decoded_bytes.len() {
+        36 => {
+            // Case: 36-byte key with checksum
+            let (data, checksum) = decoded_bytes.split_at(32);
+            let expected_checksum: [u8; 4] = Sha256::digest(Sha256::digest(data))[..4]
+                .try_into()
+                .expect("Checksum length error");
+
+            if checksum != expected_checksum {
+                return Err("Checksum verification failed".to_string());
+            }
+
+            deserialize_compressed_edwards_point(data)
+        }
+        32 => {
+            // Case: 32-byte raw key (no checksum)
+            deserialize_compressed_edwards_point(&decoded_bytes)
+        }
+        _ => Err("Invalid decoded length. Expected 32 or 36 bytes.".to_string()),
     }
+}
 
-    let (data, checksum) = decoded_bytes.split_at(32);
-    let expected_checksum: [u8; 4] = Sha256::digest(Sha256::digest(data))[..4]
-        .try_into()
-        .expect("Checksum length error");
-
-    if checksum != expected_checksum {
-        return Err("Checksum verification failed".to_string());
-    }
-
-    // Convert slice to an array and attempt to decompress it to EdwardsPoint
+/// Helper function to convert a 32-byte slice into an EdwardsPoint
+fn deserialize_compressed_edwards_point(data: &[u8]) -> Result<EdwardsPoint, String> {
     let public_key_bytes: [u8; 32] = data
         .try_into()
         .map_err(|_| "Failed to convert bytes to public key".to_string())?;
 
-    // Handle the Result and then call decompress()
     let compressed = CompressedEdwardsY::from_slice(&public_key_bytes)
         .map_err(|_| "Invalid compressed public key format".to_string())?;
 
@@ -365,6 +398,7 @@ pub fn deserialize_public_key_from_base58(encoded_str: &str) -> Result<EdwardsPo
         .decompress()
         .ok_or_else(|| "Failed to decompress public key".to_string())
 }
+
 
 // * MY CODE: ADDED, Serialize and Deserialize for private key and public key - base58 encoding with checksum
 fn deserialize_public_key_from_bytes(public_key_bytes: &[u8; 32]) -> Result<EdwardsPoint, String> {
