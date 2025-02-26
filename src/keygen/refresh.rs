@@ -54,7 +54,24 @@ where
             root_chain_code,
         }
     }
-
+    pub fn make_refresh_data_migrate(
+        party_id: u8,
+        threshold: u8,
+        total_parties: u8,
+        s_i_0: G::Scalar,
+        expected_public_key: G,
+        root_chain_code: [u8; 32],
+    ) -> Self {
+        KeyRefreshData {
+            threshold,
+            total_parties,
+            party_id,
+            s_i_0,
+            lost_keyshare_party_ids: vec![],
+            expected_public_key,
+            root_chain_code,
+        }
+    }
     /// Get the private scalar (s_i) (not shamir secret)
     pub fn s_i(&self) -> &G::Scalar {
         &self.s_i_0
