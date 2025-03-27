@@ -190,7 +190,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         }
 
         Ok((
-            G::Scalar::reduce_from_bytes(<&[u8; 32]>::try_from(il_int).unwrap()),
+            G::Scalar::reduce_from_bytes(il_int),
             child_pubkey,
             child_chain_code.try_into().unwrap(),
         ))
