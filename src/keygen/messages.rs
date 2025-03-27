@@ -1,6 +1,7 @@
 use std::hash::Hash;
 
 use crypto_bigint::subtle::ConstantTimeEq;
+use crypto_bigint::U256;
 use derivation_path::{ChildIndex, DerivationPath};
 use elliptic_curve::{group::GroupEncoding, Group};
 use ff::Field;
@@ -173,12 +174,12 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         hmac_hasher.update(&child_number.to_bits().to_be_bytes());
         let result = hmac_hasher.finalize().into_bytes();
         let (il_int, child_chain_code) = result.split_at(KEY_SIZE);
-        let il_int = il_int[0..32].try_into().unwrap();
-        // Has a chance of 1 in 2^127
+        let il_int: &[u8; 32] = il_int[0..32].try_into().unwrap();
+        let il_int_256 = U256::from_be_slice(il_int);
 
-        // if il_int > constants::BASEPOINT_ORDER {
-        //     return Err(BIP32Error::InvalidChildScalar);
-        // }
+        if il_int_256 > U256::from_be_slice(curve25519_dalek::constants::BASEPOINT_ORDER.as_bytes()) {
+            return Err(BIP32Error::InvalidChildScalar);
+        }
         let pubkey = G::generator() * G::Scalar::reduce_from_bytes(il_int);
 
         let child_pubkey = pubkey + parent_pubkey;
@@ -189,7 +190,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         }
 
         Ok((
-            G::Scalar::reduce_from_bytes(il_int),
+            G::Scalar::reduce_from_bytes(<&[u8; 32]>::try_from(il_int).unwrap()),
             child_pubkey,
             child_chain_code.try_into().unwrap(),
         ))
