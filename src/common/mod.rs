@@ -7,6 +7,11 @@ pub mod utils;
 pub use dlog_proof::*;
 
 pub use math::*;
+pub const BASEPOINT_ORDER_CURVE_25519: [u8; 32] = [
+    0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde,
+    0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x10,
+];
 
 pub mod traits {
     use crypto_bigint::subtle::ConstantTimeEq;
@@ -30,7 +35,8 @@ pub mod traits {
     where
         G: Group + GroupEncoding + ConstantTimeEq,
         G::Scalar: ScalarReduce<[u8; 32]>,
-    {}
+    {
+    }
 
     /// Reduce (little endian) bytes to a scalar.
     pub trait ScalarReduce<T> {
@@ -44,7 +50,9 @@ pub mod traits {
             Self::from_bytes_mod_order(*bytes)
         }
         fn check_bip32_left_rnd(bytes: &[u8; 32]) -> Result<(), BIP32Error> {
-            if U256::from_be_slice(bytes) > U256::from_be_slice(curve25519_dalek::constants::BASEPOINT_ORDER.as_bytes()) {
+            if U256::from_be_slice(bytes)
+                > U256::from_be_slice(&crate::common::BASEPOINT_ORDER_CURVE_25519)
+            {
                 return Err(BIP32Error::InvalidChildScalar);
             }
             Ok(())
@@ -57,7 +65,9 @@ pub mod traits {
             Self::from_bytes_mod_order_wide(bytes)
         }
         fn check_bip32_left_rnd(bytes: &[u8; 64]) -> Result<(), BIP32Error> {
-            if U256::from_be_slice(bytes) > U256::from_be_slice(curve25519_dalek::constants::BASEPOINT_ORDER.as_bytes()) {
+            if U256::from_be_slice(bytes)
+                > U256::from_be_slice(&crate::common::BASEPOINT_ORDER_CURVE_25519)
+            {
                 return Err(BIP32Error::InvalidChildScalar);
             }
             Ok(())

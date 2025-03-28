@@ -45,7 +45,7 @@ where
         let (_additive_offset, derived_public_key) = self
             .keyshare
             .derive_with_offset(&self.derivation_path)
-            .unwrap(); // FIXME: report error
+            .map_err(|_| DeriveError::DerivationError)?; // FIXME: report error
 
         Ok(derived_public_key)
     }

@@ -1,5 +1,4 @@
 use std::sync::Arc;
-
 use elliptic_curve::Group;
 use rand::{CryptoRng, Rng, RngCore};
 use thiserror::Error;
