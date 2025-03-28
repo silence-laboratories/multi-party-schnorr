@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use elliptic_curve::Group;
 use rand::{CryptoRng, Rng, RngCore};
+use std::sync::Arc;
 use thiserror::Error;
 
 use sl_mpc_mate::{math::Polynomial, random_bytes};

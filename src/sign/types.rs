@@ -88,5 +88,4 @@ pub enum SignError {
     InvalidThreshold,
     #[error("Invalid derivation")]
     InvalidKeyDerivation,
-
 }
