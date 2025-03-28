@@ -9,6 +9,9 @@ use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sl_mpc_mate::bip32::BIP32Error;
 
+use crate::common::traits::OrderMachine;
+#[cfg(feature = "serde")]
+use crate::common::utils::{serde_point, serde_vec_point};
 use crate::{
     common::{
         get_lagrange_coeff,
@@ -18,9 +21,6 @@ use crate::{
     },
     impl_basemessage,
 };
-
-#[cfg(feature = "serde")]
-use crate::common::utils::{serde_point, serde_vec_point};
 
 use super::KeyRefreshData;
 const KEY_SIZE: usize = 32;
@@ -137,7 +137,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         chain_path: &DerivationPath,
     ) -> Result<(G::Scalar, G), BIP32Error>
     where
-        <G as Group>::Scalar: ScalarReduce<[u8; 32]>,
+        <G as Group>::Scalar: ScalarReduce<[u8; 32]> + OrderMachine<[u8; 32]>,
     {
         let mut pubkey = *self.public_key();
         let mut chain_code = self.root_chain_code();
@@ -160,7 +160,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         child_number: &ChildIndex,
     ) -> Result<(G::Scalar, G, [u8; 32]), BIP32Error>
     where
-        G::Scalar: ScalarReduce<[u8; 32]>,
+        G::Scalar: ScalarReduce<[u8; 32]> + OrderMachine<[u8; 32]>,
     {
         let mut hmac_hasher = Hmac::<sha2::Sha512>::new_from_slice(&parent_chain_code)
             .map_err(|_| BIP32Error::InvalidChainCode)?;

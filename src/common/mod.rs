@@ -40,14 +40,13 @@ pub mod traits {
     /// Reduce (little endian) bytes to a scalar.
     pub trait ScalarReduce<T> {
         fn reduce_from_bytes(bytes: &T) -> Self;
+    }
+    pub trait OrderMachine<T> {
         fn check_bip32_left_rnd(bytes: &T) -> Result<(), BIP32Error>;
     }
 
     #[cfg(any(feature = "eddsa", test))]
-    impl ScalarReduce<[u8; 32]> for curve25519_dalek::Scalar {
-        fn reduce_from_bytes(bytes: &[u8; 32]) -> Self {
-            Self::from_bytes_mod_order(*bytes)
-        }
+    impl OrderMachine<[u8; 32]> for curve25519_dalek::Scalar {
         fn check_bip32_left_rnd(bytes: &[u8; 32]) -> Result<(), BIP32Error> {
             if U256::from_be_slice(bytes)
                 > U256::from_be_slice(&crate::common::BASEPOINT_ORDER_CURVE_25519)
@@ -58,18 +57,27 @@ pub mod traits {
         }
     }
 
+    #[cfg(any(feature = "taproot", test))]
+    impl OrderMachine<[u8; 32]> for k256::Scalar {
+        fn check_bip32_left_rnd(bytes: &[u8; 32]) -> Result<(), BIP32Error> {
+            if U256::from_be_slice(bytes) > k256::Secp256k1::ORDER {
+                return Err(BIP32Error::InvalidChildScalar);
+            }
+            Ok(())
+        }
+    }
+
+    #[cfg(any(feature = "eddsa", test))]
+    impl ScalarReduce<[u8; 32]> for curve25519_dalek::Scalar {
+        fn reduce_from_bytes(bytes: &[u8; 32]) -> Self {
+            Self::from_bytes_mod_order(*bytes)
+        }
+    }
+
     #[cfg(any(feature = "eddsa", test))]
     impl ScalarReduce<[u8; 64]> for curve25519_dalek::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 64]) -> Self {
             Self::from_bytes_mod_order_wide(bytes)
-        }
-        fn check_bip32_left_rnd(bytes: &[u8; 64]) -> Result<(), BIP32Error> {
-            if U256::from_be_slice(bytes)
-                > U256::from_be_slice(&crate::common::BASEPOINT_ORDER_CURVE_25519)
-            {
-                return Err(BIP32Error::InvalidChildScalar);
-            }
-            Ok(())
         }
     }
 
@@ -79,12 +87,6 @@ pub mod traits {
             use elliptic_curve::ops::Reduce;
             <Self as Reduce<crypto_bigint::U256>>::reduce(crypto_bigint::U256::from_be_slice(bytes))
         }
-        fn check_bip32_left_rnd(bytes: &[u8; 32]) -> Result<(), BIP32Error> {
-            if U256::from_be_slice(bytes) > k256::Secp256k1::ORDER {
-                return Err(BIP32Error::InvalidChildScalar);
-            }
-            Ok(())
-        }
     }
 
     #[cfg(any(feature = "taproot", test))]
@@ -92,12 +94,6 @@ pub mod traits {
         fn reduce_from_bytes(bytes: &[u8; 64]) -> Self {
             use elliptic_curve::ops::Reduce;
             <Self as Reduce<crypto_bigint::U512>>::reduce(crypto_bigint::U512::from_be_slice(bytes))
-        }
-        fn check_bip32_left_rnd(bytes: &[u8; 64]) -> Result<(), BIP32Error> {
-            if U256::from_be_slice(bytes) > k256::Secp256k1::ORDER {
-                return Err(BIP32Error::InvalidChildScalar);
-            }
-            Ok(())
         }
     }
 }
