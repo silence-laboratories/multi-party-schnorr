@@ -279,10 +279,6 @@ where
         let new_n = self.params.new_parties.len();
         let new_x_i_list: Vec<G::Scalar> = (1..=new_n as u64).map(G::Scalar::from).collect();
 
-        // blind commitment2 values for receiver_ids
-        let mut r2_j_list: Pairs<[u8; 32], u8> = Pairs::new();
-        let mut p_i_j_list: Pairs<G::Scalar, u8> = Pairs::new();
-
         let mut p2p_messages_1 = Vec::with_capacity(self.params.new_parties.len());
         let mut p2p_messages_2 = Vec::with_capacity(self.params.new_parties.len());
 
@@ -294,11 +290,9 @@ where
             let receiver_id = new_party_id(&self.params.new_parties, receiver_index).unwrap();
 
             let r2_j = self.rand_params.r2_j_list.find_pair(receiver_id);
-            r2_j_list.push(receiver_id, *r2_j);
 
             let x_j = new_x_i_list[receiver_id as usize];
             let p_i_j = self.rand_params.polynomial.evaluate_at(&x_j);
-            p_i_j_list.push(receiver_id, p_i_j);
 
             let commitment_2 = hash_commitment_2::<G>(
                 &final_session_id,
