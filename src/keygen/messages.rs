@@ -177,9 +177,11 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         let il_int: &[u8; 32] = il_int[0..32].try_into().unwrap();
         let il_int_256 = U256::from_be_slice(il_int);
 
-        if il_int_256 > U256::from_be_slice(curve25519_dalek::constants::BASEPOINT_ORDER.as_bytes()) {
-            return Err(BIP32Error::InvalidChildScalar);
-        }
+        // if il_int_256 > U256::from_be_slice(curve25519_dalek::constants::BASEPOINT_ORDER.as_bytes()) {
+        //     return Err(BIP32Error::InvalidChildScalar);
+        // }
+        if G::Scalar::check_bip32_left_rnd(il_int).is_err()
+        { return Err(BIP32Error::InvalidChildScalar); }
         let pubkey = G::generator() * G::Scalar::reduce_from_bytes(il_int);
 
         let child_pubkey = pubkey + parent_pubkey;
