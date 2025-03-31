@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crypto_bigint::subtle::ConstantTimeEq;
 use crypto_box::{PublicKey, SecretKey};
 use elliptic_curve::{group::GroupEncoding, Group};
@@ -6,8 +8,9 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use sha2::{digest::Update, Digest, Sha256};
+use zeroize::Zeroizing;
+
 use sl_mpc_mate::math::GroupPolynomial;
-use std::sync::Arc;
 
 use crate::common::{
     traits::{GroupElem, Round, ScalarReduce},
@@ -116,6 +119,7 @@ where
         // s_i_0 is the current party's additive share of the private key
         if let Some(ref v) = refresh_data {
             rand_params.polynomial.set_constant(v.s_i_0);
+            rand_params.chain_code_id = v.root_chain_code;
         }
 
         Self::new_with_context(
@@ -385,20 +389,22 @@ where
         })?;
 
         let mut d_i_vals = Vec::with_capacity(messages.len());
-        let mut chain_code_hasher = Sha256::new().chain_update(b"SL-Keygen-ChainCode");
+
+        let mut chain_code_sids: Vec<[u8; 32]> = Vec::with_capacity(messages.len());
+
         // 12.6(c)
         for msg in &messages {
             let encrypted_d_i = &msg.c_i_list[self.params.party_id as usize];
             let sender_pubkey = find_enc_key(msg.party_id(), &self.params.party_enc_keys).unwrap();
 
-            let plaintext = decrypt_message(&self.params.dec_key, sender_pubkey, encrypted_d_i)
-                .ok_or(KeygenError::DecryptionError)?;
-
-            let (d_i_bytes, chain_code_sid) = plaintext.split_at(32);
+            let plaintext = Zeroizing::new(
+                decrypt_message(&self.params.dec_key, sender_pubkey, encrypted_d_i)
+                    .ok_or(KeygenError::DecryptionError)?,
+            );
 
             // Decode the scalar from the bytes.
             let mut encoding = <G::Scalar as PrimeField>::Repr::default();
-            encoding.as_mut().copy_from_slice(d_i_bytes);
+            encoding.as_mut().copy_from_slice(&plaintext[..32]);
 
             let d_i = G::Scalar::from_repr(encoding);
             if d_i.is_none().into() {
@@ -406,11 +412,31 @@ where
             }
 
             d_i_vals.push(d_i.unwrap());
-            sha2::Digest::update(&mut chain_code_hasher, chain_code_sid);
+
+            let chain_code_sid = plaintext[32..].try_into().unwrap();
+
+            chain_code_sids.push(chain_code_sid);
         }
 
         let d_i_share: G::Scalar = d_i_vals.iter().sum();
-        let root_chain_code: [u8; 32] = chain_code_hasher.finalize().into();
+
+        let root_chain_code: [u8; 32] = if self.key_refresh_data.is_some() {
+            let root_chain_code = chain_code_sids[0];
+
+            if !chain_code_sids.iter().all(|&item| item == root_chain_code) {
+                return Err(KeygenError::InvalidRefresh);
+            }
+            root_chain_code
+        } else {
+            chain_code_sids
+                .into_iter()
+                .fold(
+                    Sha256::new().chain_update(b"SL-Keygen-ChainCode"),
+                    |hasher, sid| hasher.chain_update(sid),
+                )
+                .finalize()
+                .into()
+        };
 
         let empty_poly = (0..self.params.t).map(|_| G::identity()).collect();
         let mut big_a_poly = GroupPolynomial::new(empty_poly);
@@ -490,6 +516,7 @@ where
             // Otherwise, we return the compressed public key
             _ => (public_key, d_i_share),
         };
+
         let keyshare = Keyshare {
             threshold: self.params.t,
             total_parties: self.params.n,
@@ -551,6 +578,7 @@ fn validate_input_messages<M: BaseMessage>(
         .then_some(messages)
         .ok_or(KeygenError::InvalidParticipantSet)
 }
+
 fn verfiy_dlog_proofs<G: GroupElem>(
     proofs: &[DLogProof<G>],
     points: &[G],
@@ -564,6 +592,7 @@ where
     if proofs.len() != points.len() || proofs.len() != threshold as usize {
         valid = false;
     }
+
     for (proof, point) in proofs.iter().zip(points) {
         if !proof.verify(dlog_sid, point) {
             valid = false;
