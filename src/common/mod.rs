@@ -15,6 +15,7 @@ pub const BASEPOINT_ORDER_CURVE_25519: [u8; 32] = [
 pub mod traits {
     use crypto_bigint::subtle::ConstantTimeEq;
     use crypto_bigint::U256;
+    use curve25519_dalek::Scalar;
     use elliptic_curve::{group::GroupEncoding, Curve, Group};
 
     /// Trait that defines a state transition for any round based protocol.
@@ -46,10 +47,7 @@ pub mod traits {
     #[cfg(any(feature = "eddsa", test))]
     impl WithinOrder<[u8; 32]> for curve25519_dalek::Scalar {
         fn is_in_order(bytes: &[u8; 32]) -> bool {
-            if U256::from_be_slice(bytes)
-                > U256::from_be_slice(&crate::common::BASEPOINT_ORDER_CURVE_25519)
-            { return false; }
-            true
+            Scalar::from_canonical_bytes(*bytes).is_some().into()
         }
     }
 

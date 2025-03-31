@@ -173,12 +173,13 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         hmac_hasher.update(&child_number.to_bits().to_be_bytes());
         let result = hmac_hasher.finalize().into_bytes();
         let (il_int, child_chain_code) = result.split_at(KEY_SIZE);
-        let il_int: &[u8; 32] = il_int[0..32].try_into().unwrap();
+        let il_int: [u8; 32] = il_int[0..32].try_into().unwrap();
 
-        if !G::Scalar::is_in_order(il_int) {
+        il_int.to_vec().reverse();
+        if !G::Scalar::is_in_order(&il_int) {
             return Err(BIP32Error::InvalidChildScalar);
         }
-        let pubkey = G::generator() * G::Scalar::reduce_from_bytes(il_int);
+        let pubkey = G::generator() * G::Scalar::reduce_from_bytes(&il_int);
 
         let child_pubkey = pubkey + parent_pubkey;
 
@@ -188,7 +189,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         }
 
         Ok((
-            G::Scalar::reduce_from_bytes(il_int),
+            G::Scalar::reduce_from_bytes(&il_int),
             child_pubkey,
             child_chain_code.try_into().unwrap(),
         ))
