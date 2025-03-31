@@ -169,7 +169,7 @@ where
 
         let rand_params = QCEntropyOld::generate(new_t, s_i_0, &new_parties, &mut rng);
 
-        if new_t < 2 {
+        if new_t < 2 || new_t > new_parties.len() as u8 {
             return Err(QCError::InvalidT);
         }
 
@@ -445,7 +445,7 @@ where
 
         let rand_params = QCEntropyOld::generate(new_t, s_i_0, &new_parties, &mut rng);
 
-        if new_t < 2 {
+        if new_t < 2 || new_t > new_parties.len() as u8 {
             return Err(QCError::InvalidT);
         }
 
@@ -901,7 +901,7 @@ where
         assert!(!old_parties.contains(&party_index));
         assert!(new_parties.contains(&party_index));
 
-        if new_t < 2 {
+        if new_t < 2 || new_t > new_parties.len() as u8 {
             return Err(QCError::InvalidT);
         }
 

@@ -9,7 +9,7 @@ use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sl_mpc_mate::bip32::BIP32Error;
 
-use crate::common::traits::OrderMachine;
+use crate::common::traits::WithinOrder;
 #[cfg(feature = "serde")]
 use crate::common::utils::{serde_point, serde_vec_point};
 use crate::{
@@ -137,7 +137,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         chain_path: &DerivationPath,
     ) -> Result<(G::Scalar, G), BIP32Error>
     where
-        <G as Group>::Scalar: ScalarReduce<[u8; 32]> + OrderMachine<[u8; 32]>,
+        <G as Group>::Scalar: ScalarReduce<[u8; 32]> + WithinOrder<[u8; 32]>,
     {
         let mut pubkey = *self.public_key();
         let mut chain_code = self.root_chain_code();
@@ -160,7 +160,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         child_number: &ChildIndex,
     ) -> Result<(G::Scalar, G, [u8; 32]), BIP32Error>
     where
-        G::Scalar: ScalarReduce<[u8; 32]> + OrderMachine<[u8; 32]>,
+        G::Scalar: ScalarReduce<[u8; 32]> + WithinOrder<[u8; 32]>,
     {
         let mut hmac_hasher = Hmac::<sha2::Sha512>::new_from_slice(&parent_chain_code)
             .map_err(|_| BIP32Error::InvalidChainCode)?;
@@ -175,7 +175,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         let (il_int, child_chain_code) = result.split_at(KEY_SIZE);
         let il_int: &[u8; 32] = il_int[0..32].try_into().unwrap();
 
-        if G::Scalar::check_bip32_left_rnd(il_int).is_err() {
+        if !G::Scalar::is_in_order(il_int) {
             return Err(BIP32Error::InvalidChildScalar);
         }
         let pubkey = G::generator() * G::Scalar::reduce_from_bytes(il_int);

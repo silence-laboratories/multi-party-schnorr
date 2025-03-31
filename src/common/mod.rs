@@ -16,7 +16,6 @@ pub mod traits {
     use crypto_bigint::subtle::ConstantTimeEq;
     use crypto_bigint::U256;
     use elliptic_curve::{group::GroupEncoding, Curve, Group};
-    use sl_mpc_mate::bip32::BIP32Error;
 
     /// Trait that defines a state transition for any round based protocol.
     pub trait Round {
@@ -34,36 +33,33 @@ pub mod traits {
     where
         G: Group + GroupEncoding + ConstantTimeEq,
         G::Scalar: ScalarReduce<[u8; 32]>,
-    {
-    }
+    {}
 
     /// Reduce (little endian) bytes to a scalar.
     pub trait ScalarReduce<T> {
         fn reduce_from_bytes(bytes: &T) -> Self;
     }
-    pub trait OrderMachine<T> {
-        fn check_bip32_left_rnd(bytes: &T) -> Result<(), BIP32Error>;
+    pub trait WithinOrder<T> {
+        fn is_in_order(bytes: &T) -> bool;
     }
 
     #[cfg(any(feature = "eddsa", test))]
-    impl OrderMachine<[u8; 32]> for curve25519_dalek::Scalar {
-        fn check_bip32_left_rnd(bytes: &[u8; 32]) -> Result<(), BIP32Error> {
+    impl WithinOrder<[u8; 32]> for curve25519_dalek::Scalar {
+        fn is_in_order(bytes: &[u8; 32]) -> bool {
             if U256::from_be_slice(bytes)
                 > U256::from_be_slice(&crate::common::BASEPOINT_ORDER_CURVE_25519)
-            {
-                return Err(BIP32Error::InvalidChildScalar);
-            }
-            Ok(())
+            { return false; }
+            true
         }
     }
 
     #[cfg(any(feature = "taproot", test))]
-    impl OrderMachine<[u8; 32]> for k256::Scalar {
-        fn check_bip32_left_rnd(bytes: &[u8; 32]) -> Result<(), BIP32Error> {
+    impl WithinOrder<[u8; 32]> for k256::Scalar {
+        fn is_in_order(bytes: &[u8; 32]) -> bool {
             if U256::from_be_slice(bytes) > k256::Secp256k1::ORDER {
-                return Err(BIP32Error::InvalidChildScalar);
+                return false;
             }
-            Ok(())
+            true
         }
     }
 

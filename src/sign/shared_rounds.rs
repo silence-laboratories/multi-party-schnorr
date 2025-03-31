@@ -9,7 +9,7 @@ use super::{
     messages::{SignMsg1, SignMsg2},
     types::{SignEntropy, SignError},
 };
-use crate::common::traits::OrderMachine;
+use crate::common::traits::WithinOrder;
 use crate::{
     common::{
         get_lagrange_coeff,
@@ -264,7 +264,7 @@ where
 impl<G: GroupElem> Round for SignerParty<R2<G>, G>
 where
     G: ConstantTimeEq,
-    G::Scalar: ScalarReduce<[u8; 32]> + OrderMachine<[u8; 32]>,
+    G::Scalar: ScalarReduce<[u8; 32]> + WithinOrder<[u8; 32]>,
 {
     type Input = Vec<SignMsg2<G>>;
 
