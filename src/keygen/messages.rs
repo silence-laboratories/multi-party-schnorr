@@ -1,6 +1,7 @@
 use std::hash::Hash;
 
 use crypto_bigint::subtle::ConstantTimeEq;
+use crypto_bigint::U256;
 use derivation_path::{ChildIndex, DerivationPath};
 use elliptic_curve::{group::GroupEncoding, Group};
 use ff::Field;
@@ -137,7 +138,8 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         chain_path: &DerivationPath,
     ) -> Result<(G::Scalar, G), BIP32Error>
     where
-        <G as Group>::Scalar: ScalarReduce<[u8; 32]> + WithinOrder<[u8; 32]>,
+        <G as Group>::Scalar: ScalarReduce<[u8; 32]>,
+        G: WithinOrder,
     {
         let mut pubkey = *self.public_key();
         let mut chain_code = self.root_chain_code();
@@ -160,7 +162,8 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         child_number: &ChildIndex,
     ) -> Result<(G::Scalar, G, [u8; 32]), BIP32Error>
     where
-        G::Scalar: ScalarReduce<[u8; 32]> + WithinOrder<[u8; 32]>,
+        G::Scalar: ScalarReduce<[u8; 32]>,
+        G: WithinOrder,
     {
         let mut hmac_hasher = Hmac::<sha2::Sha512>::new_from_slice(&parent_chain_code)
             .map_err(|_| BIP32Error::InvalidChainCode)?;
@@ -174,9 +177,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         let result = hmac_hasher.finalize().into_bytes();
         let (il_int, child_chain_code) = result.split_at(KEY_SIZE);
         let il_int: [u8; 32] = il_int[0..32].try_into().unwrap();
-
-        il_int.to_vec().reverse();
-        if !G::Scalar::is_in_order(&il_int) {
+        if !G::is_in_order(U256::from_be_slice(&il_int)) {
             return Err(BIP32Error::InvalidChildScalar);
         }
         let pubkey = G::generator() * G::Scalar::reduce_from_bytes(&il_int);

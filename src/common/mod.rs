@@ -7,16 +7,21 @@ pub mod utils;
 pub use dlog_proof::*;
 
 pub use math::*;
+
 pub const BASEPOINT_ORDER_CURVE_25519: [u8; 32] = [
     0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
 ];
 
 pub mod traits {
-    use crypto_bigint::subtle::ConstantTimeEq;
     use crypto_bigint::U256;
+    use crypto_bigint::{subtle::ConstantTimeEq, Encoding};
     use curve25519_dalek::Scalar;
-    use elliptic_curve::{group::GroupEncoding, Curve, Group};
+    use elliptic_curve::Curve;
+    use elliptic_curve::{group::GroupEncoding, Group};
+    use ff::PrimeField;
+
+    use super::BASEPOINT_ORDER_CURVE_25519;
 
     /// Trait that defines a state transition for any round based protocol.
     pub trait Round {
@@ -34,30 +39,33 @@ pub mod traits {
     where
         G: Group + GroupEncoding + ConstantTimeEq,
         G::Scalar: ScalarReduce<[u8; 32]>,
-    {}
+    {
+    }
 
     /// Reduce (little endian) bytes to a scalar.
     pub trait ScalarReduce<T> {
         fn reduce_from_bytes(bytes: &T) -> Self;
     }
-    pub trait WithinOrder<T> {
-        fn is_in_order(bytes: &T) -> bool;
+
+    /// Check if an uint256 is within the order of the group.
+    pub trait WithinOrder {
+        /// Check if an integer is within the order of the group.
+        /// Arguments:
+        /// - `uint`: uint256 integer to check.
+        fn is_in_order(uint: U256) -> bool;
     }
 
     #[cfg(any(feature = "eddsa", test))]
-    impl WithinOrder<[u8; 32]> for curve25519_dalek::Scalar {
-        fn is_in_order(bytes: &[u8; 32]) -> bool {
-            Scalar::from_canonical_bytes(*bytes).is_some().into()
+    impl WithinOrder for curve25519_dalek::EdwardsPoint {
+        fn is_in_order(uint: U256) -> bool {
+            uint < U256::from_le_slice(&BASEPOINT_ORDER_CURVE_25519)
         }
     }
 
     #[cfg(any(feature = "taproot", test))]
-    impl WithinOrder<[u8; 32]> for k256::Scalar {
-        fn is_in_order(bytes: &[u8; 32]) -> bool {
-            if U256::from_be_slice(bytes) > k256::Secp256k1::ORDER {
-                return false;
-            }
-            true
+    impl WithinOrder for k256::ProjectivePoint {
+        fn is_in_order(uint: U256) -> bool {
+            uint < k256::Secp256k1::ORDER
         }
     }
 

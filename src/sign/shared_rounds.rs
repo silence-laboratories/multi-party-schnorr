@@ -263,8 +263,8 @@ where
 
 impl<G: GroupElem> Round for SignerParty<R2<G>, G>
 where
-    G: ConstantTimeEq,
-    G::Scalar: ScalarReduce<[u8; 32]> + WithinOrder<[u8; 32]>,
+    G: ConstantTimeEq + WithinOrder,
+    G::Scalar: ScalarReduce<[u8; 32]>,
 {
     type Input = Vec<SignMsg2<G>>;
 

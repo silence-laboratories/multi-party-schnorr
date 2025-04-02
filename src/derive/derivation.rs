@@ -34,8 +34,8 @@ impl<G: Group + GroupEncoding> DeriveParty<G> {
 
 impl<G: GroupElem> Round for DeriveParty<G>
 where
-    G: ConstantTimeEq,
-    G::Scalar: ScalarReduce<[u8; 32]> + WithinOrder<[u8; 32]>,
+    G: ConstantTimeEq + WithinOrder,
+    G::Scalar: ScalarReduce<[u8; 32]>,
 {
     type Output = Result<G, DeriveError>;
 
@@ -45,7 +45,8 @@ where
         let (_additive_offset, derived_public_key) = self
             .keyshare
             .derive_with_offset(&self.derivation_path)
-            .map_err(|_| DeriveError::DerivationError)?;
+            .unwrap();
+        // .map_err(|_| DeriveError::DerivationError)?;
 
         Ok(derived_public_key)
     }
