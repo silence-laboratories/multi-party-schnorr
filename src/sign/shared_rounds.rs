@@ -9,7 +9,7 @@ use super::{
     messages::{SignMsg1, SignMsg2},
     types::{SignEntropy, SignError},
 };
-use crate::common::traits::WithinOrder;
+use crate::common::traits::BIP32Derive;
 use crate::{
     common::{
         get_lagrange_coeff,
@@ -263,8 +263,8 @@ where
 
 impl<G: GroupElem> Round for SignerParty<R2<G>, G>
 where
-    G: ConstantTimeEq + WithinOrder,
-    G::Scalar: ScalarReduce<[u8; 32]>,
+    G: ConstantTimeEq,
+    G::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
 {
     type Input = Vec<SignMsg2<G>>;
 

@@ -1,4 +1,4 @@
-use crate::common::traits::{GroupElem, Round, ScalarReduce, WithinOrder};
+use crate::common::traits::{BIP32Derive, GroupElem, Round, ScalarReduce};
 use crate::group::{Group, GroupEncoding};
 use crate::keygen::Keyshare;
 use crypto_bigint::subtle::ConstantTimeEq;
@@ -34,8 +34,8 @@ impl<G: Group + GroupEncoding> DeriveParty<G> {
 
 impl<G: GroupElem> Round for DeriveParty<G>
 where
-    G: ConstantTimeEq + WithinOrder,
-    G::Scalar: ScalarReduce<[u8; 32]>,
+    G: ConstantTimeEq,
+    G::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
 {
     type Output = Result<G, DeriveError>;
 

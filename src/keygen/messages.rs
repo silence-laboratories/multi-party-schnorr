@@ -1,16 +1,16 @@
 use std::hash::Hash;
 
 use crypto_bigint::subtle::ConstantTimeEq;
-use crypto_bigint::U256;
 use derivation_path::{ChildIndex, DerivationPath};
 use elliptic_curve::{group::GroupEncoding, Group};
 use ff::Field;
 use hmac::{Hmac, Mac};
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sl_mpc_mate::bip32::BIP32Error;
 
-use crate::common::traits::WithinOrder;
+use crate::common::traits::BIP32Derive;
 #[cfg(feature = "serde")]
 use crate::common::utils::{serde_point, serde_vec_point};
 use crate::{
@@ -138,8 +138,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         chain_path: &DerivationPath,
     ) -> Result<(G::Scalar, G), BIP32Error>
     where
-        <G as Group>::Scalar: ScalarReduce<[u8; 32]>,
-        G: WithinOrder,
+        <G as Group>::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
     {
         let mut pubkey = *self.public_key();
         let mut chain_code = self.root_chain_code();
@@ -162,8 +161,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         child_number: &ChildIndex,
     ) -> Result<(G::Scalar, G, [u8; 32]), BIP32Error>
     where
-        G::Scalar: ScalarReduce<[u8; 32]>,
-        G: WithinOrder,
+        G::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
     {
         let mut hmac_hasher = Hmac::<sha2::Sha512>::new_from_slice(&parent_chain_code)
             .map_err(|_| BIP32Error::InvalidChainCode)?;
@@ -177,23 +175,22 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         let result = hmac_hasher.finalize().into_bytes();
         let (il_int, child_chain_code) = result.split_at(KEY_SIZE);
         let il_int: [u8; 32] = il_int[0..32].try_into().unwrap();
-        if !G::is_in_order(U256::from_be_slice(&il_int)) {
+
+        let offset_opt = G::Scalar::parse_offset(il_int);
+
+        if offset_opt.is_none().into() {
             return Err(BIP32Error::InvalidChildScalar);
         }
-        let pubkey = G::generator() * G::Scalar::reduce_from_bytes(&il_int);
 
-        let child_pubkey = pubkey + parent_pubkey;
+        let offset = offset_opt.unwrap();
+        let child_pubkey = G::generator() * offset + parent_pubkey;
 
         // Return error if child pubkey is the point at infinity
         if child_pubkey == G::identity() {
             return Err(BIP32Error::PubkeyPointAtInfinity);
         }
 
-        Ok((
-            G::Scalar::reduce_from_bytes(&il_int),
-            child_pubkey,
-            child_chain_code.try_into().unwrap(),
-        ))
+        Ok((offset, child_pubkey, child_chain_code.try_into().unwrap()))
     }
 }
 

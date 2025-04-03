@@ -8,20 +8,12 @@ pub use dlog_proof::*;
 
 pub use math::*;
 
-pub const BASEPOINT_ORDER_CURVE_25519: [u8; 32] = [
-    0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
-];
-
 pub mod traits {
+    use crypto_bigint::subtle::CtOption;
     use crypto_bigint::U256;
     use crypto_bigint::{subtle::ConstantTimeEq, Encoding};
     use curve25519_dalek::Scalar;
-    use elliptic_curve::Curve;
     use elliptic_curve::{group::GroupEncoding, Group};
-    use ff::PrimeField;
-
-    use super::BASEPOINT_ORDER_CURVE_25519;
 
     /// Trait that defines a state transition for any round based protocol.
     pub trait Round {
@@ -47,25 +39,37 @@ pub mod traits {
         fn reduce_from_bytes(bytes: &T) -> Self;
     }
 
-    /// Check if an uint256 is within the order of the group.
-    pub trait WithinOrder {
-        /// Check if an integer is within the order of the group.
+    /// Trait that signifies that the Group supports BIP32 derivation and can parse the I_L bytes
+    /// into a valid scalar offset, while performing the less than group order check.
+    /// I_L bytes are the left most 32 bytes of the HMAC-SHA512 output.
+    pub trait BIP32Derive {
+        /// Given the I_L bytes perform the less than group order check and returns a valid scalar.
         /// Arguments:
-        /// - `uint`: uint256 integer to check.
-        fn is_in_order(uint: U256) -> bool;
+        /// - `bytes`: I_L bytes (32 bytes)
+        ///
+        /// Returns a valid scalar after parsing the I_L bytes.
+        fn parse_offset(bytes: [u8; 32]) -> CtOption<Self>
+        where
+            Self: Sized;
     }
 
     #[cfg(any(feature = "eddsa", test))]
-    impl WithinOrder for curve25519_dalek::EdwardsPoint {
-        fn is_in_order(uint: U256) -> bool {
-            uint < U256::from_le_slice(&BASEPOINT_ORDER_CURVE_25519)
+    impl BIP32Derive for curve25519_dalek::Scalar {
+        fn parse_offset(bytes: [u8; 32]) -> CtOption<Scalar> {
+            let mut z_l = [0u8; 32];
+            // NOTE: Follwing BIP32-Ed25519 spec for parsing I_L bytes.
+            z_l[0..28].copy_from_slice(&bytes[..28]);
+            let mut z_l = U256::from_le_slice(&z_l);
+            z_l = z_l.shl(3);
+            Scalar::from_canonical_bytes(z_l.to_le_bytes())
         }
     }
 
     #[cfg(any(feature = "taproot", test))]
-    impl WithinOrder for k256::ProjectivePoint {
-        fn is_in_order(uint: U256) -> bool {
-            uint < k256::Secp256k1::ORDER
+    impl BIP32Derive for k256::Scalar {
+        fn parse_offset(bytes: [u8; 32]) -> CtOption<k256::Scalar> {
+            use ff::PrimeField;
+            k256::Scalar::from_repr(bytes.into())
         }
     }
 
