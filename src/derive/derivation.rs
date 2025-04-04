@@ -45,8 +45,7 @@ where
         let (_additive_offset, derived_public_key) = self
             .keyshare
             .derive_with_offset(&self.derivation_path)
-            .unwrap();
-        // .map_err(|_| DeriveError::DerivationError)?;
+            .map_err(|_| DeriveError::DerivationError)?;
 
         Ok(derived_public_key)
     }
