@@ -81,6 +81,7 @@ where
     }
 }
 
+#[cfg(feature = "eddsa")]
 #[cfg(test)]
 mod tests {
     use curve25519_dalek::{EdwardsPoint, Scalar};

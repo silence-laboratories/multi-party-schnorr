@@ -1,21 +1,23 @@
-// mod dsg;
+use std::collections::HashSet;
+
 mod types;
 
+#[cfg(any(feature = "taproot", feature = "eddsa"))]
 /// Messages used in the signing protocol
 pub mod messages;
 
+#[cfg(any(feature = "taproot", feature = "eddsa"))]
 mod shared_rounds;
-use std::collections::HashSet;
 
+#[cfg(any(feature = "taproot", feature = "eddsa"))]
 pub use shared_rounds::*;
 
+#[cfg(feature = "taproot")]
 /// Taproot signing protocol
-#[cfg(any(feature = "taproot", test))]
-// #[cfg(feature = "taproot")]
 pub mod taproot;
 
+#[cfg(feature = "eddsa")]
 /// EdDSA signing protocol using Curve25519
-#[cfg(any(feature = "eddsa", test))]
 pub mod eddsa;
 
 pub use types::*;
@@ -44,6 +46,8 @@ pub(crate) fn validate_input_messages<M: BaseMessage>(
             return Err(SignError::InvalidMsgPartyId);
         }
     }
+
     msgs.sort_by_key(BaseMessage::party_id);
+
     Ok(msgs)
 }

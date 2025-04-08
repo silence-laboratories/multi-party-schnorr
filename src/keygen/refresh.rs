@@ -85,12 +85,19 @@ where
 
 #[cfg(test)]
 mod test {
+    #[cfg(any(feature = "eddsa", feature = "taproot"))]
     use crate::{
         common::utils::run_keygen,
         keygen::utils::{run_import, run_recovery, run_refresh},
     };
+
+    #[cfg(feature = "eddsa")]
     use curve25519_dalek::EdwardsPoint;
 
+    #[cfg(feature = "taproot")]
+    use k256::ProjectivePoint;
+
+    #[cfg(feature = "eddsa")]
     #[test]
     fn refresh_curve25519() {
         let _ = run_refresh::<3, 5, EdwardsPoint>();
@@ -99,6 +106,7 @@ mod test {
         let _ = run_refresh::<9, 20, EdwardsPoint>();
     }
 
+    #[cfg(feature = "eddsa")]
     #[test]
     fn key_import_curve25519() {
         let _ = run_import::<3, 5, EdwardsPoint>();
@@ -107,6 +115,7 @@ mod test {
         let _ = run_import::<9, 20, EdwardsPoint>();
     }
 
+    #[cfg(feature = "eddsa")]
     #[test]
     fn recovery_curve25519() {
         let keyshares = run_keygen::<3, 5, EdwardsPoint>();
@@ -117,6 +126,7 @@ mod test {
         run_recovery::<3, 5, EdwardsPoint>(&keyshares, vec![4, 1]).unwrap();
     }
 
+    #[cfg(feature = "eddsa")]
     #[test]
     #[should_panic(expected = "Error during key refresh or recovery protocol")]
     fn recovery_invalid_curve25519() {
@@ -129,7 +139,6 @@ mod test {
     #[cfg(feature = "taproot")]
     #[test]
     fn refresh_taproot() {
-        use k256::ProjectivePoint;
         let _ = run_refresh::<3, 5, ProjectivePoint>();
         let _ = run_refresh::<2, 3, ProjectivePoint>();
         let _ = run_refresh::<5, 10, ProjectivePoint>();
@@ -139,7 +148,6 @@ mod test {
     #[cfg(feature = "taproot")]
     #[test]
     fn recovery_taproot() {
-        use k256::ProjectivePoint;
         let keyshares = run_keygen::<3, 5, ProjectivePoint>();
         run_recovery::<3, 5, ProjectivePoint>(&keyshares, vec![0]).unwrap();
         run_recovery::<3, 5, ProjectivePoint>(&keyshares, vec![1, 2]).unwrap();
@@ -152,7 +160,6 @@ mod test {
     #[test]
     #[should_panic(expected = "Error during key refresh or recovery protocol")]
     fn recovery_invalid_taproot() {
-        use k256::ProjectivePoint;
         let keyshares = run_keygen::<3, 5, ProjectivePoint>();
         if let Err(e) = run_recovery::<3, 5, ProjectivePoint>(&keyshares, vec![1, 2, 3]) {
             panic!("{}", e);
@@ -162,7 +169,6 @@ mod test {
     #[cfg(feature = "taproot")]
     #[test]
     fn key_import_taproot() {
-        use k256::ProjectivePoint;
         let _ = run_import::<3, 5, ProjectivePoint>();
         let _ = run_import::<2, 3, ProjectivePoint>();
         let _ = run_import::<5, 10, ProjectivePoint>();

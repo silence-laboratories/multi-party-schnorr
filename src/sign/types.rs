@@ -1,28 +1,34 @@
+#[cfg(any(feature = "taproot", feature = "eddsa"))]
 use elliptic_curve::Group;
-use ff::Field;
+
+#[cfg(any(feature = "taproot", feature = "eddsa"))]
 use rand::{CryptoRng, Rng, RngCore};
+
 use thiserror::Error;
 
+#[cfg(any(feature = "taproot", feature = "eddsa"))]
 use crate::common::utils::SessionId;
 
+#[cfg(any(feature = "taproot", feature = "eddsa"))]
 /// All random params needed for sign protocol
 pub struct SignEntropy<G: Group> {
     pub(crate) session_id: SessionId,
     pub(crate) k_i: G::Scalar,
     pub(crate) blind_factor: [u8; 32],
 }
+
+#[cfg(any(feature = "taproot", feature = "eddsa"))]
 impl<G: Group> SignEntropy<G> {
     /// Generate all the random values used in the sign protocol
     pub fn generate<R: CryptoRng + RngCore>(rng: &mut R) -> Self {
         Self {
             session_id: rng.gen(),
             blind_factor: rng.gen(),
-            k_i: <G::Scalar as Field>::random(rng),
+            k_i: <G::Scalar as ff::Field>::random(rng),
         }
     }
 }
 
-// impl PersistentObj for PartyPublicKeys {}
 /// Distributed key generation errors
 #[derive(Error, Debug)]
 pub enum SignError {

@@ -1,29 +1,32 @@
-use crate::common::traits::{BIP32Derive, GroupElem, Round, ScalarReduce};
-use crate::group::{Group, GroupEncoding};
-use crate::keygen::Keyshare;
-use crypto_bigint::subtle::ConstantTimeEq;
-use derivation_path::DerivationPath;
 use std::str::FromStr;
 use std::sync::Arc;
+
+use crypto_bigint::subtle::ConstantTimeEq;
+use derivation_path::DerivationPath;
 use thiserror::Error;
 
-#[allow(dead_code)]
+use crate::{
+    common::traits::{BIP32Derive, GroupElem, Round, ScalarReduce},
+    keygen::Keyshare,
+};
+
 #[derive(Error, Debug)]
 pub enum DeriveError {
     #[error("Invalid party ids on messages list")]
     /// Error in derivation
     DerivationError,
 }
-struct DeriveParty<G>
+
+pub struct DeriveParty<G>
 where
-    G: Group + GroupEncoding,
+    G: GroupElem,
 {
     pub(crate) keyshare: Arc<Keyshare<G>>,
     pub derivation_path: DerivationPath,
 }
-impl<G: Group + GroupEncoding> DeriveParty<G> {
+
+impl<G: GroupElem> DeriveParty<G> {
     /// Create a new derivation party with the given keyshare
-    #[allow(dead_code)]
     pub fn new(keyshare: Arc<Keyshare<G>>, derivation_path: &str) -> Self {
         Self {
             keyshare,
@@ -53,17 +56,20 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::common::utils::run_keygen;
-    use crate::derive::derivation::DeriveParty;
-    use curve25519_dalek::EdwardsPoint;
+    use super::*;
+
+    use crate::common::utils::{run_keygen, run_round};
+
+    #[allow(unused_imports)]
     use rand::prelude::SliceRandom;
 
-    pub fn run_derivation(
-        shares: &[crate::keygen::Keyshare<EdwardsPoint>],
+    pub fn run_derivation<G: GroupElem>(
+        shares: &[crate::keygen::Keyshare<G>],
         derivation_path: &str,
-    ) -> Vec<EdwardsPoint> {
-        use crate::common::utils::run_round;
-
+    ) -> Vec<G>
+    where
+        G::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
+    {
         let parties = shares
             .iter()
             .map(|keyshare| DeriveParty::new(keyshare.clone().into(), derivation_path))
@@ -71,8 +77,12 @@ mod test {
 
         run_round(parties, ())
     }
+
+    #[cfg(feature = "eddsa")]
     #[test]
-    fn derive_2_2() {
+    fn eddsa_derive_2_2() {
+        use curve25519_dalek::EdwardsPoint;
+
         let shares = run_keygen::<2, 2, EdwardsPoint>();
         let subset: Vec<_> = shares
             .choose_multiple(&mut rand::thread_rng(), 2)
@@ -80,5 +90,19 @@ mod test {
             .collect();
         let s = run_derivation(&subset, "m/0");
         println!("{:?}", s[0].compress().to_bytes());
+    }
+
+    #[cfg(feature = "taproot")]
+    #[test]
+    fn taproot_derive_2_2() {
+        use elliptic_curve::group::GroupEncoding;
+
+        let shares = run_keygen::<2, 2, k256::ProjectivePoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), 2)
+            .cloned()
+            .collect();
+        let s = run_derivation(&subset, "m/0");
+        println!("{:?}", s[0].to_bytes());
     }
 }

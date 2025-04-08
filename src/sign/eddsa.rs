@@ -19,13 +19,15 @@ impl Round for SignReady<EdwardsPoint> {
     /// # Arguments
     fn process(self, _: Self::Input) -> Self::Output {
         let big_a = self.public_key.to_bytes();
-        use sha2::digest::Update;
-        let digest = Sha512::new()
-            .chain(self.big_r.to_bytes())
-            .chain(big_a)
-            .chain(&self.message);
 
-        let e = Scalar::from_bytes_mod_order_wide(&digest.finalize().into());
+        let digest = Sha512::new()
+            .chain_update(self.big_r.to_bytes())
+            .chain_update(big_a)
+            .chain_update(&self.message)
+            .finalize()
+            .into();
+
+        let e = Scalar::from_bytes_mod_order_wide(&digest);
         let s_i = self.k_i + self.d_i * e;
 
         let msg3 = SignMsg3 {
@@ -84,42 +86,50 @@ impl Round for PartialSign<EdwardsPoint> {
 }
 
 #[cfg(test)]
-pub fn run_sign(shares: &[crate::keygen::Keyshare<EdwardsPoint>]) -> Signature {
-    use crate::{common::utils::run_round, sign::SignerParty};
-    let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
-
-    let mut rng = rand::thread_rng();
-    let parties = shares
-        .iter()
-        .map(|keyshare| {
-            SignerParty::<_, EdwardsPoint>::new(
-                keyshare.clone().into(),
-                msg.into(),
-                "m/0".parse().unwrap(),
-                &mut rng,
-            )
-        })
-        .collect::<Vec<_>>();
-
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-    let ready_parties = run_round(parties, msgs);
-
-    let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-        run_round(ready_parties, ()).into_iter().unzip();
-
-    let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
-        run_round(parties, partial_sigs).into_iter().unzip();
-
-    signatures[0]
-}
-
-#[cfg(test)]
 mod tests {
-    use super::run_sign;
-    use crate::common::utils::run_keygen;
+    use std::sync::Arc;
+
     use curve25519_dalek::EdwardsPoint;
     use rand::seq::SliceRandom;
+
+    use super::*;
+
+    use crate::{
+        common::utils::{run_keygen, run_round},
+        keygen::Keyshare,
+        sign::SignerParty,
+    };
+
+    fn run_sign(shares: Vec<Keyshare<EdwardsPoint>>) -> Signature {
+        let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+
+        let mut rng = rand::thread_rng();
+
+        let parties = shares
+            .into_iter()
+            .map(Arc::new)
+            .map(|keyshare| {
+                SignerParty::<_, EdwardsPoint>::new(
+                    keyshare,
+                    msg.into(),
+                    "m/0".parse().unwrap(),
+                    &mut rng,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+        let ready_parties = run_round(parties, msgs);
+
+        let (parties, partial_sigs): (Vec<_>, Vec<_>) =
+            run_round(ready_parties, ()).into_iter().unzip();
+
+        let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
+            run_round(parties, partial_sigs).into_iter().unzip();
+
+        signatures[0]
+    }
 
     #[test]
     fn sign_2_2() {
@@ -128,8 +138,9 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 2)
             .cloned()
             .collect();
-        run_sign(&subset);
+        run_sign(subset);
     }
+
     #[test]
     fn sign_2_3() {
         let shares = run_keygen::<2, 3, EdwardsPoint>();
@@ -137,8 +148,9 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 2)
             .cloned()
             .collect();
-        run_sign(&subset);
+        run_sign(subset);
     }
+
     #[test]
     fn sign_2_3_3() {
         let shares = run_keygen::<2, 3, EdwardsPoint>();
@@ -146,8 +158,9 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 3)
             .cloned()
             .collect();
-        run_sign(&subset);
+        run_sign(subset);
     }
+
     #[test]
     fn sign_3_3() {
         let shares = run_keygen::<3, 3, EdwardsPoint>();
@@ -155,7 +168,7 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 3)
             .cloned()
             .collect();
-        run_sign(&subset);
+        run_sign(subset);
     }
 
     #[test]
@@ -165,7 +178,7 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 3)
             .cloned()
             .collect();
-        run_sign(&subset);
+        run_sign(subset);
     }
 
     #[test]
@@ -175,6 +188,6 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 5)
             .cloned()
             .collect();
-        run_sign(&subset);
+        run_sign(subset);
     }
 }

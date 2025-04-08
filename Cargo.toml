@@ -5,6 +5,18 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[example]]
+name = "sign"
+required-features = [ "eddsa" ]
+
+[[example]]
+name = "keygen"
+required-features = [ "eddsa" ]
+
+[[example]]
+name = "refresh"
+required-features = [ "eddsa" ]
+
 [features]
 default = ["eddsa"]
 eddsa = ["curve25519-dalek", "ed25519-dalek"]
@@ -23,7 +35,7 @@ zeroize = { version = "1.6.1", features = ["zeroize_derive"] }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_bytes = { version = "0.11.15", optional = true }
 signature = { version = "2.2.0" }
-bytemuck = { version = "1.14.1", features = [
+bytemuck = { version = "1.22", features = [
   "derive",
   "min_const_generics",
   "extern_crate_alloc",
@@ -48,7 +60,7 @@ sha2 = "0.10.7"
 crypto_box = { version = "0.9.1" }
 ff = "0.13.0"
 rand_chacha = "0.3.1"
-sl-mpc-mate = { git = "https://github.com/silence-laboratories/sl-crypto.git", rev = "ff63353" }
+sl-mpc-mate = { git = "https://github.com/silence-laboratories/sl-crypto.git", rev = "f366497" }
 thiserror = "1"
 derivation-path = "0.2.0"
 hmac = { version = "0.12.1" }

@@ -1,6 +1,6 @@
 mod dlog_proof;
 mod math;
-// mod poly;
+
 /// Utility functions
 pub mod utils;
 
@@ -9,11 +9,21 @@ pub use dlog_proof::*;
 pub use math::*;
 
 pub mod traits {
-    use crypto_bigint::subtle::CtOption;
+    #[cfg(feature = "taproot")]
+    use crypto_bigint::U512;
+
+    #[cfg(any(feature = "eddsa", feature = "taproot"))]
     use crypto_bigint::U256;
-    use crypto_bigint::{subtle::ConstantTimeEq, Encoding};
-    use curve25519_dalek::Scalar;
+
+    use crypto_bigint::subtle::{ConstantTimeEq, CtOption};
+
+    #[cfg(feature = "eddsa")]
+    use crypto_bigint::Encoding;
+
     use elliptic_curve::{group::GroupEncoding, Group};
+
+    #[cfg(feature = "taproot")]
+    use elliptic_curve::ops::Reduce;
 
     /// Trait that defines a state transition for any round based protocol.
     pub trait Round {
@@ -53,53 +63,51 @@ pub mod traits {
             Self: Sized;
     }
 
-    #[cfg(any(feature = "eddsa", test))]
+    #[cfg(feature = "eddsa")]
     impl BIP32Derive for curve25519_dalek::Scalar {
-        fn parse_offset(bytes: [u8; 32]) -> CtOption<Scalar> {
+        fn parse_offset(bytes: [u8; 32]) -> CtOption<Self> {
             let mut z_l = [0u8; 32];
             // NOTE: Follwing BIP32-Ed25519 spec for parsing I_L bytes.
             z_l[0..28].copy_from_slice(&bytes[..28]);
             let mut z_l = U256::from_le_slice(&z_l);
             z_l = z_l.shl(3);
-            Scalar::from_canonical_bytes(z_l.to_le_bytes())
+            Self::from_canonical_bytes(z_l.to_le_bytes())
         }
     }
 
-    #[cfg(any(feature = "taproot", test))]
+    #[cfg(feature = "taproot")]
     impl BIP32Derive for k256::Scalar {
         fn parse_offset(bytes: [u8; 32]) -> CtOption<k256::Scalar> {
             use ff::PrimeField;
-            k256::Scalar::from_repr(bytes.into())
+            Self::from_repr(bytes.into())
         }
     }
 
-    #[cfg(any(feature = "eddsa", test))]
+    #[cfg(feature = "eddsa")]
     impl ScalarReduce<[u8; 32]> for curve25519_dalek::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 32]) -> Self {
             Self::from_bytes_mod_order(*bytes)
         }
     }
 
-    #[cfg(any(feature = "eddsa", test))]
+    #[cfg(feature = "eddsa")]
     impl ScalarReduce<[u8; 64]> for curve25519_dalek::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 64]) -> Self {
             Self::from_bytes_mod_order_wide(bytes)
         }
     }
 
-    #[cfg(any(feature = "taproot", test))]
+    #[cfg(feature = "taproot")]
     impl ScalarReduce<[u8; 32]> for k256::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 32]) -> Self {
-            use elliptic_curve::ops::Reduce;
-            <Self as Reduce<crypto_bigint::U256>>::reduce(crypto_bigint::U256::from_be_slice(bytes))
+            Reduce::<U256>::reduce(U256::from_be_slice(bytes))
         }
     }
 
-    #[cfg(any(feature = "taproot", test))]
+    #[cfg(feature = "taproot")]
     impl ScalarReduce<[u8; 64]> for k256::Scalar {
         fn reduce_from_bytes(bytes: &[u8; 64]) -> Self {
-            use elliptic_curve::ops::Reduce;
-            <Self as Reduce<crypto_bigint::U512>>::reduce(crypto_bigint::U512::from_be_slice(bytes))
+            Reduce::<U512>::reduce(U512::from_be_slice(bytes))
         }
     }
 }

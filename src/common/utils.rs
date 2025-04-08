@@ -188,12 +188,12 @@ macro_rules! impl_basemessage {
 pub fn calculate_final_session_id(
     party_ids: impl Iterator<Item = u8>,
     sid_i_list: &[SessionId],
-    msg: Option<&[u8]>,
+    extra: &[&[u8]],
 ) -> SessionId {
     let mut hasher = Sha256::new();
 
-    if let Some(x) = msg {
-        hasher.update(x);
+    for e in extra {
+        hasher.update(e);
     }
 
     party_ids.for_each(|pid| hasher.update((pid as u32).to_be_bytes()));
@@ -267,7 +267,7 @@ pub fn generate_pki<R: CryptoRng + RngCore>(
 /// Used for testing purposes.
 pub fn run_round<I, R, O, E>(actors: Vec<R>, msgs: I) -> Vec<O>
 where
-    R: Round<Input = I, Output = std::result::Result<O, E>>,
+    R: Round<Input = I, Output = Result<O, E>>,
     I: Clone + Sync,
     E: std::fmt::Debug,
     Vec<R>: IntoParallelIterator<Item = R>,
