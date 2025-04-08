@@ -1,4 +1,4 @@
-use crate::common::traits::{GroupElem, Round, ScalarReduce};
+use crate::common::traits::{BIP32Derive, GroupElem, Round, ScalarReduce};
 use crate::group::{Group, GroupEncoding};
 use crate::keygen::Keyshare;
 use crypto_bigint::subtle::ConstantTimeEq;
@@ -35,7 +35,7 @@ impl<G: Group + GroupEncoding> DeriveParty<G> {
 impl<G: GroupElem> Round for DeriveParty<G>
 where
     G: ConstantTimeEq,
-    G::Scalar: ScalarReduce<[u8; 32]>,
+    G::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
 {
     type Output = Result<G, DeriveError>;
 
@@ -45,7 +45,7 @@ where
         let (_additive_offset, derived_public_key) = self
             .keyshare
             .derive_with_offset(&self.derivation_path)
-            .unwrap(); // FIXME: report error
+            .map_err(|_| DeriveError::DerivationError)?;
 
         Ok(derived_public_key)
     }

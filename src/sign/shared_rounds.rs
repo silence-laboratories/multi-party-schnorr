@@ -5,6 +5,11 @@
 //!
 use std::sync::Arc;
 
+use super::{
+    messages::{SignMsg1, SignMsg2},
+    types::{SignEntropy, SignError},
+};
+use crate::common::traits::BIP32Derive;
 use crate::{
     common::{
         get_lagrange_coeff,
@@ -23,11 +28,6 @@ use ff::Field;
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256};
-
-use super::{
-    messages::{SignMsg1, SignMsg2},
-    types::{SignEntropy, SignError},
-};
 
 /// Signer party
 pub struct SignerParty<T, G>
@@ -264,7 +264,7 @@ where
 impl<G: GroupElem> Round for SignerParty<R2<G>, G>
 where
     G: ConstantTimeEq,
-    G::Scalar: ScalarReduce<[u8; 32]>,
+    G::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
 {
     type Input = Vec<SignMsg2<G>>;
 
@@ -336,10 +336,10 @@ where
         let (additive_offset, derived_public_key) = self
             .keyshare
             .derive_with_offset(&self.derivation_path)
-            .unwrap(); // FIXME: report error
+            .map_err(|_| SignError::InvalidKeyDerivation)?;
         let threshold_inv = <G as Group>::Scalar::from(participants as u64)
             .invert()
-            .unwrap(); // threshold > 0 so it has an invert
+            .unwrap();
         let additive_offset = additive_offset * threshold_inv;
 
         //tweak the secret key share by the computed additive offset
