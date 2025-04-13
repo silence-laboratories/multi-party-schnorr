@@ -525,6 +525,7 @@ where
             public_key,
             extra_data: self.params.extra_data,
             root_chain_code,
+            #[cfg(feature = "keyshare-session-id")]
             final_session_id: self.state.final_session_id,
         };
         Ok(keyshare)

@@ -205,7 +205,10 @@ where
         let final_sid = calculate_final_session_id(
             party_ids.iter().copied(),
             &sid_list,
+            #[cfg(feature = "keyshare-session-id")]
             &[&self.message, &self.keyshare.final_session_id],
+            #[cfg(not(feature = "keyshare-session-id"))]
+            &[&self.message],
         );
 
         use sha2::digest::Update;

@@ -100,6 +100,8 @@ where
     /// Extra data
     pub extra_data: Option<Vec<u8>>,
     pub root_chain_code: [u8; 32],
+
+    #[cfg(feature = "keyshare-session-id")]
     pub final_session_id: [u8; 32],
 }
 

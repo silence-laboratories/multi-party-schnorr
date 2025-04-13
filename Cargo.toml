@@ -21,6 +21,7 @@ required-features = [ "eddsa" ]
 default = ["eddsa"]
 eddsa = ["curve25519-dalek", "ed25519-dalek"]
 taproot = ["k256/schnorr"]
+keyshare-session-id = []
 serde = [
   "dep:serde",
   "dep:serde_bytes",

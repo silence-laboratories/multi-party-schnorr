@@ -867,6 +867,7 @@ where
             public_key,
             extra_data: self.params.extra_data,
             root_chain_code: self.root_chain_code,
+            #[cfg(feature = "keyshare-session-id")]
             final_session_id: self.state.final_session_id,
         };
         Ok(keyshare)
@@ -1223,6 +1224,7 @@ where
             public_key,
             extra_data: self.params.extra_data,
             root_chain_code: root_chain_code_list[0],
+            #[cfg(feature = "keyshare-session-id")]
             final_session_id: self.state.final_session_id,
         };
         Ok(keyshare)
@@ -1284,7 +1286,7 @@ pub fn new_party_id(new_party_indices: &[usize], index: usize) -> Option<u8> {
 mod test {
     use super::*;
 
-    use crate::common::{utils::run_keygen, traits::ScalarReduce};
+    use crate::common::{traits::ScalarReduce, utils::run_keygen};
 
     use rand::Rng;
 
@@ -1934,7 +1936,6 @@ mod test {
         assert_eq!(public_key, expected_public_key);
     }
 
-
     #[cfg(feature = "eddsa")]
     #[test]
     fn quorum_change_all_new_eddsa() {
@@ -1970,5 +1971,4 @@ mod test {
     fn quorum_change_only_change_threshold_taproot() {
         quorum_change_only_change_threshold::<ProjectivePoint>();
     }
-
 }
