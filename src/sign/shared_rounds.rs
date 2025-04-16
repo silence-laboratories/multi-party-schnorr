@@ -13,6 +13,9 @@ use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256};
 
+#[cfg(feature = "eddsa")]
+use curve25519_dalek::EdwardsPoint;
+
 use crate::{
     common::traits::BIP32Derive,
     common::{
@@ -91,13 +94,12 @@ pub struct PartialSign<G: Group> {
     pub(crate) pid_list: Vec<u8>,
 }
 
-impl<G> SignerParty<R0, G>
-where
-    G: Group + GroupEncoding,
+#[cfg(feature = "eddsa")]
+impl SignerParty<R0, EdwardsPoint>
 {
     /// Create a new signer party with the given keyshare
     pub fn new<R: CryptoRng + RngCore>(
-        keyshare: Arc<Keyshare<G>>,
+        keyshare: Arc<Keyshare<EdwardsPoint>>,
         message: Vec<u8>,
         derivation_path: DerivationPath,
         rng: &mut R,
@@ -105,6 +107,27 @@ where
         Self {
             party_id: keyshare.party_id(),
             message,
+            keyshare,
+            derivation_path,
+            rand_params: SignEntropy::generate(rng),
+            seed: rng.gen(),
+            state: R0,
+        }
+    }
+}
+
+#[cfg(feature = "taproot")]
+impl SignerParty<R0, k256::ProjectivePoint> {
+    /// Create a new signer party with the given keyshare
+    pub fn new<R: CryptoRng + RngCore>(
+        keyshare: Arc<Keyshare<k256::ProjectivePoint>>,
+        message: [u8; 32],
+        derivation_path: DerivationPath,
+        rng: &mut R,
+    ) -> Self {
+        Self {
+            party_id: keyshare.party_id(),
+            message: message.to_vec(),
             keyshare,
             derivation_path,
             rand_params: SignEntropy::generate(rng),

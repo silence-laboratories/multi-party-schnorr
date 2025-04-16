@@ -199,7 +199,7 @@ mod tests {
             .map(|keyshare| {
                 SignerParty::<_, k256::ProjectivePoint>::new(
                     keyshare,
-                    msg_hash.to_vec(),
+                    msg_hash,
                     "m".parse().unwrap(),
                     &mut rng,
                 )
