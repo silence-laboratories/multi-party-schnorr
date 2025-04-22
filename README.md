@@ -19,7 +19,7 @@ The library supports:
 - Refreshing key shares without changing the public key
 
 **The library does not support**:
-- This library contains only the cryptographic protocol and does not provide any networking functions. 
+- This library contains only the cryptographic protocol and does not provide any networking functions.
 - The parties in the protocol do not authenticate themselves and do not establish e2e secure channels
 
 ## Examples
@@ -28,6 +28,8 @@ Please find the examples in the [examples](./examples/) folder.
 
 ### Distributed Keygen (ed25519)
 ```rust
+# #[cfg(feature = "eddsa")]
+# {
 use std::time::Instant;
 
 use curve25519_dalek::EdwardsPoint;
@@ -68,10 +70,13 @@ fn main() {
         );
     }
 }
+# }
 ```
 
 ### Distributed Signing (ed25519)
 ```rust
+# #[cfg(feature = "eddsa")]
+# {
 use curve25519_dalek::EdwardsPoint;
 use multi_party_schnorr::common::utils::{run_keygen, run_round};
 use multi_party_schnorr::sign::SignerParty;
@@ -113,6 +118,7 @@ fn main() {
         println!("Signature: {}", bs58::encode(sig.to_bytes()).into_string())
     }
 }
+# }
 ```
 
 ## Feature Flags
@@ -121,12 +127,3 @@ fn main() {
 | :---               |  :---:   | :---        |
 | `eddsa`            |    ✓     | Enables signing over curve25519 with edd25519-dalek signing objects compatibility|
 | `taproot`          |        | Enables Bitcoin Taproot Schnorr signing over secp256k1 |
-
-
-
-
-
-
-
-
-

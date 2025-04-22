@@ -867,6 +867,8 @@ where
             public_key,
             extra_data: self.params.extra_data,
             root_chain_code: self.root_chain_code,
+            #[cfg(feature = "keyshare-session-id")]
+            final_session_id: self.state.final_session_id,
         };
         Ok(keyshare)
     }
@@ -1222,6 +1224,8 @@ where
             public_key,
             extra_data: self.params.extra_data,
             root_chain_code: root_chain_code_list[0],
+            #[cfg(feature = "keyshare-session-id")]
+            final_session_id: self.state.final_session_id,
         };
         Ok(keyshare)
     }
@@ -1280,19 +1284,26 @@ pub fn new_party_id(new_party_indices: &[usize], index: usize) -> Option<u8> {
 
 #[cfg(test)]
 mod test {
-    use crate::common::traits::Round;
-    use crate::common::utils::run_keygen;
-    use crate::group::Group;
-    use crate::quorum_change::qc::{QCPartyNew, QCPartyOld, QCPartyOldToNew};
-    use curve25519_dalek::EdwardsPoint;
-    use k256::ProjectivePoint;
+    use super::*;
+
+    use crate::common::{traits::ScalarReduce, utils::run_keygen};
+
     use rand::Rng;
 
-    #[test]
-    fn quorum_change_all_new() {
+    #[cfg(feature = "eddsa")]
+    use curve25519_dalek::EdwardsPoint;
+
+    #[cfg(feature = "taproot")]
+    use k256::ProjectivePoint;
+
+    fn quorum_change_all_new<G>()
+    where
+        G: GroupElem,
+        G::Scalar: ScalarReduce<[u8; 32]>,
+    {
         let mut rng = rand::thread_rng();
 
-        let [old_keyshare_p0, old_keyshare_p1] = run_keygen::<2, 2, EdwardsPoint>();
+        let [old_keyshare_p0, old_keyshare_p1] = run_keygen::<2, 2, G>();
         let expected_public_key = old_keyshare_p0.public_key;
 
         // test for unordered case
@@ -1491,15 +1502,18 @@ mod test {
         let d_2 = new_keyshare_p2.scalar_share();
         let d_3 = new_keyshare_p3.scalar_share();
         let d_4 = new_keyshare_p4.scalar_share();
-        let public_key = EdwardsPoint::generator() * (d_2 + d_3 + d_4);
+        let public_key = G::generator() * (d_2 + d_3 + d_4);
         assert_eq!(public_key, expected_public_key);
     }
 
-    #[test]
-    fn quorum_change_extend_parties() {
+    fn quorum_change_extend_parties<G>()
+    where
+        G: GroupElem,
+        G::Scalar: ScalarReduce<[u8; 32]>,
+    {
         let mut rng = rand::thread_rng();
 
-        let [old_keyshare_p0, old_keyshare_p1] = run_keygen::<2, 2, EdwardsPoint>();
+        let [old_keyshare_p0, old_keyshare_p1] = run_keygen::<2, 2, G>();
         let expected_public_key = old_keyshare_p0.public_key;
         // test for unordered case
         let total_parties = 3;
@@ -1653,16 +1667,19 @@ mod test {
         let d_2 = new_keyshare_p0.scalar_share();
         let d_3 = new_keyshare_p1.scalar_share();
         let d_4 = new_keyshare_p2.scalar_share();
-        let public_key = EdwardsPoint::generator() * (d_2 + d_3 + d_4);
+        let public_key = G::generator() * (d_2 + d_3 + d_4);
         assert_eq!(public_key, expected_public_key);
     }
 
-    #[test]
-    fn quorum_change_only_change_threshold() {
+    fn quorum_change_only_change_threshold<G>()
+    where
+        G: GroupElem,
+        G::Scalar: ScalarReduce<[u8; 32]>,
+    {
         let mut rng = rand::thread_rng();
 
         let [old_keyshare_p0, old_keyshare_p1, old_keyshare_p2, old_keyshare_p3] =
-            run_keygen::<2, 4, ProjectivePoint>();
+            run_keygen::<2, 4, G>();
         let expected_public_key = old_keyshare_p0.public_key;
 
         // test for unordered case
@@ -1915,7 +1932,43 @@ mod test {
         let d_1 = new_keyshare_p1.scalar_share();
         let d_2 = new_keyshare_p2.scalar_share();
         let d_3 = new_keyshare_p3.scalar_share();
-        let public_key = ProjectivePoint::GENERATOR * (d_0 + d_1 + d_2 + d_3);
+        let public_key = G::generator() * (d_0 + d_1 + d_2 + d_3);
         assert_eq!(public_key, expected_public_key);
+    }
+
+    #[cfg(feature = "eddsa")]
+    #[test]
+    fn quorum_change_all_new_eddsa() {
+        quorum_change_all_new::<EdwardsPoint>();
+    }
+
+    #[cfg(feature = "eddsa")]
+    #[test]
+    fn quorum_change_extend_parties_eddsa() {
+        quorum_change_extend_parties::<EdwardsPoint>();
+    }
+
+    #[cfg(feature = "eddsa")]
+    #[test]
+    fn quorum_change_only_change_threshold_eddsa() {
+        quorum_change_only_change_threshold::<EdwardsPoint>();
+    }
+
+    #[cfg(feature = "taproot")]
+    #[test]
+    fn quorum_change_all_new_taproot() {
+        quorum_change_all_new::<ProjectivePoint>();
+    }
+
+    #[cfg(feature = "taproot")]
+    #[test]
+    fn quorum_change_extend_parties_taproot() {
+        quorum_change_extend_parties::<ProjectivePoint>();
+    }
+
+    #[cfg(feature = "taproot")]
+    #[test]
+    fn quorum_change_only_change_threshold_taproot() {
+        quorum_change_only_change_threshold::<ProjectivePoint>();
     }
 }

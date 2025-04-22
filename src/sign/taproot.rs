@@ -176,54 +176,49 @@ impl Round for PartialSign<ProjectivePoint> {
     }
 }
 
-#[allow(unused)]
-fn tagged_hash(tag: &[u8]) -> Sha256 {
-    let tag_hash = Sha256::digest(tag);
-    let mut digest = Sha256::new();
-    digest.update(tag_hash);
-    digest.update(tag_hash);
-    digest
-}
-
-#[cfg(test)]
-pub fn run_sign(shares: &[Keyshare<k256::ProjectivePoint>]) -> Signature {
-    use crate::common::utils::run_round;
-    let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
-    let msg_hash: [u8; 32] = Sha256::digest(msg).into();
-
-    let mut rng = rand::thread_rng();
-    let parties = shares
-        .iter()
-        .map(|keyshare| {
-            SignerParty::<_, k256::ProjectivePoint>::new(
-                keyshare.clone().into(),
-                msg_hash,
-                "m".parse().unwrap(),
-                &mut rng,
-            )
-        })
-        .collect::<Vec<_>>();
-
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-    let ready_parties = run_round(parties, msgs);
-
-    // Signature phase
-    let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-        run_round(ready_parties, ()).into_iter().unzip();
-
-    let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
-        run_round(parties, partial_sigs).into_iter().unzip();
-
-    signatures[0]
-}
-
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+
     use k256::ProjectivePoint;
     use rand::seq::SliceRandom;
 
-    use crate::{common::utils::run_keygen, sign::taproot::run_sign};
+    use crate::common::utils::run_keygen;
+
+    fn run_sign(shares: Vec<Keyshare<k256::ProjectivePoint>>) -> Signature {
+        use crate::common::utils::run_round;
+        let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+        let msg_hash: [u8; 32] = Sha256::digest(msg).into();
+
+        let mut rng = rand::thread_rng();
+        let parties = shares
+            .into_iter()
+            .map(Arc::new)
+            .map(|keyshare| {
+                SignerParty::<_, k256::ProjectivePoint>::new(
+                    keyshare,
+                    msg_hash,
+                    "m".parse().unwrap(),
+                    &mut rng,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+        let ready_parties = run_round(parties, msgs);
+
+        // Signature phase
+        let (parties, partial_sigs): (Vec<_>, Vec<_>) =
+            run_round(ready_parties, ()).into_iter().unzip();
+
+        let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
+            run_round(parties, partial_sigs).into_iter().unzip();
+
+        signatures[0]
+    }
 
     #[test]
     fn sign_2_2() {
@@ -232,8 +227,9 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 2)
             .cloned()
             .collect();
-        run_sign(&subset);
+        run_sign(subset);
     }
+
     #[test]
     fn sign_2_3() {
         let shares = run_keygen::<2, 3, ProjectivePoint>();
@@ -241,8 +237,9 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 2)
             .cloned()
             .collect();
-        run_sign(&subset);
+        run_sign(subset);
     }
+
     #[test]
     fn sign_2_3_3() {
         let shares = run_keygen::<2, 3, ProjectivePoint>();
@@ -250,8 +247,9 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 3)
             .cloned()
             .collect();
-        run_sign(&subset);
+        run_sign(subset);
     }
+
     #[test]
     fn sign_3_3() {
         let shares = run_keygen::<3, 3, ProjectivePoint>();
@@ -259,7 +257,7 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 3)
             .cloned()
             .collect();
-        run_sign(&subset);
+        run_sign(subset);
     }
 
     #[test]
@@ -269,7 +267,7 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 3)
             .cloned()
             .collect();
-        run_sign(&subset);
+        run_sign(subset);
     }
 
     #[test]
@@ -279,6 +277,6 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 5)
             .cloned()
             .collect();
-        run_sign(&subset);
+        run_sign(subset);
     }
 }

@@ -8,15 +8,16 @@ use hmac::{Hmac, Mac};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+
 use sl_mpc_mate::bip32::BIP32Error;
 
-use crate::common::traits::BIP32Derive;
 #[cfg(feature = "serde")]
 use crate::common::utils::{serde_point, serde_vec_point};
+
 use crate::{
     common::{
         get_lagrange_coeff,
-        traits::{GroupElem, ScalarReduce},
+        traits::{BIP32Derive, GroupElem, ScalarReduce},
         utils::{EncryptedData, HashBytes, SessionId},
         DLogProof,
     },
@@ -99,16 +100,21 @@ where
     /// Extra data
     pub extra_data: Option<Vec<u8>>,
     pub root_chain_code: [u8; 32],
+
+    #[cfg(feature = "keyshare-session-id")]
+    pub final_session_id: [u8; 32],
 }
 
 impl<G: Group + GroupEncoding> Keyshare<G> {
     pub fn public_key(&self) -> &G {
         &self.public_key
     }
+
     /// Get the shamir secret share
     pub fn shamir_share(&self) -> &G::Scalar {
         &self.d_i
     }
+
     /// Get the scalar share of the party
     pub fn scalar_share(&self) -> G::Scalar {
         let coeff = get_lagrange_coeff::<G>(&self.party_id, 0..self.total_parties);
@@ -124,15 +130,18 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
     pub fn party_id(&self) -> u8 {
         self.party_id
     }
+
     pub fn extra_data(&self) -> &[u8] {
         match &self.extra_data {
             Some(val) => val,
             None => &[],
         }
     }
+
     pub fn root_chain_code(&self) -> [u8; 32] {
         self.root_chain_code
     }
+
     pub fn derive_with_offset(
         &self,
         chain_path: &DerivationPath,
@@ -154,6 +163,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         // Perform the mod q operation to get the additive offset
         Ok((additive_offset, pubkey))
     }
+
     pub fn derive_child_pubkey(
         &self,
         parent_pubkey: &G,

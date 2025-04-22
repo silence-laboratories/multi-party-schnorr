@@ -297,8 +297,7 @@ where
             party_id_list.push(party_pubkey_idx);
         }
 
-        let final_sid =
-            calculate_final_session_id(party_id_list.iter().copied(), &sid_i_list, None);
+        let final_sid = calculate_final_session_id(party_id_list.iter().copied(), &sid_i_list, &[]);
 
         // 12.4(b)
         let mut rng = ChaCha20Rng::from_seed(self.seed);
@@ -526,6 +525,8 @@ where
             public_key,
             extra_data: self.params.extra_data,
             root_chain_code,
+            #[cfg(feature = "keyshare-session-id")]
+            final_session_id: self.state.final_session_id,
         };
         Ok(keyshare)
     }
@@ -611,12 +612,14 @@ fn find_enc_key(pid: u8, party_enc_keys: &[(u8, PublicKey)]) -> Option<&PublicKe
 
 #[cfg(test)]
 mod test {
+    #[cfg(any(feature = "eddsa", feature = "taproot"))]
     use crate::common::utils::run_keygen;
-    use curve25519_dalek::EdwardsPoint;
-    use k256::ProjectivePoint;
 
+    #[cfg(feature = "eddsa")]
     #[test]
     fn keygen_curve25519() {
+        use curve25519_dalek::EdwardsPoint;
+
         run_keygen::<2, 2, EdwardsPoint>();
         run_keygen::<2, 3, EdwardsPoint>();
         run_keygen::<3, 5, EdwardsPoint>();
@@ -626,14 +629,15 @@ mod test {
         run_keygen::<9, 20, EdwardsPoint>();
     }
 
+    #[cfg(feature = "taproot")]
     #[test]
     fn keygen_taproot() {
+        use k256::ProjectivePoint;
+
         run_keygen::<2, 2, ProjectivePoint>();
         run_keygen::<2, 3, ProjectivePoint>();
         run_keygen::<3, 5, ProjectivePoint>();
-        run_keygen::<5, 5, EdwardsPoint>();
         run_keygen::<5, 10, ProjectivePoint>();
-        run_keygen::<10, 10, EdwardsPoint>();
         run_keygen::<9, 20, ProjectivePoint>();
     }
 }

@@ -5,12 +5,19 @@
 //!
 use std::sync::Arc;
 
-use super::{
-    messages::{SignMsg1, SignMsg2},
-    types::{SignEntropy, SignError},
-};
-use crate::common::traits::BIP32Derive;
+use crypto_bigint::subtle::ConstantTimeEq;
+use derivation_path::DerivationPath;
+use elliptic_curve::{group::GroupEncoding, Group};
+use ff::Field;
+use rand::prelude::*;
+use rand_chacha::ChaCha20Rng;
+use sha2::{Digest, Sha256};
+
+#[cfg(feature = "eddsa")]
+use curve25519_dalek::EdwardsPoint;
+
 use crate::{
+    common::traits::BIP32Derive,
     common::{
         get_lagrange_coeff,
         traits::{GroupElem, Round, ScalarReduce},
@@ -20,14 +27,11 @@ use crate::{
     keygen::Keyshare,
     sign::validate_input_messages,
 };
-use crypto_bigint::subtle::ConstantTimeEq;
-use curve25519_dalek::EdwardsPoint;
-use derivation_path::DerivationPath;
-use elliptic_curve::{group::GroupEncoding, Group};
-use ff::Field;
-use rand::{CryptoRng, Rng, RngCore, SeedableRng};
-use rand_chacha::ChaCha20Rng;
-use sha2::{Digest, Sha256};
+
+use super::{
+    messages::{SignMsg1, SignMsg2},
+    types::{SignEntropy, SignError},
+};
 
 /// Signer party
 pub struct SignerParty<T, G>
@@ -77,6 +81,7 @@ pub struct SignReady<G: Group> {
     pub(crate) k_i: G::Scalar,
     pub party_id: u8,
 }
+
 /// State of Signer party after processing all SignMsg3 messages
 pub struct PartialSign<G: Group> {
     pub party_id: u8,
@@ -89,7 +94,9 @@ pub struct PartialSign<G: Group> {
     pub(crate) pid_list: Vec<u8>,
 }
 
-impl SignerParty<R0, EdwardsPoint> {
+#[cfg(feature = "eddsa")]
+impl SignerParty<R0, EdwardsPoint>
+{
     /// Create a new signer party with the given keyshare
     pub fn new<R: CryptoRng + RngCore>(
         keyshare: Arc<Keyshare<EdwardsPoint>>,
@@ -109,7 +116,7 @@ impl SignerParty<R0, EdwardsPoint> {
     }
 }
 
-#[cfg(any(feature = "taproot", test))]
+#[cfg(feature = "taproot")]
 impl SignerParty<R0, k256::ProjectivePoint> {
     /// Create a new signer party with the given keyshare
     pub fn new<R: CryptoRng + RngCore>(
@@ -218,8 +225,14 @@ where
             return Err(SignError::InvalidParticipantSet);
         }
 
-        let final_sid =
-            calculate_final_session_id(party_ids.iter().copied(), &sid_list, Some(&self.message));
+        let final_sid = calculate_final_session_id(
+            party_ids.iter().copied(),
+            &sid_list,
+            #[cfg(feature = "keyshare-session-id")]
+            &[&self.message, &self.keyshare.final_session_id],
+            #[cfg(not(feature = "keyshare-session-id"))]
+            &[&self.message],
+        );
 
         use sha2::digest::Update;
         let dlog_sid = Sha256::new()

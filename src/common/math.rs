@@ -4,10 +4,11 @@ use elliptic_curve::Group;
 use ff::Field;
 use rand::Rng;
 use rand::{CryptoRng, RngCore};
+
 use sl_mpc_mate::math::Polynomial;
 
-use crate::keygen::KeyRefreshData;
-use crate::sign::SignError;
+use crate::keygen::{KeyRefreshData, KeygenError};
+
 pub fn get_lagrange_coeff<G: Group>(
     my_party_id: &u8,
     party_ids: impl IntoIterator<Item = u8>,
@@ -32,9 +33,9 @@ pub fn schnorr_split_private_key<G: Group + GroupEncoding, R: CryptoRng + RngCor
     n: u8,
     root_chain_code: Option<[u8; 32]>,
     rng: &mut R,
-) -> Result<Vec<KeyRefreshData<G>>, SignError> {
+) -> Result<Vec<KeyRefreshData<G>>, KeygenError> {
     if t < 2 || t > n {
-        return Err(SignError::InvalidThreshold);
+        return Err(KeygenError::InvalidT);
     }
     let mut poly: Polynomial<G> = Polynomial::random(rng, (t - 1) as usize);
     poly.set_constant(*private_key);
@@ -69,9 +70,9 @@ pub fn schnorr_split_private_key_with_lost<G: Group + GroupEncoding, R: CryptoRn
     lost_ids: Option<Vec<u8>>,
     root_chain_code: Option<[u8; 32]>,
     rng: &mut R,
-) -> Result<Vec<KeyRefreshData<G>>, SignError> {
+) -> Result<Vec<KeyRefreshData<G>>, KeygenError> {
     if t < 2 || t > n {
-        return Err(SignError::InvalidThreshold);
+        return Err(KeygenError::InvalidT);
     }
     let mut poly: Polynomial<G> = Polynomial::random(rng, (t - 1) as usize);
     poly.set_constant(*private_key);
@@ -128,6 +129,7 @@ pub fn combine_shares<G: Group>(
     (public_key == &calculated_public_key).then_some(s)
 }
 
+#[cfg(feature = "eddsa")]
 #[cfg(test)]
 mod tests {
     use curve25519_dalek::EdwardsPoint;
