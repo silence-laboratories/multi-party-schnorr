@@ -95,6 +95,7 @@ where
     process_refresh::<T, N, G>(shares)?;
     Ok(())
 }
+
 //
 pub fn run_recovery<const T: usize, const N: usize, G: GroupElem>(
     keyshares: &[Keyshare<G>],
@@ -116,7 +117,6 @@ where
                 pid as u8,
                 T as u8,
                 N as u8,
-                keyshares[0].root_chain_code,
             )
         } else {
             keyshares[pid].get_refresh_data(Some(lost_party_ids.clone()))

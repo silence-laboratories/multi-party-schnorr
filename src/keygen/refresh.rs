@@ -42,7 +42,6 @@ where
         party_id: u8,
         threshold: u8,
         total_parties: u8,
-        root_chain_code: [u8; 32],
     ) -> Self {
         KeyRefreshData {
             threshold,
@@ -51,9 +50,10 @@ where
             s_i_0: <G::Scalar as Field>::ZERO,
             lost_keyshare_party_ids,
             expected_public_key,
-            root_chain_code,
+            root_chain_code: [0; 32],
         }
     }
+
     pub fn make_refresh_data_migrate(
         party_id: u8,
         threshold: u8,
@@ -72,6 +72,7 @@ where
             root_chain_code,
         }
     }
+
     /// Get the private scalar (s_i) (not shamir secret)
     pub fn s_i(&self) -> &G::Scalar {
         &self.s_i_0
