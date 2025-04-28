@@ -392,7 +392,9 @@ where
         let mut chain_code_sids: Vec<[u8; 32]> = Vec::with_capacity(messages.len());
 
         // 12.6(c)
-        for msg in &messages {
+        for (party_id, msg) in messages.iter().enumerate() {
+            let party_id = party_id as u8;
+
             let encrypted_d_i = &msg.c_i_list[self.params.party_id as usize];
             let sender_pubkey = find_enc_key(msg.party_id(), &self.params.party_enc_keys).unwrap();
 
@@ -414,7 +416,15 @@ where
 
             let chain_code_sid = plaintext[32..].try_into().unwrap();
 
-            chain_code_sids.push(chain_code_sid);
+            let is_lost = self
+                .key_refresh_data
+                .as_ref()
+                .map(|r| r.lost_party_ids().contains(&party_id))
+                .unwrap_or(false);
+
+            if !is_lost {
+                chain_code_sids.push(chain_code_sid);
+            }
         }
 
         let d_i_share: G::Scalar = d_i_vals.iter().sum();
@@ -425,6 +435,7 @@ where
             if !chain_code_sids.iter().all(|&item| item == root_chain_code) {
                 return Err(KeygenError::InvalidRefresh);
             }
+
             root_chain_code
         } else {
             chain_code_sids
