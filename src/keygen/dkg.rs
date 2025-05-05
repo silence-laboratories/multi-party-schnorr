@@ -135,6 +135,7 @@ where
             extra_data,
         )
     }
+
     /// Create a new keygen protocol instance with a given context. Used for testing purposes internally.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new_with_context(
@@ -183,6 +184,7 @@ where
             state: R0,
         })
     }
+
     pub fn encryption_key(&self) -> crypto_box::PublicKey {
         self.params.dec_key.public_key()
     }
