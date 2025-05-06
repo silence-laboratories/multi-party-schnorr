@@ -69,7 +69,7 @@ where
 
     pub fn generate_refresh<R: CryptoRng + RngCore>(t: u8, n: u8, rng: &mut R) -> Self {
         let mut ent = Self::generate(t, n, rng);
-        ent.polynomial.reset_contant();
+        ent.polynomial.reset_constant();
         ent
     }
 }
