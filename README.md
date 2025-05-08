@@ -58,7 +58,7 @@ cargo run --example refresh
 - We currently support Distributed signing for random nonce EdDSA - thus Schnorr - over curve25519 and Bitcoin Taproot Schnorr over the secp256k1 curve.
 
 
-**The library does not support**:
+**Not in scope**:
 - This library contains only the cryptographic protocol and does not provide any networking functions.
 - The parties in the protocol do not authenticate themselves and do not establish e2e secure channels
 
@@ -92,6 +92,7 @@ Please refer to [CONTRIBUTING](CONTRIBUTING.md).
 Don't hesitate to contact us if you need any assistance.
 
 info@silencelaboratories.com
+
 security@silencelaboratories.com
 
 **Happy signing!**
