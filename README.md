@@ -24,7 +24,7 @@ This is a production-ready, audited implementation  and has undergone a comprehe
 - Distributed Key Generation (DKG)
 - Distributed Signature Generation (DSG)
 - Key refresh
-- Quorum Change: change dynamically the set of participants adding or removing
+- Quorum Change: dynamically change the participant set by adding or removing parties
 
 
 
@@ -40,7 +40,7 @@ cargo test
 
 
 ### Examples
-Under <a href="./examples/">`/examples/`</a> directory there are examples on how to perform keygen, sign and refresh.
+Under [`examples/`](./examples/) directory there are examples on how to perform keygen, sign and refresh.
 
 Running the examples:
 ```bash
