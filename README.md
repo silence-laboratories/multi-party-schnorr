@@ -24,7 +24,7 @@ This is a production-ready, audited implementation  and has undergone a comprehe
 - Distributed Key Generation (DKG)
 - Distributed Signature Generation (DSG)
 - Key refresh
-- Quorum Change: change dynamically the set of participants adding or removing
+- Quorum Change: dynamically change the participant set by adding or removing parties
 
 
 
@@ -40,7 +40,7 @@ cargo test
 
 
 ### Examples
-Under <a href="./examples/">`/examples/`</a> directory there are examples on how to perform keygen, sign and refresh.
+Under [`examples/`](./examples/) directory there are examples on how to perform keygen, sign and refresh.
 
 Running the examples:
 ```bash
@@ -55,16 +55,9 @@ cargo run --example refresh
 ## Implementation Details
 
 - This library provides Distributed Key Generation generic over any elliptic curve group that implements the `Group` trait from the `elliptic-curve` crate.
-  We currently support threshold Schnorr signing with random nonce over curve25519 and Bitcoin Taproot Schnorr over the secp256k1 curve.
+- We currently support threshold Schnorr signing with random nonce over curve25519 and Bitcoin Taproot Schnorr over the secp256k1 curve.
 
-
-
-
-
-
-
-
-**The library does not support**:
+**Not in scope**:
 - This library contains only the cryptographic protocol and does not provide any networking functions.
 - The parties in the protocol do not authenticate themselves and do not establish e2e secure channels
 
@@ -98,6 +91,7 @@ Please refer to [CONTRIBUTING](CONTRIBUTING.md).
 Don't hesitate to contact us if you need any assistance.
 
 info@silencelaboratories.com
+
 security@silencelaboratories.com
 
 **Happy signing!**
