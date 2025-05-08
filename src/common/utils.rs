@@ -226,6 +226,8 @@ pub fn encrypt_message<R: CryptoRngCore, G: GroupElem>(
             ))
         })
 }
+// Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
+// This software is licensed under the Silence Laboratories License Agreement.
 
 pub fn decrypt_message(
     receiver_private_key: &SecretKey,

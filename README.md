@@ -1,129 +1,97 @@
-# Multiparty Schnorr
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-This is a pure Rust implementation of a threshold signing scheme for Schnorr signatures based on the paper [Simple Three-Round Multiparty Schnorr Signing with Full Simulatability](https://eprint.iacr.org/2022/374.pdf).
+- [Introduction](#introduction)
+- [Features](#features)
+- [Installing, Testing, Benchmarks](#installing-testing-benchmarks)
+  - [Building](#building)
+  - [Running Tests](#running-tests)
+  - [Examples](#examples)
+- [Implementation Details](#implementation-details)
+  - [Feature Flags](#feature-flags)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+## Introduction
+This is a high-performance threshold EdDSA/Schnorr signing protocol based on the paper [Simple Three-Round Multiparty Schnorr Signing with Full Simulatability](https://eprint.iacr.org/2022/374.pdf).
 
 
-## Generic over Elliptic Curve Group
+This is a production-ready, audited implementation  and has undergone a comprehensive [security audit](./docs/Hashcloak-SilenceLaboratories_2025_04_09.pdf) by HashCloak.
+
+## Features
+
+- Distributed Key Generation (DKG)
+- Distributed Signature Generation (DSG)
+- Key refresh
+- Quorum Change: change dynamically the set of participants adding or removing
+
+
+
+## Installing, Testing, Benchmarks
+### Building
+```bash
+cargo build
+```
+### Running Tests
+```bash
+cargo test
+```
+
+
+### Examples
+Under <a href="./examples/">`/examples/`</a> directory there are examples on how to perform keygen, sign and refresh.
+
+Running the examples:
+```bash
+cargo run --example keygen
+cargo run --example sign
+cargo run --example refresh
+```
+
+
+
+
+## Implementation Details
 
 - This library provides Distributed Key Generation generic over any elliptic curve group that implements the `Group` trait from the `elliptic-curve` crate.
 - We currently support Distributed signing for random nonce EdDSA - thus Schnorr - over curve25519 and Bitcoin Taproot Schnorr over the secp256k1 curve.
 
-### Build and Test
-- `cargo build`
-- `cargo test`
-
-## Features
-The library supports:
-- Distribited key generation for curve25519 curve and secp256k1 curve (Taproot Schnorr)
-- Distributed signing
-- Refreshing key shares without changing the public key
 
 **The library does not support**:
 - This library contains only the cryptographic protocol and does not provide any networking functions.
 - The parties in the protocol do not authenticate themselves and do not establish e2e secure channels
 
-## Examples
-
-Please find the examples in the [examples](./examples/) folder.
-
-### Distributed Keygen (ed25519)
-```rust
-# #[cfg(feature = "eddsa")]
-# {
-use std::time::Instant;
-
-use curve25519_dalek::EdwardsPoint;
-use k256::elliptic_curve::group::GroupEncoding;
-use multi_party_schnorr::{
-    common::utils::run_round,
-    keygen::{utils::setup_keygen, Keyshare},
-};
-
-fn main() {
-    const T: usize = 2;
-    const N: usize = 3;
-    let start = Instant::now();
-
-    // Setup keygen, create the encryption keys for each party
-    let parties = setup_keygen(T as u8, N as u8).unwrap();
-
-    // Locally run the keygen protocol
-    // Run Round 1
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-
-    // Run Round 2
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-
-    // Run Round 3
-    let keyshares: Vec<Keyshare<EdwardsPoint>> = run_round(parties, msgs);
-    // If you want to perform DKG for secp256k1 curve, you can use the following line instead! (enable the `taproot` feature)
-    // let keyshares: Vec<Keyshare<ProjectivePoint>> = run_round(parties, msgs);
 
 
-    println!("Time elapsed: {:?}", start.elapsed());
-
-    for (i, keyshare) in keyshares.iter().enumerate() {
-        println!(
-            "Party-{}'s keyshare: {}",
-            i,
-            bs58::encode(keyshare.public_key().to_bytes()).into_string()
-        );
-    }
-}
-# }
-```
-
-### Distributed Signing (ed25519)
-```rust
-# #[cfg(feature = "eddsa")]
-# {
-use curve25519_dalek::EdwardsPoint;
-use multi_party_schnorr::common::utils::{run_keygen, run_round};
-use multi_party_schnorr::sign::SignerParty;
-use rand::seq::SliceRandom;
-
-fn main() {
-    const N: usize = 5;
-    const T: usize = 3;
-
-    let keyshares = run_keygen::<T, N, EdwardsPoint>();
-    // If you want to perform DSG for Bitcoin Taproot Schnorr, you can use the following line instead! (enable the `taproot` feature)
-    // Based on keyshare type, signing will be performed accordingly.
-    // let keyshares = run_keygen::<T, N, ProjectivePoint>();
-    let mut rng = rand::thread_rng();
-    let start = std::time::Instant::now();
-    let msg = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
-
-    let subset: Vec<_> = keyshares
-        .choose_multiple(&mut rand::thread_rng(), T)
-        .cloned()
-        .collect();
-
-    let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
-    let parties = subset
-        .iter()
-        .map(|keyshare| SignerParty::<_,EdwardsPoint>::new(keyshare.clone().into(), msg.into(), "m".parse().unwrap(), &mut rng))
-        .collect::<Vec<_>>();
-
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-    let ready_parties = run_round(parties, msgs);
-    let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-        run_round(ready_parties, ()).into_iter().unzip();
-    let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
-        run_round(parties, partial_sigs).into_iter().unzip();
-
-    println!("Time: {:?}ms", start.elapsed());
-    for sig in signatures {
-        println!("Signature: {}", bs58::encode(sig.to_bytes()).into_string())
-    }
-}
-# }
-```
-
-## Feature Flags
+### Feature Flags
 
 | Feature            | Default? | Description |
 | :---               |  :---:   | :---        |
 | `eddsa`            |    ✓     | Enables signing over curve25519 with edd25519-dalek signing objects compatibility|
 | `taproot`          |        | Enables Bitcoin Taproot Schnorr signing over secp256k1 |
+
+
+## Security
+
+If you discover a vulnerability, please follow the instructions in [SECURITY](SECURITY.md).
+
+## Security Audit
+
+HashCloak has performed a security audit in April, 2025 on the following commit:
+- `146d4a57a82c62cf8d24fbd6b713d9bfc7cd534c` 
+
+and the report is available here: [security audit](./docs/Hashcloak-SilenceLaboratories_2025_04_09.pdf)
+
+
+## Contributing
+
+Please refer to [CONTRIBUTING](CONTRIBUTING.md).
+
+## Reach out to us
+Don't hesitate to contact us if you need any assistance.
+
+info@silencelaboratories.com
+security@silencelaboratories.com
+
+**Happy signing!**
