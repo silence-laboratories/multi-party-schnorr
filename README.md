@@ -55,8 +55,7 @@ cargo run --example refresh
 ## Implementation Details
 
 - This library provides Distributed Key Generation generic over any elliptic curve group that implements the `Group` trait from the `elliptic-curve` crate.
-- We currently support Distributed Schnorr-style signing (random nonce EdDSA) over curve25519 and Bitcoin Taproot Schnorr over the secp256k1 curve.
-
+- We currently support threshold Schnorr signing with random nonce over curve25519 and Bitcoin Taproot Schnorr over the secp256k1 curve.
 
 **Not in scope**:
 - This library contains only the cryptographic protocol and does not provide any networking functions.
