@@ -1,9 +1,12 @@
 [package]
 name = "multi-party-schnorr"
-version = "0.1.0"
+version = "1.0.0-beta"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license-file = "LICENSE"
+description = "Multi party schnorr protocol"
+repository = "https://github.com/silence-laboratories/multi-party-schnorr"
+keywords = ["mpc","threshold_signatures", "schnorr"]
+readme = "README.md"
 
 [[example]]
 name = "sign"
@@ -61,7 +64,7 @@ sha2 = "0.10.7"
 crypto_box = { version = "0.9.1" }
 ff = "0.13.0"
 rand_chacha = "0.3.1"
-sl-mpc-mate = { git = "https://github.com/silence-laboratories/sl-crypto.git", rev = "f366497" }
+sl-mpc-mate = "1.0.1-beta"
 thiserror = "1"
 derivation-path = "0.2.0"
 hmac = { version = "0.12.1" }
