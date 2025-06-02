@@ -1,3 +1,6 @@
+// Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
+// This software is licensed under the Silence Laboratories License Agreement.
+
 use elliptic_curve::ops::Reduce;
 use k256::{schnorr::Signature, ProjectivePoint, Scalar, U256};
 use signature::hazmat::PrehashVerifier;
@@ -114,7 +117,6 @@ impl Round for SignReady<ProjectivePoint> {
         let next = PartialSign {
             public_key: self.public_key,
             party_id: self.party_id,
-            threshold: self.threshold,
             session_id: self.session_id,
             big_r: self.big_r,
             s_i,

@@ -114,3 +114,15 @@ pub mod traits {
         }
     }
 }
+
+#[cfg(not(feature = "serde"))]
+pub mod ser {
+    pub trait Serializable {}
+    impl<T> Serializable for T {}
+}
+
+#[cfg(feature = "serde")]
+pub mod ser {
+    pub trait Serializable: serde::Serialize + serde::de::DeserializeOwned {}
+    impl<T: serde::Serialize + serde::de::DeserializeOwned> Serializable for T {}
+}

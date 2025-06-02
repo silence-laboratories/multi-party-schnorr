@@ -1,14 +1,21 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
+use std::sync::Arc;
+
 use elliptic_curve::Group;
 use rand::{CryptoRng, Rng, RngCore};
-use std::sync::Arc;
 use thiserror::Error;
 
-use sl_mpc_mate::{math::Polynomial, random_bytes};
+use sl_mpc_mate::math::Polynomial;
+
+use crate::common::ser::Serializable;
+
+#[cfg(feature = "serde")]
+use crate::common::utils::serde_arc;
 
 /// Parameters for the keygen protocol. Constant across all rounds.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct KeygenParams {
     /// Number of parties in the keygen protocol.
     pub n: u8,
@@ -22,7 +29,9 @@ pub(crate) struct KeygenParams {
     pub key_id: Option<[u8; 32]>,
 
     /// Encryption secret key
+    #[cfg_attr(feature = "serde", serde(with = "serde_arc"))]
     pub dec_key: Arc<crypto_box::SecretKey>,
+
     pub party_enc_keys: Vec<(u8, crypto_box::PublicKey)>,
 
     /// Extra data
@@ -30,14 +39,16 @@ pub(crate) struct KeygenParams {
 }
 
 /// All random params needed for keygen
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(bound(serialize = "G: Group", deserialize = "G: Group"))
+)]
 pub struct KeyEntropy<G>
 where
     G: Group,
+    G::Scalar: Serializable,
 {
-    /// Threshold for the keygen protocol.
-    pub t: u8,
-    /// Number of parties in the keygen protocol.
-    pub n: u8,
     /// Session id for the keygen protocol,
     pub session_id: [u8; 32],
     pub(crate) polynomial: Polynomial<G>,
@@ -50,28 +61,26 @@ where
 impl<G> KeyEntropy<G>
 where
     G: Group,
+    G::Scalar: Serializable,
 {
     /// Generate a new set of random params
-    pub fn generate<R: CryptoRng + RngCore>(t: u8, n: u8, rng: &mut R) -> Self {
+    pub fn generate<R: CryptoRng + RngCore>(t: u8, rng: &mut R) -> Self {
         // 11.2(a)
         let session_id = rng.gen();
 
         // 11.2(b)
         let polynomial = Polynomial::random(rng, (t - 1) as usize);
-        let chain_code_id = rng.gen();
 
         KeyEntropy {
-            t,
-            n,
             session_id,
             polynomial,
-            r_i: random_bytes(rng),
-            chain_code_id,
+            r_i: rng.gen(),
+            chain_code_id: rng.gen(),
         }
     }
 
-    pub fn generate_refresh<R: CryptoRng + RngCore>(t: u8, n: u8, rng: &mut R) -> Self {
-        let mut ent = Self::generate(t, n, rng);
+    pub fn generate_refresh<R: CryptoRng + RngCore>(t: u8, rng: &mut R) -> Self {
+        let mut ent = Self::generate(t, rng);
         ent.polynomial.reset_constant();
         ent
     }

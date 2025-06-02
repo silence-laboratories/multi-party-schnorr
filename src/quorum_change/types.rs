@@ -1,16 +1,21 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-use crate::group::Group;
-use crate::quorum_change::pairs::Pairs;
-use crate::quorum_change::qc::new_party_id;
 use crypto_bigint::rand_core::{CryptoRng, RngCore};
 use rand::Rng;
-use sl_mpc_mate::math::Polynomial;
-use sl_mpc_mate::random_bytes;
 use thiserror::Error;
 
+use crate::{
+    common::ser::Serializable,
+    group::Group,
+    quorum_change::{pairs::Pairs, qc::new_party_id},
+};
+
+use sl_mpc_mate::math::Polynomial;
+use sl_mpc_mate::random_bytes;
+
 /// Parameters for the QuorumChange protocol. Constant across all rounds.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct QCParams<G>
 where
     G: Group,
@@ -38,9 +43,11 @@ where
 }
 
 /// All random params needed for QuorumChange protocol.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct QCEntropyOld<G>
 where
     G: Group,
+    G::Scalar: Serializable,
 {
     /// New threshold
     pub new_t: u8,
@@ -56,6 +63,7 @@ where
 impl<G> QCEntropyOld<G>
 where
     G: Group,
+    G::Scalar: Serializable,
 {
     /// Generate a new set of random params
     pub fn generate<R: CryptoRng + RngCore>(
@@ -86,6 +94,7 @@ where
 }
 
 /// All random params needed for QuorumChange protocol.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct QCEntropyNew {
     /// sid_i for the QuorumChange protocol
     pub sid_i: [u8; 32],

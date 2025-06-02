@@ -6,24 +6,27 @@
 //! Protocol 7.1. Relaxed DLog Keygen https://eprint.iacr.org/2023/765.pdf
 
 use crypto_bigint::subtle::ConstantTimeEq;
-
 use elliptic_curve::{group::GroupEncoding, Group};
-
 use ff::PrimeField;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
-
 use sha2::{Digest, Sha256};
+
 use sl_mpc_mate::math::GroupPolynomial;
 
-use crate::common::{
-    traits::{GroupElem, Round},
-    utils::{HashBytes, SessionId},
+use crate::{
+    common::{
+        ser::Serializable,
+        traits::{GroupElem, Round},
+        utils::{HashBytes, SessionId},
+    },
+    keygen::Keyshare,
+    quorum_change::{
+        messages::{QCBroadcastMsg1, QCBroadcastMsg2, QCP2PMsg1, QCP2PMsg2},
+        pairs::Pairs,
+        types::{QCEntropyNew, QCEntropyOld, QCError, QCParams},
+    },
 };
-use crate::keygen::Keyshare;
-use crate::quorum_change::messages::{QCBroadcastMsg1, QCBroadcastMsg2, QCP2PMsg1, QCP2PMsg2};
-use crate::quorum_change::pairs::Pairs;
-use crate::quorum_change::types::{QCEntropyNew, QCEntropyOld, QCError, QCParams};
 
 /// LABEL for the QuorumChange protocol
 pub const QC_LABEL: &[u8] = b"Schnorr-QC";
@@ -35,9 +38,11 @@ pub const QC_COMMITMENT_1_LABEL: &[u8] = b"Schnorr-QC-commit1";
 pub const QC_COMMITMENT_2_LABEL: &[u8] = b"Schnorr-QC-commit2";
 
 /// The QCPartyOld is a state machine that implements the QuorumChange protocol for old participant.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct QCPartyOld<T, G>
 where
     G: Group + GroupEncoding,
+    G::Scalar: Serializable,
 {
     params: QCParams<G>,
     rand_params: QCEntropyOld<G>,
@@ -48,6 +53,7 @@ where
 pub struct QCPartyOldToNew<T, G>
 where
     G: Group + GroupEncoding,
+    G::Scalar: Serializable,
 {
     params: QCParams<G>,
     party_id: u8,
@@ -57,9 +63,11 @@ where
 }
 
 /// The QCPartyNew is a state machine that implements the QuorumChange protocol for new participant.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct QCPartyNew<T, G>
 where
     G: Group,
+    G::Scalar: Serializable,
 {
     params: QCParams<G>,
     rand_params: QCEntropyNew,
@@ -71,6 +79,7 @@ pub struct R0;
 pub struct R1Old<G>
 where
     G: Group + GroupEncoding,
+    G::Scalar: Serializable,
 {
     big_p_i_poly: GroupPolynomial<G>,
     commitment_1: HashBytes,
@@ -82,6 +91,7 @@ pub struct R1New;
 pub struct R2Old<G>
 where
     G: Group + GroupEncoding,
+    G::Scalar: Serializable,
 {
     sid_i_list: Vec<SessionId>,
     commitment_list: Vec<HashBytes>,
@@ -92,6 +102,7 @@ where
 pub struct R2OldToNew<G>
 where
     G: Group + GroupEncoding,
+    G::Scalar: Serializable,
 {
     final_session_id: SessionId,
     sid_i_list: Vec<SessionId>,
@@ -113,6 +124,7 @@ pub struct R2New {
 pub struct R3OldToNew<G>
 where
     G: Group + GroupEncoding,
+    G::Scalar: Serializable,
 {
     final_session_id: SessionId,
     sid_i_list: Vec<SessionId>,
@@ -134,6 +146,7 @@ pub struct R3New {
 impl<G> QCPartyOld<R0, G>
 where
     G: Group + GroupEncoding,
+    G::Scalar: Serializable,
 {
     /// Create a new QC party for old participant.
     #[allow(clippy::too_many_arguments)]
@@ -191,7 +204,10 @@ where
     }
 }
 
-impl<G: GroupElem> Round for QCPartyOld<R0, G> {
+impl<G: GroupElem> Round for QCPartyOld<R0, G>
+where
+    G::Scalar: Serializable,
+{
     type Input = ();
 
     type Output = Result<(QCPartyOld<R1Old<G>, G>, QCBroadcastMsg1), QCError>;
@@ -226,6 +242,7 @@ impl<G: GroupElem> Round for QCPartyOld<R0, G> {
 impl<G: GroupElem> Round for QCPartyOld<R1Old<G>, G>
 where
     G: GroupElem,
+    G::Scalar: Serializable,
 {
     type Input = Vec<QCBroadcastMsg1>;
 
@@ -342,6 +359,7 @@ where
 impl<G> Round for QCPartyOld<R2Old<G>, G>
 where
     G: GroupElem,
+    G::Scalar: Serializable,
 {
     type Input = Vec<QCBroadcastMsg2<G>>;
 
@@ -413,6 +431,7 @@ where
 impl<G> QCPartyOldToNew<R0, G>
 where
     G: Group + GroupEncoding,
+    G::Scalar: Serializable,
 {
     /// Create a new QC party for old to new participant.
     #[allow(clippy::too_many_arguments)]
@@ -469,7 +488,11 @@ where
     }
 }
 
-impl<G: GroupElem> Round for QCPartyOldToNew<R0, G> {
+impl<G: GroupElem> Round for QCPartyOldToNew<R0, G>
+where
+    G: Group,
+    G::Scalar: Serializable,
+{
     type Input = ();
 
     type Output = Result<(QCPartyOldToNew<R1Old<G>, G>, QCBroadcastMsg1), QCError>;
@@ -506,6 +529,7 @@ impl<G: GroupElem> Round for QCPartyOldToNew<R0, G> {
 impl<G: GroupElem> Round for QCPartyOldToNew<R1Old<G>, G>
 where
     G: GroupElem,
+    G::Scalar: Serializable,
 {
     type Input = Vec<QCBroadcastMsg1>;
 
@@ -616,6 +640,7 @@ where
 impl<G: GroupElem> Round for QCPartyOldToNew<R2OldToNew<G>, G>
 where
     G: GroupElem,
+    G::Scalar: Serializable,
 {
     type Input = Vec<QCP2PMsg1>;
 
@@ -704,6 +729,7 @@ where
 impl<G: GroupElem> Round for QCPartyOldToNew<R3OldToNew<G>, G>
 where
     G: GroupElem,
+    G::Scalar: Serializable,
 {
     type Input = (Vec<QCP2PMsg2<G>>, Vec<QCBroadcastMsg2<G>>);
 
@@ -877,6 +903,7 @@ where
 impl<G> QCPartyNew<R0, G>
 where
     G: Group,
+    G::Scalar: Serializable,
 {
     /// Create a new QC party for new participant.
     #[allow(clippy::too_many_arguments)]
@@ -925,7 +952,11 @@ where
     }
 }
 
-impl<G: GroupElem> Round for QCPartyNew<R0, G> {
+impl<G: GroupElem> Round for QCPartyNew<R0, G>
+where
+    G: Group,
+    G::Scalar: Serializable,
+{
     type Input = ();
 
     type Output = Result<(QCPartyNew<R1New, G>, QCBroadcastMsg1), QCError>;
@@ -951,6 +982,7 @@ impl<G: GroupElem> Round for QCPartyNew<R0, G> {
 impl<G: GroupElem> Round for QCPartyNew<R1New, G>
 where
     G: GroupElem,
+    G::Scalar: Serializable,
 {
     type Input = Vec<QCBroadcastMsg1>;
 
@@ -1010,6 +1042,7 @@ where
 impl<G: GroupElem> Round for QCPartyNew<R2New, G>
 where
     G: GroupElem,
+    G::Scalar: Serializable,
 {
     type Input = Vec<QCP2PMsg1>;
 
@@ -1058,6 +1091,7 @@ where
 impl<G: GroupElem> Round for QCPartyNew<R3New, G>
 where
     G: GroupElem,
+    G::Scalar: Serializable,
 {
     type Input = (Vec<QCP2PMsg2<G>>, Vec<QCBroadcastMsg2<G>>);
 
@@ -1299,7 +1333,7 @@ mod test {
     fn quorum_change_all_new<G>()
     where
         G: GroupElem,
-        G::Scalar: ScalarReduce<[u8; 32]>,
+        G::Scalar: ScalarReduce<[u8; 32]> + Serializable,
     {
         let mut rng = rand::thread_rng();
 
@@ -1509,7 +1543,7 @@ mod test {
     fn quorum_change_extend_parties<G>()
     where
         G: GroupElem,
-        G::Scalar: ScalarReduce<[u8; 32]>,
+        G::Scalar: ScalarReduce<[u8; 32]> + Serializable,
     {
         let mut rng = rand::thread_rng();
 
@@ -1674,7 +1708,7 @@ mod test {
     fn quorum_change_only_change_threshold<G>()
     where
         G: GroupElem,
-        G::Scalar: ScalarReduce<[u8; 32]>,
+        G::Scalar: ScalarReduce<[u8; 32]> + Serializable,
     {
         let mut rng = rand::thread_rng();
 

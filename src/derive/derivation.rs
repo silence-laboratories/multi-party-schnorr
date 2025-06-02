@@ -61,7 +61,7 @@ where
 mod test {
     use super::*;
 
-    use crate::common::utils::{run_keygen, run_round};
+    use crate::common::utils::{run_keygen, run_round_no_serde};
 
     #[allow(unused_imports)]
     use rand::prelude::SliceRandom;
@@ -78,7 +78,7 @@ mod test {
             .map(|keyshare| DeriveParty::new(keyshare.clone().into(), derivation_path))
             .collect::<Vec<_>>();
 
-        run_round(parties, ())
+        run_round_no_serde(parties, ())
     }
 
     #[cfg(feature = "eddsa")]

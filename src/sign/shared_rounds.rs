@@ -1,3 +1,6 @@
+// Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
+// This software is licensed under the Silence Laboratories License Agreement.
+
 //! This module contains the shared round logic (first 2 rounds) for all signing protocols.
 //! The logic is generic over the elliptic curve group.
 //! Since the final signing is done differently for different schemes, that part is not generic and
@@ -20,6 +23,7 @@ use crate::{
     common::traits::BIP32Derive,
     common::{
         get_lagrange_coeff,
+        ser::Serializable,
         traits::{GroupElem, Round, ScalarReduce},
         utils::{calculate_final_session_id, HashBytes, SessionId},
         DLogProof,
@@ -28,38 +32,74 @@ use crate::{
     sign::validate_input_messages,
 };
 
+#[cfg(feature = "serde")]
+use crate::common::utils::serde_point;
+
 use super::{
     messages::{SignMsg1, SignMsg2},
     types::{SignEntropy, SignError},
 };
 
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(bound(
+        serialize = "G::Scalar: Serializable",
+        deserialize = "G::Scalar: Serializable"
+    ))
+)]
+struct Params<G>
+where
+    G: Group + GroupEncoding,
+{
+    party_id: u8,
+    threshold: u8,
+    total_parties: u8,
+    message: Vec<u8>,
+    additive_offset: G::Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
+    derived_public_key: G,
+    shamir_share: G::Scalar,
+}
+
 /// Signer party
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(bound(
+        serialize = "T: serde::Serialize, G::Scalar: Serializable",
+        deserialize = "T: serde::Deserialize<'de>, G::Scalar: Serializable"
+    ))
+)]
 pub struct SignerParty<T, G>
 where
     G: Group + GroupEncoding,
 {
-    pub party_id: u8,
-    pub message: Vec<u8>,
-    pub derivation_path: DerivationPath,
-    pub(crate) keyshare: Arc<Keyshare<G>>,
+    params: Params<G>,
     pub(crate) rand_params: SignEntropy<G>,
-    pub(crate) seed: [u8; 32],
     pub(crate) state: T,
+    #[cfg(feature = "keyshare-session-id")]
+    final_session_id: [u8; 32],
 }
 
 /// Initial state of a round based protocol.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct R0;
 
 /// Round 1 state of Signer party
-pub struct R1<G> {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct R1<G: Group + GroupEncoding> {
+    #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
     big_r_i: G,
     commitment_r_i: [u8; 32],
 }
 
 /// Round 2 state of Signer party
 /// State before processing all SignMsg2 messages
-pub struct R2<G> {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct R2<G: Group + GroupEncoding> {
     final_session_id: SessionId,
+    #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
     big_r_i: G,
     commitment_list: Vec<[u8; 32]>,
     sid_list: Vec<SessionId>,
@@ -68,26 +108,42 @@ pub struct R2<G> {
 
 /// State of Signer party after processing all SignMsg2 messages.
 /// Party is ready to sign a message
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(bound(
+        serialize = "G: Group + GroupEncoding, G::Scalar: Serializable",
+        deserialize = "G: Group + GroupEncoding, G::Scalar: Serializable"
+    ))
+)]
 pub struct SignReady<G: Group> {
     pub session_id: SessionId,
+    #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
     pub(crate) big_r: G,
     pub(crate) d_i: G::Scalar,
     pub pid_list: Vec<u8>,
-    pub threshold: u8,
+    #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
     pub public_key: G,
     pub message: Vec<u8>,
-    pub key_id: [u8; 32],
     pub(crate) k_i: G::Scalar,
     pub party_id: u8,
 }
 
 /// State of Signer party after processing all SignMsg3 messages
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(bound(
+        serialize = "G: Group + GroupEncoding, G::Scalar: Serializable",
+        deserialize = "G: Group + GroupEncoding, G::Scalar: Serializable"
+    ))
+)]
 pub struct PartialSign<G: Group> {
     pub party_id: u8,
     pub(crate) session_id: SessionId,
-    pub threshold: u8,
+    #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
     pub(crate) big_r: G,
+    #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
     pub public_key: G,
     pub(crate) s_i: G::Scalar,
     pub(crate) msg_to_sign: Vec<u8>,
@@ -95,8 +151,7 @@ pub struct PartialSign<G: Group> {
 }
 
 #[cfg(feature = "eddsa")]
-impl SignerParty<R0, EdwardsPoint>
-{
+impl SignerParty<R0, EdwardsPoint> {
     /// Create a new signer party with the given keyshare
     pub fn new<R: CryptoRng + RngCore>(
         keyshare: Arc<Keyshare<EdwardsPoint>>,
@@ -104,13 +159,22 @@ impl SignerParty<R0, EdwardsPoint>
         derivation_path: DerivationPath,
         rng: &mut R,
     ) -> Self {
+        let (additive_offset, derived_public_key) =
+            keyshare.derive_with_offset(&derivation_path).unwrap();
+
         Self {
-            party_id: keyshare.party_id(),
-            message,
-            keyshare,
-            derivation_path,
+            params: Params {
+                party_id: keyshare.party_id(),
+                threshold: keyshare.threshold,
+                total_parties: keyshare.total_parties,
+                additive_offset,
+                derived_public_key,
+                shamir_share: *keyshare.shamir_share(),
+                message,
+            },
+            #[cfg(feature = "keyshare-session-id")]
+            final_session_id: keyshare.final_session_id,
             rand_params: SignEntropy::generate(rng),
-            seed: rng.gen(),
             state: R0,
         }
     }
@@ -125,13 +189,22 @@ impl SignerParty<R0, k256::ProjectivePoint> {
         derivation_path: DerivationPath,
         rng: &mut R,
     ) -> Self {
+        let (additive_offset, derived_public_key) =
+            keyshare.derive_with_offset(&derivation_path).unwrap();
+
         Self {
-            party_id: keyshare.party_id(),
-            message: message.to_vec(),
-            keyshare,
-            derivation_path,
+            params: Params {
+                party_id: keyshare.party_id(),
+                threshold: keyshare.threshold,
+                total_parties: keyshare.total_parties,
+                additive_offset,
+                derived_public_key,
+                shamir_share: *keyshare.shamir_share(),
+                message: message.to_vec(),
+            },
+            #[cfg(feature = "keyshare-session-id")]
+            final_session_id: keyshare.final_session_id,
             rand_params: SignEntropy::generate(rng),
-            seed: rng.gen(),
             state: R0,
         }
     }
@@ -147,28 +220,26 @@ impl<G: Group + GroupEncoding> Round for SignerParty<R0, G> {
         let big_r_i = G::generator() * self.rand_params.k_i;
         let commitment_r_i = hash_commitment_r_i(
             &self.rand_params.session_id,
-            self.party_id,
+            self.params.party_id,
             &big_r_i,
             &self.rand_params.blind_factor,
         );
 
         let msg1 = SignMsg1 {
-            from_party: self.keyshare.party_id(),
+            from_party: self.params.party_id,
             session_id: self.rand_params.session_id,
             commitment_r_i,
         };
 
         let next_state = SignerParty {
-            party_id: self.party_id,
-            message: self.message,
-            derivation_path: self.derivation_path,
-            keyshare: self.keyshare,
+            params: self.params,
             rand_params: self.rand_params,
             state: R1 {
                 big_r_i,
                 commitment_r_i,
             },
-            seed: self.seed,
+            #[cfg(feature = "keyshare-session-id")]
+            final_session_id: self.final_session_id,
         };
 
         Ok((next_state, msg1))
@@ -185,9 +256,9 @@ where
     type Output = Result<(SignerParty<R2<G>, G>, SignMsg2<G>), SignError>;
 
     fn process(self, mut msgs: Self::Input) -> Self::Output {
-        let mut commitment_list = Vec::with_capacity(self.keyshare.threshold as usize);
-        let mut sid_list = Vec::with_capacity(self.keyshare.threshold as usize);
-        let mut party_ids = Vec::with_capacity(self.keyshare.threshold as usize);
+        let mut commitment_list = Vec::with_capacity(self.params.threshold as usize);
+        let mut sid_list = Vec::with_capacity(self.params.threshold as usize);
+        let mut party_ids = Vec::with_capacity(self.params.threshold as usize);
 
         msgs.sort_by_key(|m| m.from_party);
 
@@ -200,7 +271,7 @@ where
         //check if the input commitments match
         msgs.iter()
             .any(|msg| {
-                msg.from_party == self.party_id && msg.commitment_r_i == self.state.commitment_r_i
+                msg.from_party == self.params.party_id && msg.commitment_r_i == self.state.commitment_r_i
             })
             .then_some(())
             .ok_or(SignError::InvalidParticipantSet)?;
@@ -214,13 +285,13 @@ where
         let num_parties = party_ids.len();
         party_ids.dedup();
 
-        if party_ids.len() != num_parties || !party_ids.contains(&self.party_id) {
+        if party_ids.len() != num_parties || !party_ids.contains(&self.params.party_id) {
             return Err(SignError::InvalidParticipantSet);
         }
 
         // Check if the number of parties is within the threshold
-        if party_ids.len() < self.keyshare.threshold as usize
-            || party_ids.len() > self.keyshare.total_parties as usize
+        if party_ids.len() < self.params.threshold as usize
+            || party_ids.len() > self.params.total_parties as usize
         {
             return Err(SignError::InvalidParticipantSet);
         }
@@ -229,25 +300,25 @@ where
             party_ids.iter().copied(),
             &sid_list,
             #[cfg(feature = "keyshare-session-id")]
-            &[&self.message, &self.keyshare.final_session_id],
+            &[&self.params.message, &self.final_session_id],
             #[cfg(not(feature = "keyshare-session-id"))]
-            &[&self.message],
+            &[&self.params.message],
         );
 
         use sha2::digest::Update;
         let dlog_sid = Sha256::new()
             .chain(b"SL-EDDSA-SIGN")
-            .chain(final_sid.as_ref())
-            .chain((self.party_id as u32).to_be_bytes())
+            .chain(final_sid)
+            .chain((self.params.party_id as u32).to_be_bytes())
             .chain(b"DLOG-SID")
             .finalize()
             .into();
 
-        let mut rng = ChaCha20Rng::from_seed(self.seed);
+        let mut rng = ChaCha20Rng::from_seed(self.rand_params.seed);
         let dlog_proof = DLogProof::prove(&dlog_sid, &self.rand_params.k_i, &mut rng);
 
         let msg2 = SignMsg2 {
-            from_party: self.keyshare.party_id(),
+            from_party: self.params.party_id,
             session_id: final_sid,
             dlog_proof,
             blind_factor: self.rand_params.blind_factor,
@@ -255,10 +326,7 @@ where
         };
 
         let next = SignerParty {
-            party_id: self.party_id,
-            message: self.message,
-            derivation_path: self.derivation_path,
-            keyshare: self.keyshare,
+            params: self.params,
             rand_params: self.rand_params,
             state: R2 {
                 final_session_id: final_sid,
@@ -267,7 +335,8 @@ where
                 big_r_i: self.state.big_r_i,
                 pid_list: party_ids,
             },
-            seed: rng.gen(),
+            #[cfg(feature = "keyshare-session-id")]
+            final_session_id: self.final_session_id,
         };
 
         Ok((next, msg2))
@@ -287,10 +356,10 @@ where
         let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
 
         let mut big_r_i = self.state.big_r_i;
-        let mut participants: u32 = 0;
+        let participants = msgs.len();
 
         for (idx, msg) in msgs.iter().enumerate() {
-            if msg.from_party == self.keyshare.party_id() {
+            if msg.from_party == self.params.party_id {
                 continue;
             }
 
@@ -299,28 +368,23 @@ where
                 return Err(SignError::InvalidBigRi);
             }
             encoding.as_mut().copy_from_slice(&msg.big_r_i);
-            let msg_big_r_i = G::from_bytes(&encoding);
-            let msg_big_r_i = if msg_big_r_i.is_some().into() {
-                msg_big_r_i.unwrap()
-            } else {
-                return Err(SignError::InvalidBigRi);
-            };
+
+            let msg_big_r_i = G::from_bytes(&encoding)
+                .into_option()
+                .ok_or(SignError::InvalidBigRi)?;
             if msg_big_r_i.is_identity().into() {
                 return Err(SignError::InvalidBigRi);
             }
 
-            let sid = self.state.sid_list[idx];
-            let commitment = self.state.commitment_list[idx];
-
-            verify_commitment_r_i(
-                &sid,
+            if !verify_commitment_r_i(
+                &self.state.sid_list[idx],
                 msg.from_party,
                 &msg_big_r_i,
                 &msg.blind_factor,
-                &commitment,
-            )
-            .then_some(())
-            .ok_or(SignError::InvalidCommitment(msg.from_party))?;
+                &self.state.commitment_list[idx],
+            ) {
+                return Err(SignError::InvalidCommitment(msg.from_party));
+            }
 
             let mut h = Sha256::new();
             h.update(b"SL-EDDSA-SIGN");
@@ -336,39 +400,30 @@ where
                 .ok_or(SignError::InvalidDLogProof(msg.from_party))?;
 
             big_r_i += msg_big_r_i;
-            participants += 1_u32;
         }
-        //total participants = |message I received| + 1
-        participants += 1_u32;
 
-        // FIXME: do we need copied?
-        let coeff = get_lagrange_coeff::<G>(&self.party_id, self.state.pid_list.iter().copied());
+        let coeff = get_lagrange_coeff::<G>(&self.params.party_id, self.state.pid_list.iter().copied());
 
-        let d_i = coeff * self.keyshare.shamir_share();
+        let d_i = coeff * self.params.shamir_share;
 
-        let (additive_offset, derived_public_key) = self
-            .keyshare
-            .derive_with_offset(&self.derivation_path)
-            .map_err(|_| SignError::InvalidKeyDerivation)?;
         let threshold_inv = <G as Group>::Scalar::from(participants as u64)
             .invert()
             .unwrap();
-        let additive_offset = additive_offset * threshold_inv;
+
+        let additive_offset = self.params.additive_offset * threshold_inv;
 
         //tweak the secret key share by the computed additive offset
         let d_i = d_i + additive_offset;
 
         let next = SignReady {
-            key_id: self.keyshare.key_id,
-            threshold: self.keyshare.threshold,
             big_r: big_r_i,
             d_i,
             pid_list: self.state.pid_list,
-            public_key: derived_public_key, //replase the public key for that signature with the tweaked public key
+            public_key: self.params.derived_public_key, //replase the public key for that signature with the tweaked public key
             session_id: self.state.final_session_id,
-            message: self.message,
+            message: self.params.message,
             k_i: self.rand_params.k_i,
-            party_id: self.party_id,
+            party_id: self.params.party_id,
         };
 
         Ok(next)

@@ -7,9 +7,16 @@ use ff::Field;
 use crate::common::traits::GroupElem;
 
 #[cfg(feature = "serde")]
-use crate::common::utils::serde_point;
+use crate::common::{ser::Serializable, utils::serde_point};
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(bound(
+        serialize = "G: Group + GroupEncoding, G::Scalar: Serializable",
+        deserialize = "G: Group + GroupEncoding, G::Scalar: Serializable"
+    ))
+)]
 pub struct KeyRefreshData<G>
 where
     G: Group + GroupEncoding,

@@ -1,3 +1,6 @@
+// Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
+// This software is licensed under the Silence Laboratories License Agreement.
+
 use curve25519_dalek::{EdwardsPoint, Scalar};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use elliptic_curve::group::GroupEncoding;
@@ -38,7 +41,6 @@ impl Round for SignReady<EdwardsPoint> {
 
         let next = PartialSign {
             party_id: self.party_id,
-            threshold: self.threshold,
             session_id: self.session_id,
             public_key: self.public_key,
             big_r: self.big_r,
