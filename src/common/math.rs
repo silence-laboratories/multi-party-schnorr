@@ -10,7 +10,10 @@ use rand::{CryptoRng, RngCore};
 
 use sl_mpc_mate::math::Polynomial;
 
-use crate::keygen::{KeyRefreshData, KeygenError};
+use crate::{
+    common::ser,
+    keygen::{KeyRefreshData, KeygenError},
+};
 
 pub fn get_lagrange_coeff<G: Group>(
     my_party_id: &u8,
@@ -36,7 +39,10 @@ pub fn schnorr_split_private_key<G: Group + GroupEncoding, R: CryptoRng + RngCor
     n: u8,
     root_chain_code: Option<[u8; 32]>,
     rng: &mut R,
-) -> Result<Vec<KeyRefreshData<G>>, KeygenError> {
+) -> Result<Vec<KeyRefreshData<G>>, KeygenError>
+where
+    G::Scalar: ser::Serializable,
+{
     if t < 2 || t > n {
         return Err(KeygenError::InvalidT);
     }
@@ -73,7 +79,10 @@ pub fn schnorr_split_private_key_with_lost<G: Group + GroupEncoding, R: CryptoRn
     lost_ids: Option<Vec<u8>>,
     root_chain_code: Option<[u8; 32]>,
     rng: &mut R,
-) -> Result<Vec<KeyRefreshData<G>>, KeygenError> {
+) -> Result<Vec<KeyRefreshData<G>>, KeygenError>
+where
+    G::Scalar: ser::Serializable,
+{
     if t < 2 || t > n {
         return Err(KeygenError::InvalidT);
     }

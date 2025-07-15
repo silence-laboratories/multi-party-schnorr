@@ -5,6 +5,7 @@ use std::cmp::Ord;
 
 /// Small ordered set of pairs.
 #[derive(Default, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Pairs<T, I = u8>(Vec<(I, T)>);
 
 impl<T: Clone> Clone for Pairs<T> {

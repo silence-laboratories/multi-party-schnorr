@@ -16,6 +16,7 @@ use zeroize::Zeroizing;
 use sl_mpc_mate::math::GroupPolynomial;
 
 use crate::common::{
+    ser::Serializable,
     traits::{GroupElem, Round, ScalarReduce},
     utils::{
         calculate_final_session_id, decrypt_message, encrypt_message, BaseMessage, EncryptedData,
@@ -34,9 +35,18 @@ pub const DKG_LABEL: &[u8] = b"SilenceLaboratories-Schnorr-DKG";
 
 /// Keygen party
 /// The keygen party is a state machine that implements the keygen protocol.
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(bound(
+        serialize = "T: serde::Serialize",
+        deserialize = "T: serde::Deserialize<'de>"
+    ))
+)]
 pub struct KeygenParty<T, G>
 where
     G: Group + GroupEncoding,
+    G::Scalar: Serializable,
 {
     params: KeygenParams,
     rand_params: KeyEntropy<G>,
@@ -45,9 +55,18 @@ where
     key_refresh_data: Option<KeyRefreshData<G>>,
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct R0;
 
 /// State of a keygen party after receiving public keys of all parties and generating the first message.
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(bound(
+        serialize = "G: Group + GroupEncoding",
+        deserialize = "G: Group + GroupEncoding"
+    ))
+)]
 pub struct R1<G>
 where
     G: Group + GroupEncoding,
@@ -58,6 +77,7 @@ where
 }
 
 /// State of a keygen party after processing the first message.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct R2 {
     final_session_id: SessionId,
     commitment_list: Vec<HashBytes>,
@@ -101,6 +121,7 @@ fn validate_input(
 impl<G> KeygenParty<R0, G>
 where
     G: Group + GroupEncoding,
+    G::Scalar: Serializable,
 {
     /// Create a new keygen party.
     #[allow(clippy::too_many_arguments)]
@@ -116,7 +137,7 @@ where
         extra_data: Option<Vec<u8>>,
     ) -> Result<Self, KeygenError> {
         let mut rng = ChaCha20Rng::from_seed(seed);
-        let mut rand_params = KeyEntropy::generate(t, n, &mut rng);
+        let mut rand_params = KeyEntropy::generate(t, &mut rng);
 
         // Set the constant polynomial to the keyshare secret.
         // s_i_0 is the current party's additive share of the private key
@@ -195,7 +216,10 @@ where
 
 // Protocol 12 from https://eprint.iacr.org/2022/374.pdf
 // Simple Three-Round Multiparty Schnorr Signing with Full Simulatability
-impl<G: GroupElem> Round for KeygenParty<R0, G> {
+impl<G: GroupElem> Round for KeygenParty<R0, G>
+where
+    G::Scalar: Serializable,
+{
     type Input = ();
 
     type Output = Result<(KeygenParty<R1<G>, G>, KeygenMsg1), KeygenError>;
@@ -238,7 +262,7 @@ impl<G: GroupElem> Round for KeygenParty<R0, G> {
 
         // 12.2(d)
         let commitment = hash_commitment(
-            self.rand_params.session_id,
+            &self.rand_params.session_id,
             self.params.party_id,
             &big_a_i,
             &c_i_j,
@@ -272,6 +296,7 @@ impl<G> Round for KeygenParty<R1<G>, G>
 where
     G: GroupElem,
     G::Scalar: ScalarReduce<[u8; 32]>,
+    G::Scalar: Serializable,
 {
     type Input = Vec<KeygenMsg1>;
 
@@ -281,7 +306,7 @@ where
         let n = self.params.n as usize;
         // We pass None for expected_sid because we don't know the final session id yet.
         // We don't expect the session-ids to be equal for all messages in this round.
-        let messages = validate_input_messages(messages, self.params.t, None)?;
+        let messages = validate_input_messages(messages, self.params.n, None)?;
         let mut sid_i_list = Vec::with_capacity(n);
         let mut commitment_list = Vec::with_capacity(n);
         let mut party_id_list = Vec::with_capacity(n);
@@ -351,6 +376,7 @@ impl<G> Round for KeygenParty<R2, G>
 where
     G: GroupElem,
     G::Scalar: ScalarReduce<[u8; 32]>,
+    G::Scalar: Serializable,
 {
     type Input = Vec<KeygenMsg2<G>>;
 
@@ -358,16 +384,16 @@ where
 
     fn process(self, messages: Self::Input) -> Self::Output {
         let messages =
-            validate_input_messages(messages, self.params.t, Some(self.state.final_session_id))?;
+            validate_input_messages(messages, self.params.n, Some(&self.state.final_session_id))?;
 
         messages.par_iter().try_for_each(|msg| {
             // 12.6(b)-i Verify commitments.
             let party_id = msg.party_id();
-            let sid: [u8; 32] = self.state.sid_i_list[party_id as usize];
-            let commitment = self.state.commitment_list[party_id as usize];
+            let sid = &self.state.sid_i_list[party_id as usize];
+            let commitment = &self.state.commitment_list[party_id as usize];
             let commit_hash =
                 hash_commitment(sid, party_id, &msg.big_a_i_poly, &msg.c_i_list, &msg.r_i);
-            let commit_cond = bool::from(commit_hash.ct_eq(&commitment));
+            let commit_cond = bool::from(commit_hash.ct_eq(commitment));
 
             // 12.6(b)-ii Verify DLog proofs
             // Verify DLog proofs.
@@ -385,6 +411,7 @@ where
                 &dlog_sid,
                 self.params.t,
             );
+
             if !(dlog_cond && commit_cond) {
                 return Err(KeygenError::ProofError);
             }
@@ -412,12 +439,11 @@ where
             let mut encoding = <G::Scalar as PrimeField>::Repr::default();
             encoding.as_mut().copy_from_slice(&plaintext[..32]);
 
-            let d_i = G::Scalar::from_repr(encoding);
-            if d_i.is_none().into() {
-                return Err(KeygenError::InvalidDiPlaintext);
-            }
+            let d_i = G::Scalar::from_repr(encoding)
+                .into_option()
+                .ok_or(KeygenError::InvalidDiPlaintext)?;
 
-            d_i_vals.push(d_i.unwrap());
+            d_i_vals.push(d_i);
 
             let chain_code_sid = plaintext[32..].try_into().unwrap();
 
@@ -506,13 +532,12 @@ where
             }
         }
 
-        let key_id = if let Some(key_id) = self.params.key_id {
-            key_id
-        } else {
-            sha2::Sha256::digest(public_key.to_bytes()).into()
-        };
+        let key_id = self
+            .params
+            .key_id
+            .unwrap_or_else(|| sha2::Sha256::digest(public_key.to_bytes()).into());
 
-        #[cfg(any(feature = "taproot", test))]
+        #[cfg(feature = "taproot")]
         let (public_key, d_i_share) = match std::any::type_name::<G>() {
             // If the type is ProjectivePoint, then we are using Taproot
             // We return the tweaked public key
@@ -549,7 +574,7 @@ where
 }
 
 fn hash_commitment<G: GroupElem>(
-    session_id: SessionId,
+    session_id: &SessionId,
     party_id: u8,
     big_f_i_vec: &[G],
     ciphertexts: &[EncryptedData],
@@ -571,10 +596,10 @@ fn hash_commitment<G: GroupElem>(
 
 fn validate_input_messages<M: BaseMessage>(
     mut messages: Vec<M>,
-    t: u8,
-    expected_sid: Option<SessionId>,
+    n: u8,
+    expected_sid: Option<&SessionId>,
 ) -> Result<Vec<M>, KeygenError> {
-    if messages.len() < t as usize {
+    if messages.len() != n as usize {
         return Err(KeygenError::InvalidMsgCount);
     }
 
@@ -586,7 +611,6 @@ fn validate_input_messages<M: BaseMessage>(
         .all(|(pid, msg)| {
             let pid_match = msg.party_id() as usize == pid;
             let sid_match = expected_sid
-                .as_ref()
                 .map(|sid| sid == msg.session_id())
                 .unwrap_or(true);
 

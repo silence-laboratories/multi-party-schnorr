@@ -1,3 +1,6 @@
+// Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
+// This software is licensed under the Silence Laboratories License Agreement.
+
 #[cfg(any(feature = "taproot", feature = "eddsa"))]
 use elliptic_curve::Group;
 
@@ -10,11 +13,13 @@ use thiserror::Error;
 use crate::common::utils::SessionId;
 
 #[cfg(any(feature = "taproot", feature = "eddsa"))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// All random params needed for sign protocol
 pub struct SignEntropy<G: Group> {
     pub(crate) session_id: SessionId,
     pub(crate) k_i: G::Scalar,
     pub(crate) blind_factor: [u8; 32],
+    pub(crate) seed: [u8; 32],
 }
 
 #[cfg(any(feature = "taproot", feature = "eddsa"))]
@@ -24,6 +29,7 @@ impl<G: Group> SignEntropy<G> {
         Self {
             session_id: rng.gen(),
             blind_factor: rng.gen(),
+            seed: rng.gen(),
             k_i: <G::Scalar as ff::Field>::random(rng),
         }
     }

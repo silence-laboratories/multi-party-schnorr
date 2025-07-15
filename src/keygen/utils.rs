@@ -4,22 +4,24 @@
 use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::Group;
 use ff::Field;
-
 use rand::{CryptoRng, Rng, RngCore};
 
-use crate::common::schnorr_split_private_key;
-use crate::common::traits::{GroupElem, ScalarReduce};
-use crate::common::utils::{generate_pki, run_keygen, run_round};
+use crate::common::{
+    schnorr_split_private_key,
+    ser::Serializable,
+    traits::{GroupElem, ScalarReduce},
+    utils::{generate_pki, run_keygen, run_round},
+};
 
-use super::KeyRefreshData;
-use super::R0;
-
-use super::{messages::Keyshare, KeygenError, KeygenParty};
+use super::{messages::Keyshare, KeyRefreshData, KeygenError, KeygenParty, R0};
 
 pub fn setup_keygen<G: Group + GroupEncoding>(
     t: u8,
     n: u8,
-) -> Result<Vec<KeygenParty<R0, G>>, KeygenError> {
+) -> Result<Vec<KeygenParty<R0, G>>, KeygenError>
+where
+    G::Scalar: Serializable,
+{
     let mut rng = rand::thread_rng();
     // Initializing the keygen for each party.
     let (party_key_list, party_pubkey_list) = generate_pki(n.into(), &mut rng);
@@ -48,15 +50,21 @@ pub fn process_refresh<const T: usize, const N: usize, G: GroupElem>(
 ) -> Result<[Keyshare<G>; N], KeygenError>
 where
     G::Scalar: ScalarReduce<[u8; 32]>,
+    G::Scalar: Serializable,
 {
     let mut rng = rand::thread_rng();
+
     let refresh_data = shares
         .into_iter()
         .map(|data| data.get_refresh_data(None))
         .collect();
+
     let parties0 = setup_refresh(refresh_data, &mut rng)?;
+
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties0, ()).into_iter().unzip();
+
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
+
     let new_shares = run_round(actors, msgs);
 
     Ok(new_shares
@@ -65,10 +73,14 @@ where
         .unwrap())
 }
 
-pub fn setup_refresh<R: CryptoRng + RngCore, G: GroupElem>(
+pub fn setup_refresh<R: CryptoRng + RngCore, G>(
     shares: Vec<KeyRefreshData<G>>,
     rng: &mut R,
-) -> Result<Vec<KeygenParty<R0, G>>, KeygenError> {
+) -> Result<Vec<KeygenParty<R0, G>>, KeygenError>
+where
+    G: GroupElem,
+    G::Scalar: Serializable,
+{
     let (party_key_list, party_pubkey_list) = generate_pki(shares.len(), rng);
     let parties0 = shares
         .into_iter()
@@ -93,6 +105,7 @@ pub fn setup_refresh<R: CryptoRng + RngCore, G: GroupElem>(
 pub fn run_refresh<const T: usize, const N: usize, G: GroupElem>() -> Result<(), KeygenError>
 where
     G::Scalar: ScalarReduce<[u8; 32]>,
+    G::Scalar: Serializable,
 {
     let shares = run_keygen::<T, N, G>();
     process_refresh::<T, N, G>(shares)?;
@@ -106,6 +119,7 @@ pub fn run_recovery<const T: usize, const N: usize, G: GroupElem>(
 ) -> Result<(), KeygenError>
 where
     G::Scalar: ScalarReduce<[u8; 32]>,
+    G::Scalar: Serializable,
 {
     let mut rng = rand::thread_rng();
     let (party_key_list, party_pubkey_list) = generate_pki(N, &mut rng);
@@ -148,6 +162,7 @@ where
 pub fn run_import<const T: usize, const N: usize, G: GroupElem>() -> Result<(), KeygenError>
 where
     G::Scalar: ScalarReduce<[u8; 32]>,
+    G::Scalar: Serializable,
 {
     //TODO: for testing purposes create a random key and chain code. In production those should be inputs
     let mut rng = rand::thread_rng();

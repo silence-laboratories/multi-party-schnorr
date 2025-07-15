@@ -18,7 +18,10 @@ use sha2::{Digest, Sha256};
 
 use crate::keygen::{utils::setup_keygen, Keyshare};
 
-use super::traits::{GroupElem, Round, ScalarReduce};
+use super::{
+    ser::Serializable,
+    traits::{GroupElem, Round, ScalarReduce},
+};
 
 // Encryption is done inplace, so the size of the ciphertext is the size of the message plus the tag size.
 pub const SCALAR_CIPHERTEXT_SIZE: usize = 64 + <SalsaBox as AeadCore>::TagSize::USIZE;
@@ -108,10 +111,31 @@ pub mod serde_vec_point {
                 .copy_from_slice(&bytes[i * point_size..(i + 1) * point_size]);
             points.push(
                 Option::from(G::from_bytes(&encoding))
-                    .ok_or(serde::de::Error::custom("Invalid point"))?,
+                    .ok_or_else(|| serde::de::Error::custom("Invalid point"))?,
             );
         }
         Ok(points)
+    }
+}
+
+#[cfg(feature = "serde")]
+pub mod serde_arc {
+    use std::sync::Arc;
+
+    use serde::{Deserialize, Serialize};
+
+    pub fn serialize<S, T: Serialize>(value: &Arc<T>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        value.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D, T: Deserialize<'de>>(deserializer: D) -> Result<Arc<T>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Arc::new(T::deserialize(deserializer)?))
     }
 }
 
@@ -270,6 +294,32 @@ pub fn generate_pki<R: CryptoRng + RngCore>(
 /// Used for testing purposes.
 pub fn run_round<I, R, O, E>(actors: Vec<R>, msgs: I) -> Vec<O>
 where
+    R: Round<Input = I, Output = Result<O, E>> + Serializable + Send,
+    I: Clone + Sync,
+    E: std::fmt::Debug,
+    Vec<R>: IntoParallelIterator<Item = R>,
+    O: Send,
+{
+    actors
+        .into_par_iter()
+        .map(|actor| {
+            #[cfg(all(feature = "serde", test))]
+            let actor: R = {
+                let mut v = vec![];
+                ciborium::into_writer(&actor, &mut v).unwrap();
+                ciborium::from_reader(v.as_ref() as &[u8]).unwrap()
+            };
+
+            actor
+        })
+        .map(|actor| actor.process(msgs.clone()).unwrap())
+        .collect()
+}
+
+/// Execute one round of DKG protocol locally, execute parties in parallel
+/// Used for testing purposes.
+pub fn run_round_no_serde<I, R, O, E>(actors: Vec<R>, msgs: I) -> Vec<O>
+where
     R: Round<Input = I, Output = Result<O, E>>,
     I: Clone + Sync,
     E: std::fmt::Debug,
@@ -286,6 +336,7 @@ where
 pub fn run_keygen<const T: usize, const N: usize, G: GroupElem>() -> [Keyshare<G>; N]
 where
     G::Scalar: ScalarReduce<[u8; 32]>,
+    G::Scalar: Serializable,
 {
     let actors = setup_keygen(T as u8, N as u8).unwrap();
     let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, ()).into_iter().unzip();
