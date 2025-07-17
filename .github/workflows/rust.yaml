@@ -18,7 +18,7 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Install stable toolchain
-      uses: dtolnay/rust-toolchain@1.81
+      uses: dtolnay/rust-toolchain@1.85
       with:
         components: clippy, rustfmt
 

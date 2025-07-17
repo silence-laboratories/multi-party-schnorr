@@ -23,7 +23,6 @@ use crate::{
     common::traits::BIP32Derive,
     common::{
         get_lagrange_coeff,
-        ser::Serializable,
         traits::{GroupElem, Round, ScalarReduce},
         utils::{calculate_final_session_id, HashBytes, SessionId},
         DLogProof,
@@ -31,6 +30,9 @@ use crate::{
     keygen::Keyshare,
     sign::validate_input_messages,
 };
+
+#[cfg(feature = "serde")]
+use crate::common::ser::Serializable;
 
 #[cfg(feature = "serde")]
 use crate::common::utils::serde_point;
@@ -271,7 +273,8 @@ where
         //check if the input commitments match
         msgs.iter()
             .any(|msg| {
-                msg.from_party == self.params.party_id && msg.commitment_r_i == self.state.commitment_r_i
+                msg.from_party == self.params.party_id
+                    && msg.commitment_r_i == self.state.commitment_r_i
             })
             .then_some(())
             .ok_or(SignError::InvalidParticipantSet)?;
@@ -402,7 +405,8 @@ where
             big_r_i += msg_big_r_i;
         }
 
-        let coeff = get_lagrange_coeff::<G>(&self.params.party_id, self.state.pid_list.iter().copied());
+        let coeff =
+            get_lagrange_coeff::<G>(&self.params.party_id, self.state.pid_list.iter().copied());
 
         let d_i = coeff * self.params.shamir_share;
 
