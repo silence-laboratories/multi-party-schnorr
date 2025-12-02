@@ -25,7 +25,10 @@ pub struct SignMsg1 {
 /// Type for the sign gen message 2.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
-pub struct SignMsg2<G: GroupElem> {
+pub struct SignMsg2<G>
+where
+    G: GroupElem,
+{
     /// Participant Id of the sender
     pub from_party: u8,
     /// Sesssion id
@@ -66,10 +69,6 @@ impl<G> BaseMessage for SignMsg2<G>
 where
     G: GroupElem,
 {
-    fn session_id(&self) -> &SessionId {
-        &self.session_id
-    }
-
     fn party_id(&self) -> u8 {
         self.from_party
     }
@@ -79,10 +78,6 @@ impl<G> BaseMessage for SignMsg3<G>
 where
     G: Group,
 {
-    fn session_id(&self) -> &SessionId {
-        &self.session_id
-    }
-
     fn party_id(&self) -> u8 {
         self.from_party
     }

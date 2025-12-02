@@ -43,11 +43,12 @@ where
     G: ConstantTimeEq,
     G::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
 {
-    type Output = Result<G, DeriveError>;
-
+    type InputMessage = ();
     type Input = ();
+    type Error = DeriveError;
+    type Output = G;
 
-    fn process(self, _: ()) -> Self::Output {
+    fn process(self, _: ()) -> Result<Self::Output, Self::Error> {
         let (_additive_offset, derived_public_key) = self
             .keyshare
             .derive_with_offset(&self.derivation_path)
@@ -61,10 +62,23 @@ where
 mod test {
     use super::*;
 
-    use crate::common::utils::{run_keygen, run_round_no_serde};
+    use crate::common::utils::support::run_keygen;
 
-    #[allow(unused_imports)]
     use rand::prelude::SliceRandom;
+
+    // Execute one round of DKG protocol locally, execute parties in
+    // parallel. Used for testing purposes.
+    fn run_round_no_serde<I, R, O, E>(actors: Vec<R>, msgs: I) -> Vec<O>
+    where
+        R: Round<Input = I, Output = O, Error = E>,
+        I: Clone,
+        E: std::fmt::Debug,
+    {
+        actors
+            .into_iter()
+            .map(|actor| actor.process(msgs.clone()).unwrap())
+            .collect()
+    }
 
     pub fn run_derivation<G: GroupElem>(
         shares: &[crate::keygen::Keyshare<G>],

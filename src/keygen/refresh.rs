@@ -98,7 +98,7 @@ where
 mod test {
     #[cfg(any(feature = "eddsa", feature = "taproot"))]
     use crate::{
-        common::utils::run_keygen,
+        common::utils::support::run_keygen,
         keygen::utils::{run_import, run_recovery, run_refresh},
     };
 

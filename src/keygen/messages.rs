@@ -17,14 +17,11 @@ use sl_mpc_mate::bip32::BIP32Error;
 #[cfg(feature = "serde")]
 use crate::common::utils::{serde_point, serde_vec_point};
 
-use crate::{
-    common::{
-        get_lagrange_coeff,
-        traits::{BIP32Derive, GroupElem, ScalarReduce},
-        utils::{EncryptedData, HashBytes, SessionId},
-        DLogProof,
-    },
-    impl_basemessage,
+use crate::common::{
+    get_lagrange_coeff,
+    traits::{BIP32Derive, GroupElem, ScalarReduce},
+    utils::{EncryptedData, HashBytes, SessionId},
+    DLogProof,
 };
 
 use super::KeyRefreshData;
@@ -246,17 +243,17 @@ where
     }
 }
 
-impl_basemessage!(KeygenMsg1);
+impl crate::common::utils::BaseMessage for KeygenMsg1 {
+    fn party_id(&self) -> u8 {
+        self.from_party
+    }
+}
 
 impl<G> crate::common::utils::BaseMessage for KeygenMsg2<G>
 where
     G: GroupElem,
     G::Scalar: ScalarReduce<[u8; 32]>,
 {
-    fn session_id(&self) -> &SessionId {
-        &self.session_id
-    }
-
     fn party_id(&self) -> u8 {
         self.from_party
     }

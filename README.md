@@ -42,9 +42,9 @@ Under [`examples/`](./examples/) directory there are examples on how to perform 
 
 Running the examples:
 ```bash
-cargo run --example keygen
-cargo run --example sign
-cargo run --example refresh
+cargo run --example keygen --features "eddsa test-support"
+cargo run --example sign --features "eddsa test-support"
+cargo run --example refresh --features "eddsa test-support"
 ```
 
 
@@ -63,10 +63,13 @@ cargo run --example refresh
 
 ### Feature Flags
 
-| Feature            | Default? | Description |
-| :---               |  :---:   | :---        |
-| `eddsa`            |    ✓     | Enables signing over curve25519 with edd25519-dalek signing objects compatibility|
-| `taproot`          |        | Enables Bitcoin Taproot Schnorr signing over secp256k1 |
+| Feature              | Default? | Description |
+| :---                 |  :---:   | :---        |
+| `eddsa`              |    ✓     | Enables signing over curve25519 with edd25519-dalek signing objects compatibility|
+| `taproot`            |          | Enables Bitcoin Taproot Schnorr signing over secp256k1 |
+| `serde`              |          | Make messages, state and session structures serializable |
+| `keyshare-session-id`|          | Enable field `final_session_id` in `Keyshare` structure and use it to calculate session-id for DSG |
+| `test-support`       |          | Enable internal helpers and fixtures required by the bundled examples |
 
 
 ## Security
@@ -76,7 +79,7 @@ If you discover a vulnerability, please follow the instructions in [SECURITY](SE
 ## Security Audit
 
 HashCloak has performed a security audit in April, 2025 on the following commit:
-- `146d4a57a82c62cf8d24fbd6b713d9bfc7cd534c` 
+- `146d4a57a82c62cf8d24fbd6b713d9bfc7cd534c`
 
 and the report is available here: [security audit](./docs/Hashcloak-SilenceLaboratories_2025_04_09.pdf)
 

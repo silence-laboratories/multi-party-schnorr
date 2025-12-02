@@ -213,12 +213,16 @@ impl SignerParty<R0, k256::ProjectivePoint> {
 }
 
 // Protocol 11 from https://eprint.iacr.org/2022/374.pdf
-impl<G: Group + GroupEncoding> Round for SignerParty<R0, G> {
+impl<G> Round for SignerParty<R0, G>
+where
+    G: GroupElem,
+{
+    type InputMessage = ();
     type Input = ();
+    type Error = SignError;
+    type Output = (SignerParty<R1<G>, G>, SignMsg1);
 
-    type Output = Result<(SignerParty<R1<G>, G>, SignMsg1), SignError>;
-
-    fn process(self, _: ()) -> Self::Output {
+    fn process(self, _: ()) -> Result<Self::Output, Self::Error> {
         let big_r_i = G::generator() * self.rand_params.k_i;
         let commitment_r_i = hash_commitment_r_i(
             &self.rand_params.session_id,
@@ -248,16 +252,17 @@ impl<G: Group + GroupEncoding> Round for SignerParty<R0, G> {
     }
 }
 
-impl<G: GroupElem> Round for SignerParty<R1<G>, G>
+impl<G> Round for SignerParty<R1<G>, G>
 where
-    G: ConstantTimeEq,
+    G: GroupElem,
     G::Scalar: ScalarReduce<[u8; 32]>,
 {
+    type InputMessage = SignMsg1;
     type Input = Vec<SignMsg1>;
+    type Error = SignError;
+    type Output = (SignerParty<R2<G>, G>, SignMsg2<G>);
 
-    type Output = Result<(SignerParty<R2<G>, G>, SignMsg2<G>), SignError>;
-
-    fn process(self, mut msgs: Self::Input) -> Self::Output {
+    fn process(self, mut msgs: Self::Input) -> Result<Self::Output, Self::Error> {
         let mut commitment_list = Vec::with_capacity(self.params.threshold as usize);
         let mut sid_list = Vec::with_capacity(self.params.threshold as usize);
         let mut party_ids = Vec::with_capacity(self.params.threshold as usize);
@@ -270,7 +275,7 @@ where
             party_ids.push(msg.from_party);
         }
 
-        //check if the input commitments match
+        // check if the input commitments match
         msgs.iter()
             .any(|msg| {
                 msg.from_party == self.params.party_id
@@ -279,7 +284,7 @@ where
             .then_some(())
             .ok_or(SignError::InvalidParticipantSet)?;
 
-        //check sids are included
+        // check sids are included
         if !sid_list.contains(&self.rand_params.session_id) {
             return Err(SignError::InvalidParticipantSet);
         }
@@ -346,16 +351,17 @@ where
     }
 }
 
-impl<G: GroupElem> Round for SignerParty<R2<G>, G>
+impl<G> Round for SignerParty<R2<G>, G>
 where
-    G: ConstantTimeEq,
+    G: GroupElem,
     G::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
 {
+    type InputMessage = SignMsg2<G>;
     type Input = Vec<SignMsg2<G>>;
+    type Error = SignError;
+    type Output = SignReady<G>;
 
-    type Output = Result<SignReady<G>, SignError>;
-
-    fn process(self, msgs: Self::Input) -> Self::Output {
+    fn process(self, msgs: Self::Input) -> Result<Self::Output, Self::Error> {
         let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
 
         let mut big_r_i = self.state.big_r_i;

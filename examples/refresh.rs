@@ -4,11 +4,10 @@
 use std::time::Instant;
 
 use curve25519_dalek::EdwardsPoint;
-
 use k256::elliptic_curve::group::GroupEncoding;
 
 use multi_party_schnorr::{
-    common::utils::{run_keygen, run_round},
+    common::utils::support::{run_keygen, run_round},
     keygen::utils::setup_refresh,
 };
 

@@ -2,17 +2,15 @@
 // This software is licensed under the Silence Laboratories License Agreement.
 
 mod dkg;
-
-mod refresh;
-pub use refresh::*;
-
-mod types;
-
 mod messages;
+mod refresh;
+mod types;
 
 pub use dkg::*;
 pub use messages::*;
+pub use refresh::*;
 pub use types::*;
 
 /// Utility functions
+#[cfg(any(test, feature = "test-support"))]
 pub mod utils;

@@ -147,7 +147,7 @@ mod tests {
     use curve25519_dalek::EdwardsPoint;
     use rand::seq::SliceRandom;
 
-    use crate::common::utils::run_keygen;
+    use crate::common::utils::support::run_keygen;
 
     use super::combine_shares;
 

@@ -28,14 +28,33 @@ pub mod traits {
     #[cfg(feature = "taproot")]
     use elliptic_curve::ops::Reduce;
 
+    pub trait InitRound {
+        type OutputMessage;
+        type Next: Round;
+        type Error;
+
+        fn init(self) -> Result<(Self::Next, Self::OutputMessage), Self::Error>;
+    }
+
     /// Trait that defines a state transition for any round based protocol.
     pub trait Round {
         /// Output of the state transition.
         type Output;
-        /// Input of the state transition.
+
+        /// Type of input messages
+        type InputMessage;
+
+        /// Input of the state transition, such as `Vec<InputMessage>`.
         type Input;
+
+        type Error;
+
         /// Transition to the next state.
-        fn process(self, messages: Self::Input) -> Self::Output;
+        fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error>;
+    }
+
+    pub trait RoundSize {
+        fn message_count(&self) -> usize;
     }
 
     pub trait GroupElem: Group + GroupEncoding + ConstantTimeEq {}

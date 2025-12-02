@@ -4,8 +4,9 @@
 use std::time::Instant;
 
 use curve25519_dalek::EdwardsPoint;
+
 use multi_party_schnorr::{
-    common::utils::run_round,
+    common::utils::support::run_round,
     group::GroupEncoding,
     keygen::{utils::setup_keygen, Keyshare},
 };
@@ -16,7 +17,7 @@ fn main() {
     let start = Instant::now();
 
     // Setup keygen, create the encryption keys for each party
-    let parties = setup_keygen(T as u8, N as u8).unwrap();
+    let parties = setup_keygen(T as u8, N as u8);
 
     // Locally run the keygen protocol
     // Run Round 1

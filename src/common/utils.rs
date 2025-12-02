@@ -1,27 +1,17 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-use std::sync::Arc;
-
 use crypto_box::{
     aead::{Aead, AeadCore},
     PublicKey, SalsaBox, SecretKey,
 };
 
-use crypto_bigint::generic_array::typenum::Unsigned;
-use crypto_bigint::{generic_array::GenericArray, rand_core::CryptoRngCore};
-
-use ff::PrimeField;
-use rand::{CryptoRng, RngCore};
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use sha2::{Digest, Sha256};
-
-use crate::keygen::{utils::setup_keygen, Keyshare};
-
-use super::{
-    ser::Serializable,
-    traits::{GroupElem, Round, ScalarReduce},
+use crypto_bigint::{
+    generic_array::{typenum::Unsigned, GenericArray},
+    rand_core::CryptoRngCore,
 };
+
+use sha2::{Digest, Sha256};
 
 // Encryption is done inplace, so the size of the ciphertext is the size of the message plus the tag size.
 pub const SCALAR_CIPHERTEXT_SIZE: usize = 64 + <SalsaBox as AeadCore>::TagSize::USIZE;
@@ -176,39 +166,9 @@ impl EncryptedData {
 }
 
 /// Common trait for all MPC messages.
-pub trait BaseMessage {
-    // Return the session id of the message.
-    fn session_id(&self) -> &SessionId;
+pub(crate) trait BaseMessage {
     // Return the party id of the message sender.
     fn party_id(&self) -> u8;
-}
-
-/// Common trait for all MPC P2P messages.
-pub trait BaseP2PMessage {
-    // Returns participant index of the sender
-    #[allow(clippy::wrong_self_convention)]
-    fn from_party(&self) -> usize;
-
-    // Returns participant index of the receiver
-    fn to_party(&self) -> usize;
-}
-
-#[macro_export]
-/// Macro to implement the BaseMessage trait for a message type.
-macro_rules! impl_basemessage {
-    ($($type:ty),*) => {
-        $(
-            impl $crate::common::utils::BaseMessage for $type {
-                fn session_id(&self) -> &SessionId {
-                    &self.session_id
-                }
-
-                fn party_id(&self) -> u8 {
-                    self.from_party
-                }
-            }
-        )*
-    }
 }
 
 /// Calculates the final session id from the list of session ids.
@@ -229,20 +189,16 @@ pub fn calculate_final_session_id(
     hasher.finalize().into()
 }
 
-pub fn encrypt_message<R: CryptoRngCore, G: GroupElem>(
+pub fn encrypt_message<R: CryptoRngCore>(
     sender_secret_info: (&SecretKey, u8),
     receiver_public_info: (&PublicKey, u8),
-    message: [u8; 64],
+    message: &[u8; 64],
     rng: &mut R,
 ) -> Option<EncryptedData> {
-    // FIXME: Handle this better
-    if std::mem::size_of::<<G::Scalar as PrimeField>::Repr>() != 32 {
-        panic!("We don't support scalars of size other than 32 bytes!");
-    }
     let sender_box = SalsaBox::new(receiver_public_info.0, sender_secret_info.0);
     let nonce = SalsaBox::generate_nonce(rng);
     sender_box
-        .encrypt(&nonce, message.as_ref())
+        .encrypt(&nonce, message.as_slice())
         .ok()
         .and_then(|data| {
             Some(EncryptedData::new(
@@ -269,80 +225,56 @@ pub fn decrypt_message(
         .and_then(|data| data.try_into().ok())
 }
 
-/// Helper method to generate PKI for a set of parties.
-pub fn generate_pki<R: CryptoRng + RngCore>(
-    total_parties: usize,
-    rng: &mut R,
-) -> (
-    Vec<Arc<crypto_box::SecretKey>>,
-    Vec<(u8, crypto_box::PublicKey)>,
-) {
-    let mut party_pubkey_list = vec![];
+#[cfg(any(test, feature = "test-support"))]
+pub mod support {
 
-    let party_key_list: Vec<Arc<crypto_box::SecretKey>> = (0..total_parties)
-        .map(|pid| {
-            let sk = crypto_box::SecretKey::generate(rng);
-            party_pubkey_list.push((pid as u8, sk.public_key()));
-            Arc::new(sk)
-        })
-        .collect();
+    use crate::keygen::{utils::setup_keygen, Keyshare};
 
-    (party_key_list, party_pubkey_list)
-}
+    use crate::common::{
+        ser::Serializable,
+        traits::{GroupElem, Round, ScalarReduce},
+    };
 
-/// Execute one round of DKG protocol locally, execute parties in parallel
-/// Used for testing purposes.
-pub fn run_round<I, R, O, E>(actors: Vec<R>, msgs: I) -> Vec<O>
-where
-    R: Round<Input = I, Output = Result<O, E>> + Serializable + Send,
-    I: Clone + Sync,
-    E: std::fmt::Debug,
-    Vec<R>: IntoParallelIterator<Item = R>,
-    O: Send,
-{
-    actors
-        .into_par_iter()
-        .map(|actor| {
-            #[cfg(all(feature = "serde", test))]
-            let actor: R = {
-                let mut v = vec![];
-                ciborium::into_writer(&actor, &mut v).unwrap();
-                ciborium::from_reader(v.as_ref() as &[u8]).unwrap()
-            };
+    /// Execute one round of DKG protocol locally, execute parties in parallel
+    /// Used for testing purposes.
+    #[allow(clippy::map_identity)]
+    pub fn run_round<I, R, O, E>(actors: impl IntoIterator<Item = R>, msgs: I) -> Vec<O>
+    where
+        R: Round<Input = I, Output = O, Error = E> + Serializable + Send,
+        I: Clone + Sync,
+        E: std::fmt::Debug,
+        O: Send,
+    {
+        actors
+            .into_iter()
+            .map(|actor| {
+                #[cfg(all(feature = "serde", test))]
+                let actor: R = {
+                    let mut v = vec![];
+                    ciborium::into_writer(&actor, &mut v).unwrap();
+                    ciborium::from_reader(v.as_ref() as &[u8]).unwrap()
+                };
 
-            actor
-        })
-        .map(|actor| actor.process(msgs.clone()).unwrap())
-        .collect()
-}
+                actor
+            })
+            .map(|actor| actor.process(msgs.clone()).unwrap())
+            .collect()
+    }
 
-/// Execute one round of DKG protocol locally, execute parties in parallel
-/// Used for testing purposes.
-pub fn run_round_no_serde<I, R, O, E>(actors: Vec<R>, msgs: I) -> Vec<O>
-where
-    R: Round<Input = I, Output = Result<O, E>>,
-    I: Clone + Sync,
-    E: std::fmt::Debug,
-    Vec<R>: IntoParallelIterator<Item = R>,
-    O: Send,
-{
-    actors
-        .into_par_iter()
-        .map(|actor| actor.process(msgs.clone()).unwrap())
-        .collect()
-}
+    /// Utility function to run the keygen protocol.
+    pub fn run_keygen<const T: usize, const N: usize, G: GroupElem>() -> [Keyshare<G>; N]
+    where
+        G::Scalar: ScalarReduce<[u8; 32]>,
+        G::Scalar: Serializable,
+    {
+        let actors = setup_keygen(T as u8, N as u8);
 
-/// Utility function to run the keygen protocol.
-pub fn run_keygen<const T: usize, const N: usize, G: GroupElem>() -> [Keyshare<G>; N]
-where
-    G::Scalar: ScalarReduce<[u8; 32]>,
-    G::Scalar: Serializable,
-{
-    let actors = setup_keygen(T as u8, N as u8).unwrap();
-    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, ()).into_iter().unzip();
-    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
-    run_round(actors, msgs)
-        .try_into()
-        .map_err(|_| panic!("Failed to convert keyshares"))
-        .unwrap()
+        let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, ()).into_iter().unzip();
+        let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
+
+        run_round(actors, msgs)
+            .try_into()
+            .map_err(|_| panic!("Failed to convert keyshares"))
+            .unwrap()
+    }
 }
