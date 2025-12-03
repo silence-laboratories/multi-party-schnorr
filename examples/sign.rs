@@ -2,9 +2,12 @@
 // This software is licensed under the Silence Laboratories License Agreement.
 
 use curve25519_dalek::EdwardsPoint;
-use multi_party_schnorr::common::utils::{run_keygen, run_round};
-use multi_party_schnorr::sign::SignerParty;
 use rand::seq::SliceRandom;
+
+use multi_party_schnorr::{
+    common::utils::support::{run_keygen, run_round},
+    sign::SignerParty,
+};
 
 fn main() {
     const N: usize = 5;

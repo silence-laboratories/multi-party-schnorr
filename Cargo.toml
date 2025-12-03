@@ -10,15 +10,15 @@ readme = "README.md"
 
 [[example]]
 name = "sign"
-required-features = [ "eddsa" ]
+required-features = [ "eddsa", "test-support" ]
 
 [[example]]
 name = "keygen"
-required-features = [ "eddsa" ]
+required-features = [ "eddsa", "test-support" ]
 
 [[example]]
 name = "refresh"
-required-features = [ "eddsa" ]
+required-features = [ "eddsa", "test-support" ]
 
 [features]
 default = ["eddsa"]
@@ -35,6 +35,7 @@ serde = [
   "sl-mpc-mate/serde",
   "crypto_box/serde",
 ]
+test-support = []
 
 [dependencies]
 zeroize = { version = "1.6.1", features = ["zeroize_derive"] }
@@ -61,7 +62,6 @@ curve25519-dalek = { version = "4.1.3", features = [
 k256 = { version = "0.13.2", default-features = false, optional = true }
 crypto-bigint = "0.5"
 rand = "0.8"
-rayon = "1.7.0"
 sha2 = "0.10.7"
 crypto_box = { version = "0.9.1" }
 ff = "0.13.0"

@@ -14,13 +14,14 @@ use super::{
 };
 
 impl Round for SignReady<EdwardsPoint> {
+    type InputMessage = ();
     type Input = ();
-
-    type Output = Result<(PartialSign<EdwardsPoint>, SignMsg3<EdwardsPoint>), SignError>;
+    type Error = SignError;
+    type Output = (PartialSign<EdwardsPoint>, SignMsg3<EdwardsPoint>);
 
     /// The signer party processes the message to sign and returns the partial signature
     /// # Arguments
-    fn process(self, _: Self::Input) -> Self::Output {
+    fn process(self, _: Self::Input) -> Result<Self::Output, Self::Error> {
         let big_a = self.public_key.to_bytes();
 
         let digest = Sha512::new()
@@ -54,11 +55,12 @@ impl Round for SignReady<EdwardsPoint> {
 }
 
 impl Round for PartialSign<EdwardsPoint> {
+    type InputMessage = SignMsg3<EdwardsPoint>;
     type Input = Vec<SignMsg3<EdwardsPoint>>;
+    type Error = SignError;
+    type Output = (Signature, SignComplete);
 
-    type Output = Result<(Signature, SignComplete), SignError>;
-
-    fn process(self, messages: Self::Input) -> Self::Output {
+    fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error> {
         let messages = validate_input_messages(messages, &self.pid_list)?;
         let mut s = self.s_i;
         for msg in messages {
@@ -97,7 +99,7 @@ mod tests {
     use super::*;
 
     use crate::{
-        common::utils::{run_keygen, run_round},
+        common::utils::support::{run_keygen, run_round},
         keygen::Keyshare,
         sign::SignerParty,
     };

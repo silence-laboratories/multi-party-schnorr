@@ -1,8 +1,9 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-use elliptic_curve::group::GroupEncoding;
-use elliptic_curve::Group;
+use std::sync::Arc;
+
+use crypto_bigint::rand_core::CryptoRngCore;
 use ff::Field;
 use rand::{CryptoRng, Rng, RngCore};
 
@@ -10,39 +11,56 @@ use crate::common::{
     schnorr_split_private_key,
     ser::Serializable,
     traits::{GroupElem, ScalarReduce},
-    utils::{generate_pki, run_keygen, run_round},
+    utils::support::{run_keygen, run_round},
 };
 
 use super::{messages::Keyshare, KeyRefreshData, KeygenError, KeygenParty, R0};
 
-pub fn setup_keygen<G: Group + GroupEncoding>(
-    t: u8,
-    n: u8,
-) -> Result<Vec<KeygenParty<R0, G>>, KeygenError>
+// Helper method to generate PKI for a set of parties.
+fn generate_pki<R: CryptoRngCore>(
+    total_parties: usize,
+    rng: &mut R,
+) -> (
+    Vec<Arc<crypto_box::SecretKey>>,
+    Vec<(u8, crypto_box::PublicKey)>,
+) {
+    let mut party_pubkey_list = vec![];
+
+    let party_key_list: Vec<Arc<crypto_box::SecretKey>> = (0..total_parties)
+        .map(|pid| {
+            let sk = crypto_box::SecretKey::generate(rng);
+            party_pubkey_list.push((pid as u8, sk.public_key()));
+            Arc::new(sk)
+        })
+        .collect();
+
+    (party_key_list, party_pubkey_list)
+}
+
+pub fn setup_keygen<G>(t: u8, n: u8) -> impl Iterator<Item = KeygenParty<R0, G>>
 where
+    G: GroupElem,
+    G::Scalar: ScalarReduce<[u8; 32]>,
     G::Scalar: Serializable,
 {
     let mut rng = rand::thread_rng();
     // Initializing the keygen for each party.
     let (party_key_list, party_pubkey_list) = generate_pki(n.into(), &mut rng);
-    let actors = (0..n)
-        .map(|idx| {
-            KeygenParty::new(
-                t,
-                n,
-                idx,
-                party_key_list[idx as usize].clone(),
-                party_pubkey_list.clone(),
-                None,
-                None,
-                rng.gen(),
-                None,
-            )
-            .unwrap()
-        })
-        .collect::<Vec<_>>();
 
-    Ok(actors)
+    (0..n).map(move |idx| {
+        KeygenParty::new(
+            t,
+            n,
+            idx,
+            party_key_list[idx as usize].clone(),
+            party_pubkey_list.clone(),
+            None,
+            None,
+            rng.gen(),
+            None,
+        )
+        .unwrap()
+    })
 }
 
 pub fn process_refresh<const T: usize, const N: usize, G: GroupElem>(
@@ -79,6 +97,7 @@ pub fn setup_refresh<R: CryptoRng + RngCore, G>(
 ) -> Result<Vec<KeygenParty<R0, G>>, KeygenError>
 where
     G: GroupElem,
+    G::Scalar: ScalarReduce<[u8; 32]>,
     G::Scalar: Serializable,
 {
     let (party_key_list, party_pubkey_list) = generate_pki(shares.len(), rng);
@@ -176,37 +195,3 @@ where
     run_round(actors, msgs);
     Ok(())
 }
-
-// pub(crate) fn _check_secret_recovery<'a>(
-//     big_a_poly: &'a [EdwardsPoint],
-//     public_key: &'a EdwardsPoint,
-//     total_parties: u8,
-// ) -> Result<(), KeygenError> {
-//     // TODO: Avoid allocation here
-//     let party_points = (0..total_parties)
-//         .map(|i| Scalar::from((i + 1) as u64))
-//         .collect::<Vec<_>>();
-//
-//     let evaluate = |poly: &[EdwardsPoint], point: Scalar| {
-//         (0..poly.len())
-//             .map(|i| poly[i] * point.pow_vartime([i as u64]))
-//             .fold(EdwardsPoint::identity(), |acc, point| acc + point)
-//     };
-//
-//     let coeff_vector = _get_lagrange_coeff_list(&party_points);
-//     let big_s_list = party_points
-//         .iter()
-//         .map(|point| evaluate(big_a_poly, *point));
-//
-//     let public_key_point = big_s_list
-//         .zip(coeff_vector.iter())
-//         .fold(EdwardsPoint::identity(), |acc, (point, betta_i)| {
-//             acc + point * betta_i
-//         });
-//
-//     (public_key == &public_key_point)
-//         .then_some(())
-//         .ok_or(KeygenError::InvalidRefresh)?;
-//
-//     Ok(())
-// }

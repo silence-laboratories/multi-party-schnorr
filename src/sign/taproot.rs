@@ -58,14 +58,15 @@ pub fn taproot_public_key(
 }
 
 impl Round for SignReady<ProjectivePoint> {
+    type InputMessage = ();
     type Input = ();
-
-    type Output = Result<(PartialSign<ProjectivePoint>, SignMsg3<ProjectivePoint>), SignError>;
+    type Error = SignError;
+    type Output = (PartialSign<ProjectivePoint>, SignMsg3<ProjectivePoint>);
 
     /// The signer party processes the message to sign and returns the partial signature
     /// # Arguments
     /// * `msg_hash` - 32 bytes hash of the message to sign. It must be the output of a secure hash function.
-    fn process(self, _: Self::Input) -> Self::Output {
+    fn process(self, _: Self::Input) -> Result<Self::Output, Self::Error> {
         use elliptic_curve::point::AffineCoordinates;
         if self.message.len() != 32 {
             panic!("Message must be 32 bytes, this is a bug");
@@ -129,11 +130,12 @@ impl Round for SignReady<ProjectivePoint> {
 }
 
 impl Round for PartialSign<ProjectivePoint> {
+    type InputMessage = SignMsg3<ProjectivePoint>;
     type Input = Vec<SignMsg3<ProjectivePoint>>;
+    type Error = SignError;
+    type Output = (Signature, SignComplete);
 
-    type Output = Result<(Signature, SignComplete), SignError>;
-
-    fn process(self, messages: Self::Input) -> Self::Output {
+    fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error> {
         use elliptic_curve::point::AffineCoordinates;
         let messages = validate_input_messages(messages, &self.pid_list)?;
         let mut s = self.s_i;
@@ -187,10 +189,9 @@ mod tests {
     use k256::ProjectivePoint;
     use rand::seq::SliceRandom;
 
-    use crate::common::utils::run_keygen;
+    use crate::common::utils::support::{run_keygen, run_round};
 
     fn run_sign(shares: Vec<Keyshare<k256::ProjectivePoint>>) -> Signature {
-        use crate::common::utils::run_round;
         let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
         let msg_hash: [u8; 32] = Sha256::digest(msg).into();
 

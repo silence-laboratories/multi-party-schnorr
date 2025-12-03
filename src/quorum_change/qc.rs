@@ -208,12 +208,13 @@ impl<G: GroupElem> Round for QCPartyOld<R0, G>
 where
     G::Scalar: Serializable,
 {
+    type InputMessage = ();
     type Input = ();
-
-    type Output = Result<(QCPartyOld<R1Old<G>, G>, QCBroadcastMsg1), QCError>;
+    type Error = QCError;
+    type Output = (QCPartyOld<R1Old<G>, G>, QCBroadcastMsg1);
 
     /// Creates first broadcast message
-    fn process(self, _: ()) -> Self::Output {
+    fn process(self, _: ()) -> Result<Self::Output, Self::Error> {
         let sid_i = self.rand_params.sid_i;
         let big_p_i_poly = self.rand_params.polynomial.commit();
         let r1_i = self.rand_params.r1_i;
@@ -244,20 +245,18 @@ where
     G: GroupElem,
     G::Scalar: Serializable,
 {
+    type InputMessage = QCBroadcastMsg1;
     type Input = Vec<QCBroadcastMsg1>;
-
-    type Output = Result<
-        (
-            QCPartyOld<R2Old<G>, G>,
-            Vec<QCP2PMsg1>,
-            Vec<QCP2PMsg2<G>>,
-            QCBroadcastMsg2<G>,
-        ),
-        QCError,
-    >;
+    type Error = QCError;
+    type Output = (
+        QCPartyOld<R2Old<G>, G>,
+        Vec<QCP2PMsg1>,
+        Vec<QCP2PMsg2<G>>,
+        QCBroadcastMsg2<G>,
+    );
 
     /// Processes BroadcastMsg1 and creates p2p commitment2, p2p decommit2, BroadcastMsg2
-    fn process(self, messages: Self::Input) -> Self::Output {
+    fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error> {
         let total_parties = self.params.total_parties as usize;
         if messages.len() != total_parties {
             return Err(QCError::InvalidMsgCount);
@@ -361,11 +360,12 @@ where
     G: GroupElem,
     G::Scalar: Serializable,
 {
+    type InputMessage = QCBroadcastMsg2<G>;
     type Input = Vec<QCBroadcastMsg2<G>>;
+    type Error = QCError;
+    type Output = ();
 
-    type Output = Result<(), QCError>;
-
-    fn process(self, messages: Self::Input) -> Self::Output {
+    fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error> {
         if messages.len() != self.params.old_parties.len() {
             return Err(QCError::InvalidMsgCount);
         }
@@ -493,12 +493,13 @@ where
     G: Group,
     G::Scalar: Serializable,
 {
+    type InputMessage = ();
     type Input = ();
-
-    type Output = Result<(QCPartyOldToNew<R1Old<G>, G>, QCBroadcastMsg1), QCError>;
+    type Error = QCError;
+    type Output = (QCPartyOldToNew<R1Old<G>, G>, QCBroadcastMsg1);
 
     /// Creates first broadcast message
-    fn process(self, _: ()) -> Self::Output {
+    fn process(self, _: ()) -> Result<Self::Output, Self::Error> {
         let sid_i = self.rand_params.sid_i;
         let big_p_i_poly = self.rand_params.polynomial.commit();
         let r1_i = self.rand_params.r1_i;
@@ -531,12 +532,13 @@ where
     G: GroupElem,
     G::Scalar: Serializable,
 {
+    type InputMessage = QCBroadcastMsg1;
     type Input = Vec<QCBroadcastMsg1>;
-
-    type Output = Result<(QCPartyOldToNew<R2OldToNew<G>, G>, Vec<QCP2PMsg1>), QCError>;
+    type Error = QCError;
+    type Output = (QCPartyOldToNew<R2OldToNew<G>, G>, Vec<QCP2PMsg1>);
 
     /// Processes BroadcastMsg1 and creates p2p commitment2
-    fn process(self, messages: Self::Input) -> Self::Output {
+    fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error> {
         let total_parties = self.params.total_parties as usize;
         if messages.len() != total_parties {
             return Err(QCError::InvalidMsgCount);
@@ -642,20 +644,18 @@ where
     G: GroupElem,
     G::Scalar: Serializable,
 {
+    type InputMessage = QCP2PMsg1;
     type Input = Vec<QCP2PMsg1>;
-
-    type Output = Result<
-        (
-            QCPartyOldToNew<R3OldToNew<G>, G>,
-            Vec<QCP2PMsg2<G>>,
-            QCBroadcastMsg2<G>,
-        ),
-        QCError,
-    >;
+    type Error = QCError;
+    type Output = (
+        QCPartyOldToNew<R3OldToNew<G>, G>,
+        Vec<QCP2PMsg2<G>>,
+        QCBroadcastMsg2<G>,
+    );
 
     /// Collects commitment_2 from (all old parties - 1)
     /// and creates p2p decommit2 and BroadcastMsg2
-    fn process(self, messages: Self::Input) -> Self::Output {
+    fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error> {
         if messages.len() != (self.params.old_parties.len() - 1) {
             return Err(QCError::InvalidMsgCount);
         }
@@ -731,12 +731,13 @@ where
     G: GroupElem,
     G::Scalar: Serializable,
 {
+    type InputMessage = ();
     type Input = (Vec<QCP2PMsg2<G>>, Vec<QCBroadcastMsg2<G>>);
-
-    type Output = Result<Keyshare<G>, QCError>;
+    type Error = QCError;
+    type Output = Keyshare<G>;
 
     /// Processes decomit_2 and BroadcastMsg2 from old parties
-    fn process(self, messages: Self::Input) -> Self::Output {
+    fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error> {
         let (mut p2p_messages, mut broadcast_msgs_2) = messages;
 
         if p2p_messages.len() != (self.params.old_parties.len() - 1) {
@@ -957,12 +958,13 @@ where
     G: Group,
     G::Scalar: Serializable,
 {
+    type InputMessage = ();
     type Input = ();
-
-    type Output = Result<(QCPartyNew<R1New, G>, QCBroadcastMsg1), QCError>;
+    type Error = QCError;
+    type Output = (QCPartyNew<R1New, G>, QCBroadcastMsg1);
 
     /// Creates first broadcast message
-    fn process(self, _: ()) -> Self::Output {
+    fn process(self, _: ()) -> Result<Self::Output, Self::Error> {
         let broadcast_msg1 = QCBroadcastMsg1 {
             from_party: self.params.party_index as u8,
             sid_i: self.rand_params.sid_i,
@@ -984,12 +986,13 @@ where
     G: GroupElem,
     G::Scalar: Serializable,
 {
+    type InputMessage = QCBroadcastMsg1;
     type Input = Vec<QCBroadcastMsg1>;
-
-    type Output = Result<QCPartyNew<R2New, G>, QCError>;
+    type Error = QCError;
+    type Output = QCPartyNew<R2New, G>;
 
     /// Processes BroadcastMsg1
-    fn process(self, messages: Self::Input) -> Self::Output {
+    fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error> {
         let total_parties = self.params.total_parties as usize;
         if messages.len() != total_parties {
             return Err(QCError::InvalidMsgCount);
@@ -1044,12 +1047,13 @@ where
     G: GroupElem,
     G::Scalar: Serializable,
 {
+    type InputMessage = QCP2PMsg1;
     type Input = Vec<QCP2PMsg1>;
-
-    type Output = Result<QCPartyNew<R3New, G>, QCError>;
+    type Error = QCError;
+    type Output = QCPartyNew<R3New, G>;
 
     /// Collects commitment_2 from all old parties
-    fn process(self, messages: Self::Input) -> Self::Output {
+    fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error> {
         if messages.len() != self.params.old_parties.len() {
             return Err(QCError::InvalidMsgCount);
         }
@@ -1093,12 +1097,13 @@ where
     G: GroupElem,
     G::Scalar: Serializable,
 {
+    type InputMessage = ();
     type Input = (Vec<QCP2PMsg2<G>>, Vec<QCBroadcastMsg2<G>>);
-
-    type Output = Result<Keyshare<G>, QCError>;
+    type Error = QCError;
+    type Output = Keyshare<G>;
 
     /// Processes decomit_2 and BroadcastMsg2 from old parties
-    fn process(self, messages: Self::Input) -> Self::Output {
+    fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error> {
         let (mut p2p_messages, mut broadcast_msgs_2) = messages;
 
         if p2p_messages.len() != self.params.old_parties.len() {
@@ -1320,7 +1325,7 @@ pub fn new_party_id(new_party_indices: &[usize], index: usize) -> Option<u8> {
 mod test {
     use super::*;
 
-    use crate::common::{traits::ScalarReduce, utils::run_keygen};
+    use crate::common::{traits::ScalarReduce, utils::support::run_keygen};
 
     use rand::Rng;
 

@@ -9,7 +9,6 @@ use elliptic_curve::{group::GroupEncoding, Group};
 use ff::{Field, PrimeField};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use sha2::{digest::Update, Digest, Sha256};
 use zeroize::Zeroizing;
 
@@ -17,7 +16,7 @@ use sl_mpc_mate::math::GroupPolynomial;
 
 use crate::common::{
     ser::Serializable,
-    traits::{GroupElem, Round, ScalarReduce},
+    traits::{GroupElem, InitRound, Round, RoundSize, ScalarReduce},
     utils::{
         calculate_final_session_id, decrypt_message, encrypt_message, BaseMessage, EncryptedData,
         HashBytes, SessionId,
@@ -53,6 +52,33 @@ where
     seed: [u8; 32],
     state: T,
     key_refresh_data: Option<KeyRefreshData<G>>,
+}
+
+impl<T, G> RoundSize for KeygenParty<T, G>
+where
+    G: Group + GroupEncoding,
+    G::Scalar: Serializable,
+{
+    fn message_count(&self) -> usize {
+        self.params.n as usize
+    }
+}
+
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(bound(
+        serialize = "R: serde::Serialize",
+        deserialize = "R: serde::Deserialize<'de>"
+    ))
+)]
+pub struct Session<R>
+where
+    R: Round,
+    R::InputMessage: Serializable,
+{
+    state: R,
+    messages: Vec<R::InputMessage>,
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -105,12 +131,11 @@ fn validate_input(
 
     // Check if all the keys are present
     for pid in 0..n {
-        let enc_key = find_enc_key(pid, party_enc_keys);
-        if enc_key.is_none() {
+        let Some(enc_key) = find_enc_key(pid, party_enc_keys) else {
             return Err(KeygenError::InvalidParticipantSet);
-        }
+        };
 
-        if pid == party_id && enc_key.unwrap() != my_enc_key {
+        if pid == party_id && enc_key != my_enc_key {
             return Err(KeygenError::InvalidParticipantSet);
         }
     }
@@ -120,7 +145,8 @@ fn validate_input(
 
 impl<G> KeygenParty<R0, G>
 where
-    G: Group + GroupEncoding,
+    G: GroupElem,
+    G::Scalar: ScalarReduce<[u8; 32]>,
     G::Scalar: Serializable,
 {
     /// Create a new keygen party.
@@ -212,20 +238,26 @@ where
     pub fn encryption_key(&self) -> crypto_box::PublicKey {
         self.params.dec_key.public_key()
     }
+
+    pub fn into_session(self) -> Result<Session<KeygenParty<R1<G>, G>>, KeygenError> {
+        Session::init(self)
+    }
 }
 
 // Protocol 12 from https://eprint.iacr.org/2022/374.pdf
 // Simple Three-Round Multiparty Schnorr Signing with Full Simulatability
-impl<G: GroupElem> Round for KeygenParty<R0, G>
+impl<G> Round for KeygenParty<R0, G>
 where
+    G: GroupElem,
     G::Scalar: Serializable,
 {
+    type InputMessage = ();
     type Input = ();
-
-    type Output = Result<(KeygenParty<R1<G>, G>, KeygenMsg1), KeygenError>;
+    type Error = KeygenError;
+    type Output = (KeygenParty<R1<G>, G>, KeygenMsg1);
 
     /// Protocol 21, step 2. From https://eprint.iacr.org/2022/374.pdf.
-    fn process(self, _: ()) -> Self::Output {
+    fn process(self, _: ()) -> Result<Self::Output, Self::Error> {
         // 12.2(a) Sampling random session-id was done in KeyEntropy.
 
         // 12.2(b) Sampling random polynomial was done in KeyEntropy.
@@ -236,7 +268,8 @@ where
         let c_i_j = (0..self.params.n)
             .map(|party_id| {
                 // party_id is also the index of the party's data in all the lists.
-                let ek_i = find_enc_key(party_id, &self.params.party_enc_keys).unwrap();
+                let ek_i = find_enc_key(party_id, &self.params.party_enc_keys)
+                    .ok_or(KeygenError::InvalidPid)?;
 
                 // Party's point is just party-id. (Adding 1 because party-id's start from 0).
                 let d_i = self
@@ -248,10 +281,10 @@ where
                 plaintext[..32].copy_from_slice(d_i.to_repr().as_ref());
                 plaintext[32..].copy_from_slice(&self.rand_params.chain_code_id);
 
-                let enc_data = encrypt_message::<_, G>(
+                let enc_data = encrypt_message(
                     (&self.params.dec_key, self.params.party_id),
                     (ek_i, party_id),
-                    plaintext,
+                    &plaintext,
                     &mut rng,
                 )
                 .ok_or(KeygenError::EncryptionError)?;
@@ -292,21 +325,37 @@ where
     }
 }
 
+impl<G> InitRound for KeygenParty<R0, G>
+where
+    G: GroupElem,
+    G::Scalar: ScalarReduce<[u8; 32]>,
+    G::Scalar: Serializable,
+{
+    type OutputMessage = KeygenMsg1;
+
+    type Next = KeygenParty<R1<G>, G>;
+
+    type Error = KeygenError;
+
+    fn init(self) -> Result<(Self::Next, Self::OutputMessage), Self::Error> {
+        Self::process(self, ())
+    }
+}
+
 impl<G> Round for KeygenParty<R1<G>, G>
 where
     G: GroupElem,
     G::Scalar: ScalarReduce<[u8; 32]>,
     G::Scalar: Serializable,
 {
+    type InputMessage = KeygenMsg1;
     type Input = Vec<KeygenMsg1>;
+    type Error = KeygenError;
+    type Output = (KeygenParty<R2, G>, KeygenMsg2<G>);
 
-    type Output = Result<(KeygenParty<R2, G>, KeygenMsg2<G>), KeygenError>;
-
-    fn process(self, messages: Self::Input) -> Self::Output {
+    fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error> {
         let n = self.params.n as usize;
-        // We pass None for expected_sid because we don't know the final session id yet.
-        // We don't expect the session-ids to be equal for all messages in this round.
-        let messages = validate_input_messages(messages, self.params.n, None)?;
+        let messages = validate_input_messages(messages, self.params.n)?;
         let mut sid_i_list = Vec::with_capacity(n);
         let mut commitment_list = Vec::with_capacity(n);
         let mut party_id_list = Vec::with_capacity(n);
@@ -378,15 +427,19 @@ where
     G::Scalar: ScalarReduce<[u8; 32]>,
     G::Scalar: Serializable,
 {
+    type InputMessage = KeygenMsg2<G>;
     type Input = Vec<KeygenMsg2<G>>;
+    type Error = KeygenError;
+    type Output = Keyshare<G>;
 
-    type Output = Result<Keyshare<G>, KeygenError>;
+    fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error> {
+        let messages = validate_input_messages(messages, self.params.n)?;
 
-    fn process(self, messages: Self::Input) -> Self::Output {
-        let messages =
-            validate_input_messages(messages, self.params.n, Some(&self.state.final_session_id))?;
+        messages.iter().try_for_each(|msg| {
+            if msg.session_id != self.state.final_session_id {
+                return Err(KeygenError::InvalidParticipantSet);
+            }
 
-        messages.par_iter().try_for_each(|msg| {
             // 12.6(b)-i Verify commitments.
             let party_id = msg.party_id();
             let sid = &self.state.sid_i_list[party_id as usize];
@@ -428,7 +481,8 @@ where
             let party_id = party_id as u8;
 
             let encrypted_d_i = &msg.c_i_list[self.params.party_id as usize];
-            let sender_pubkey = find_enc_key(msg.party_id(), &self.params.party_enc_keys).unwrap();
+            let sender_pubkey = find_enc_key(msg.party_id(), &self.params.party_enc_keys)
+                .ok_or(KeygenError::InvalidPid)?;
 
             let plaintext = Zeroizing::new(
                 decrypt_message(&self.params.dec_key, sender_pubkey, encrypted_d_i)
@@ -594,10 +648,11 @@ fn hash_commitment<G: GroupElem>(
     hasher.finalize().into()
 }
 
+// makes sure a party receives the correct number of message, sorts by
+// party-id.
 fn validate_input_messages<M: BaseMessage>(
     mut messages: Vec<M>,
     n: u8,
-    expected_sid: Option<&SessionId>,
 ) -> Result<Vec<M>, KeygenError> {
     if messages.len() != n as usize {
         return Err(KeygenError::InvalidMsgCount);
@@ -608,14 +663,7 @@ fn validate_input_messages<M: BaseMessage>(
     messages
         .iter()
         .enumerate()
-        .all(|(pid, msg)| {
-            let pid_match = msg.party_id() as usize == pid;
-            let sid_match = expected_sid
-                .map(|sid| sid == msg.session_id())
-                .unwrap_or(true);
-
-            pid_match && sid_match
-        })
+        .all(|(pid, msg)| msg.party_id() as usize == pid)
         .then_some(messages)
         .ok_or(KeygenError::InvalidParticipantSet)
 }
@@ -650,10 +698,126 @@ fn find_enc_key(pid: u8, party_enc_keys: &[(u8, PublicKey)]) -> Option<&PublicKe
         .map(|(_, key)| key)
 }
 
+impl<R, M> Session<R>
+where
+    M: Serializable,
+    R: Round<Input = Vec<M>, InputMessage = M>,
+    R: RoundSize,
+    M: Clone,
+{
+    /// Create initial session.
+    pub fn init<I>(state: I) -> Result<Self, I::Error>
+    where
+        I: InitRound<Next = R, OutputMessage = R::InputMessage>,
+    {
+        let (state, msg) = state.init()?;
+        let mut messages = Vec::with_capacity(state.message_count());
+        messages.push(msg);
+
+        Ok(Self { state, messages })
+    }
+
+    /// Create second round session using values retuned by method
+    /// `handle_messages()`.
+    pub fn next(state: R, prev: M) -> Self {
+        let mut messages = Vec::with_capacity(state.message_count());
+        messages.push(prev);
+
+        Self { state, messages }
+    }
+
+    /// Call a passed clozure with a reference to a broadcast message.
+    pub fn with_first_message<O, F>(&self, f: F) -> O
+    where
+        F: FnOnce(&R::InputMessage) -> O,
+    {
+        f(&self.messages[0])
+    }
+
+    /// Make a clone of broadcast message created by the session.
+    /// It uses method `with_first_message()` to clone the message.
+    pub fn output_message(&self) -> R::InputMessage {
+        self.with_first_message(|m| m.clone())
+    }
+
+    /// Receive a broadcast message. Returns `true` if all messages
+    /// received and session ready to call method
+    /// `process_messages()`.
+    pub fn recv_message(&mut self, msg: M) -> bool {
+        self.messages.push(msg);
+        self.messages.len() == self.state.message_count()
+    }
+
+    /// Process message collected by `recv_message()` and return next
+    /// state and message or key share.
+    pub fn process_messages(self) -> Result<R::Output, R::Error> {
+        self.state.process(self.messages)
+    }
+}
+
+#[cfg(any(feature = "eddsa", feature = "taproot"))]
 #[cfg(test)]
 mod test {
-    #[cfg(any(feature = "eddsa", feature = "taproot"))]
-    use crate::common::utils::run_keygen;
+    use super::*;
+
+    use crate::{common::utils::support::run_keygen, keygen::utils::setup_keygen};
+
+    fn run_dkg_session<const T: usize, const N: usize, G: GroupElem>()
+    where
+        G::Scalar: ScalarReduce<[u8; 32]>,
+        G::Scalar: Serializable,
+    {
+        let mut first_round = setup_keygen::<G>(T as u8, N as u8)
+            .map(Session::init)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        // collect first broadcast message from all sessions
+        let msgs = first_round
+            .iter()
+            .map(|s| s.output_message())
+            .collect::<Vec<_>>();
+
+        // broadcast the first message to a appropriate sessions
+        for (p, msg) in msgs.into_iter().enumerate() {
+            first_round
+                .iter_mut()
+                .enumerate()
+                .filter(|&(other, _)| other != p)
+                .for_each(|(_, s)| {
+                    s.recv_message(msg.clone());
+                });
+        }
+
+        // Handle the first round, create new session/state and
+        // collect second broadcast message from the new sessions.
+        let (mut second_round, msgs): (Vec<_>, Vec<_>) = first_round
+            .into_iter()
+            .map(|s| {
+                let (state, msg) = s.process_messages().unwrap();
+                let state = Session::next(state, msg.clone());
+
+                (state, msg)
+            })
+            .unzip();
+
+        // broadcast the second message to a appropriate sessions
+        for (p, msg) in msgs.into_iter().enumerate() {
+            second_round
+                .iter_mut()
+                .enumerate()
+                .filter(|&(other, _)| other != p)
+                .for_each(|(_, s)| {
+                    s.recv_message(msg.clone());
+                });
+        }
+
+        // Process messages of the second round and output key shares.
+        let _shares = second_round
+            .into_iter()
+            .map(|s| s.process_messages().unwrap())
+            .collect::<Vec<_>>();
+    }
 
     #[cfg(feature = "eddsa")]
     #[test]
@@ -679,5 +843,33 @@ mod test {
         run_keygen::<3, 5, ProjectivePoint>();
         run_keygen::<5, 10, ProjectivePoint>();
         run_keygen::<9, 20, ProjectivePoint>();
+    }
+
+    #[cfg(feature = "eddsa")]
+    #[test]
+    fn session_curve25519() {
+        use curve25519_dalek::EdwardsPoint;
+
+        run_dkg_session::<2, 2, EdwardsPoint>();
+        run_dkg_session::<2, 3, EdwardsPoint>();
+        run_dkg_session::<3, 5, EdwardsPoint>();
+        run_dkg_session::<5, 5, EdwardsPoint>();
+        run_dkg_session::<5, 10, EdwardsPoint>();
+        run_dkg_session::<10, 10, EdwardsPoint>();
+        run_dkg_session::<9, 20, EdwardsPoint>();
+    }
+
+    #[cfg(feature = "taproot")]
+    #[test]
+    fn session_taproot() {
+        use k256::ProjectivePoint;
+
+        run_dkg_session::<2, 2, ProjectivePoint>();
+        run_dkg_session::<2, 3, ProjectivePoint>();
+        run_dkg_session::<3, 5, ProjectivePoint>();
+        run_dkg_session::<5, 5, ProjectivePoint>();
+        run_dkg_session::<5, 10, ProjectivePoint>();
+        run_dkg_session::<10, 10, ProjectivePoint>();
+        run_dkg_session::<9, 20, ProjectivePoint>();
     }
 }
