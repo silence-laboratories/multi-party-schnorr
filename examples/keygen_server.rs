@@ -17,19 +17,13 @@ use rand::RngCore;
 use multi_party_schnorr::{
     common::{storage::InMemoryDB, traits::Round},
     group::GroupEncoding,
-    keygen::{
-        client::DkgClient,
-        server::DkgServer,
-        utils::setup_keygen,
-        KeygenParty, R0,
-    },
+    keygen::{client::DkgClient, server::DkgServer, utils::setup_keygen, KeygenParty, R0},
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 2 parties: party0 (client), party1 (server)
     const T: u8 = 2;
-    const N: u8 = 2; 
-
+    const N: u8 = 2;
 
     // Setup: Create encryption keys for all parties (simulating PKI setup)
     let parties = setup_keygen::<EdwardsPoint>(T, N);
@@ -41,17 +35,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Client generates session_id for server to use
     let session_id = DkgClient::generate_session_id();
-    println!("Client (party0) generated session_id for server: {:02x?}", session_id);
+    println!(
+        "Client (party0) generated session_id for server: {:02x?}",
+        session_id
+    );
 
     // Server setup: Create server with encryption key and database
     let mut encryption_key = [0u8; 32];
     rand::thread_rng().fill_bytes(&mut encryption_key);
     let db = Arc::new(InMemoryDB::new());
-    let server = Arc::new(DkgServer::<EdwardsPoint, _>::new(encryption_key, db.clone()));
+    let server = Arc::new(DkgServer::<EdwardsPoint, _>::new(
+        encryption_key,
+        db.clone(),
+    ));
 
     // round 0: Initialize DKG
     println!("=== Round 0: Starting DKG ===");
-    
+
     // Client (party0): Process locally, maintain state
     let (party0_r1, msg1_client) = party0_r0
         .process(())
@@ -64,10 +64,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let all_msg1 = vec![msg1_client.clone(), msg1_server.clone()];
 
-  
     // round 1: Process KeygenMsg1 messages
     println!("=== Round 1: Processing KeygenMsg1 ===");
-    
+
     // Client (party0): Process locally, maintain state
     let (party0_r2, msg2_client) = party0_r1
         .process(all_msg1.clone())
@@ -78,26 +77,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let all_msg2 = vec![msg2_client.clone(), msg2_server.clone()];
 
-
     // round 2: Process KeygenMsg2 messages and get Keyshares
     println!("=== Round 2: Processing KeygenMsg2 ===");
-    
+
     // Client (party0): Process locally, get keyshare
     let keyshare_client = party0_r2
         .process(all_msg2.clone())
         .map_err(|e| format!("Client round 2 failed: {:?}", e))?;
 
     // Server (party1): Use server to retrieve encrypted state, process, get keyshare
-    let keyshare_server = server.process_round_2(session_id, all_msg2.clone())?;
+    // Extract final_session_id from msg2_server (KeygenMsg2.session_id is the final_session_id)
+    let final_session_id = msg2_server.session_id;
+    let keyshare_server = server.process_round_2(session_id, final_session_id, all_msg2.clone())?;
 
-   
-    
     let public_key_client = keyshare_client.public_key();
     let public_key_server = keyshare_server.public_key();
-    
-    println!("Client (party0) Public Key: {}", bs58::encode(public_key_client.to_bytes()).into_string());
-    println!("Server Public Key:{}", bs58::encode(public_key_server.to_bytes()).into_string());
- 
+
+    println!(
+        "Client (party0) Public Key: {}",
+        bs58::encode(public_key_client.to_bytes()).into_string()
+    );
+    println!(
+        "Server Public Key:{}",
+        bs58::encode(public_key_server.to_bytes()).into_string()
+    );
 
     // Verify both parties have the same public key
     if public_key_client == public_key_server {
@@ -105,7 +108,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         return Err("Public keys do not match".into());
     }
-
 
     Ok(())
 }

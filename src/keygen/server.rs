@@ -14,6 +14,8 @@ use crate::common::{
     traits::{GroupElem, Round, ScalarReduce},
     utils::SessionId,
 };
+#[cfg(feature = "serde")]
+use sha2::{Digest, Sha256};
 
 #[cfg(feature = "serde")]
 use super::{
@@ -56,6 +58,15 @@ where
         }
     }
 
+    /// Compute H(session_id || final_session_id) for round 2 key
+    fn compute_round2_key(session_id: &SessionId, final_session_id: &SessionId) -> SessionId {
+        Sha256::new()
+            .chain_update(session_id)
+            .chain_update(final_session_id)
+            .finalize()
+            .into()
+    }
+
     /// Start round 0: Initialize the DKG protocol
     pub fn start_round_0(
         &self,
@@ -64,9 +75,7 @@ where
     ) -> Result<KeygenMsg1, ServerError> {
         // Process round 0 using Round trait (same as run_round does)
         // KeygenParty<R0, G> with input () outputs (KeygenParty<R1<G>, G>, KeygenMsg1)
-        let (party_r1, msg1) = party
-            .process(())
-            .map_err(ServerError::from)?;
+        let (party_r1, msg1) = party.process(()).map_err(ServerError::from)?;
 
         // Encrypt party_r1 state and store in DB with key (0, session_id)
         let encrypted_state = self.encrypt_state(&party_r1, &session_id)?;
@@ -92,14 +101,18 @@ where
 
         // Process round 1 using Round trait (same as run_round does)
         // KeygenParty<R1<G>, G> with input Vec<KeygenMsg1> outputs (KeygenParty<R2, G>, KeygenMsg2<G>)
-        let (party_r2, msg2) = party_r1
-            .process(messages)
-            .map_err(ServerError::from)?;
+        let (party_r2, msg2) = party_r1.process(messages).map_err(ServerError::from)?;
 
-        // Encrypt party_r2 state and store in DB with key (1, session_id)
-        let encrypted_state = self.encrypt_state(&party_r2, &session_id)?;
+        // Extract final_session_id from msg2.session_id (KeygenMsg2.session_id is the final_session_id)
+        let final_session_id = msg2.session_id;
+
+        // Compute H(session_id || final_session_id) for round 2 storage key
+        let round2_key = Self::compute_round2_key(&session_id, &final_session_id);
+
+        // Encrypt party_r2 state with round2_key as AAD and store in DB with key (1, H(session_id || final_session_id))
+        let encrypted_state = self.encrypt_state(&party_r2, &round2_key)?;
         self.db
-            .store(DBKey(1, session_id), encrypted_state)
+            .store(DBKey(1, round2_key), encrypted_state)
             .map_err(ServerError::Storage)?;
 
         // Clean up round 0 state
@@ -112,24 +125,27 @@ where
     pub fn process_round_2(
         &self,
         session_id: SessionId,
+        final_session_id: SessionId,
         messages: Vec<KeygenMsg2<G>>,
     ) -> Result<Keyshare<G>, ServerError> {
-        // Retrieve and decrypt state from DB
+        // Compute H(session_id || final_session_id) for round 2 retrieval key
+        let round2_key = Self::compute_round2_key(&session_id, &final_session_id);
+
+        // Retrieve and decrypt state from DB using the computed key
+        // Decrypt with round2_key as AAD (must match the AAD used during encryption)
         let encrypted_state = self
             .db
-            .retrieve(DBKey(1, session_id))
+            .retrieve(DBKey(1, round2_key))
             .map_err(ServerError::Storage)?;
-        let party_r2: KeygenParty<R2, G> = self.decrypt_state(&encrypted_state, &session_id)?;
+        let party_r2: KeygenParty<R2, G> = self.decrypt_state(&encrypted_state, &round2_key)?;
 
         // Process round 2 using Round trait (same as run_round does)
         // KeygenParty<R2, G> with input Vec<KeygenMsg2<G>> outputs Keyshare<G>
-        let keyshare = party_r2
-            .process(messages)
-            .map_err(ServerError::from)?;
+        let keyshare = party_r2.process(messages).map_err(ServerError::from)?;
 
-        // Clean up: delete state from DB
+        // Clean up: delete state from DB using the computed key
         self.db
-            .delete(DBKey(1, session_id))
+            .delete(DBKey(1, round2_key))
             .map_err(ServerError::Storage)?;
 
         Ok(keyshare)
@@ -211,4 +227,3 @@ pub enum ServerError {
     #[error("Keygen protocol error: {0}")]
     KeygenProtocol(#[from] KeygenError),
 }
-

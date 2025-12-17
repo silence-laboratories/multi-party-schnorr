@@ -207,6 +207,5 @@ pub fn create_encryption(key: [u8; 32]) -> Box<dyn StateEncryption> {
     ))]
     {
         compile_error!("At least one encryption feature must be enabled: encryption-chacha20poly1305 or encryption-aes256gcm");
-        
     }
 }

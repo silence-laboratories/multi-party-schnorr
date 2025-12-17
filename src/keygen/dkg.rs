@@ -931,8 +931,12 @@ mod test {
                 self.messages.len() == self.n
             }
 
-            fn process_messages(self) -> Result<(ServerSessionRound1<G>, KeygenMsg2<G>), ServerError> {
-                let msg2 = self.server.process_round_1(self.session_id, self.messages)?;
+            fn process_messages(
+                self,
+            ) -> Result<(ServerSessionRound1<G>, KeygenMsg2<G>), ServerError> {
+                let msg2 = self
+                    .server
+                    .process_round_1(self.session_id, self.messages)?;
                 let msg2_clone = msg2.clone();
                 Ok((
                     ServerSessionRound1 {
@@ -989,7 +993,11 @@ mod test {
             }
 
             fn process_messages(self) -> Result<Keyshare<G>, ServerError> {
-                self.server.process_round_2(self.session_id, self.messages)
+                // Extract final_session_id from the first message
+                // KeygenMsg2.session_id is the final_session_id computed in round 1
+                let final_session_id = self.messages[0].session_id;
+                self.server
+                    .process_round_2(self.session_id, final_session_id, self.messages)
             }
         }
 
@@ -1042,7 +1050,8 @@ mod test {
             .into_iter()
             .map(|s| {
                 let (state, msg) = s.process_messages().unwrap();
-                let state = ServerSessionRound1::next(state.session_id, state.server, msg.clone(), N);
+                let state =
+                    ServerSessionRound1::next(state.session_id, state.server, msg.clone(), N);
                 (state, msg)
             })
             .unzip();
