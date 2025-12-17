@@ -21,7 +21,7 @@ impl DkgClient {
 
     pub fn session_id_from_seed(seed: &[u8]) -> SessionId {
         let mut hasher = Sha256::new();
-        hasher.update(b"DKG-SESSION-ID");
+        hasher.update(b"DKG-APP-SESSION-ID");
         hasher.update(seed);
         hasher.finalize().into()
     }

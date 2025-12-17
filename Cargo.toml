@@ -25,7 +25,7 @@ name = "keygen_server"
 required-features = [ "eddsa", "serde", "test-support", "server-storage" ]
 
 [features]
-default = ["eddsa"]
+default = ["eddsa", "encryption-chacha20poly1305"]
 eddsa = ["curve25519-dalek", "ed25519-dalek"]
 taproot = ["k256/schnorr"]
 keyshare-session-id = []
