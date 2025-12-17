@@ -66,7 +66,7 @@ where
         // KeygenParty<R0, G> with input () outputs (KeygenParty<R1<G>, G>, KeygenMsg1)
         let (party_r1, msg1) = party
             .process(())
-            .map_err(|_e| ServerError::ProtocolError("Round 0 processing failed"))?;
+            .map_err(ServerError::from)?;
 
         // Encrypt party_r1 state and store in DB with key (0, session_id)
         let encrypted_state = self.encrypt_state(&party_r1, &session_id)?;
@@ -94,7 +94,7 @@ where
         // KeygenParty<R1<G>, G> with input Vec<KeygenMsg1> outputs (KeygenParty<R2, G>, KeygenMsg2<G>)
         let (party_r2, msg2) = party_r1
             .process(messages)
-            .map_err(|_e| ServerError::ProtocolError("Round 1 processing failed"))?;
+            .map_err(ServerError::from)?;
 
         // Encrypt party_r2 state and store in DB with key (1, session_id)
         let encrypted_state = self.encrypt_state(&party_r2, &session_id)?;
@@ -125,7 +125,7 @@ where
         // KeygenParty<R2, G> with input Vec<KeygenMsg2<G>> outputs Keyshare<G>
         let keyshare = party_r2
             .process(messages)
-            .map_err(|_e| ServerError::ProtocolError("Round 2 processing failed"))?;
+            .map_err(ServerError::from)?;
 
         // Clean up: delete state from DB
         self.db
@@ -208,15 +208,7 @@ pub enum ServerError {
     DeserializationError(String),
     #[error("Protocol error: {0}")]
     ProtocolError(&'static str),
+    #[error("Keygen protocol error: {0}")]
+    KeygenProtocol(#[from] KeygenError),
 }
 
-#[cfg(feature = "serde")]
-impl From<KeygenError> for ServerError {
-    fn from(err: KeygenError) -> Self {
-        match err {
-            KeygenError::DecryptionError => ServerError::DecryptionError("Keygen decryption error"),
-            KeygenError::EncryptionError => ServerError::EncryptionError("Keygen encryption error"),
-            _ => ServerError::ProtocolError("Keygen protocol error"),
-        }
-    }
-}
