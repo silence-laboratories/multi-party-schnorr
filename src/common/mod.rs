@@ -7,6 +7,12 @@ mod math;
 /// Utility functions
 pub mod utils;
 
+/// Encryption trait and implementations for server state encryption
+pub mod encryption;
+
+/// Storage trait and implementations for server state storage
+pub mod storage;
+
 pub use dlog_proof::*;
 
 pub use math::*;

@@ -90,7 +90,7 @@ pub mod serde_vec_point {
     {
         let bytes: Vec<u8> = serde::Deserialize::deserialize(deserializer)?;
         let point_size = G::Repr::default().as_ref().len();
-        if bytes.len() % point_size != 0 {
+        if !bytes.len().is_multiple_of(point_size) {
             return Err(serde::de::Error::custom("Invalid number of bytes"));
         }
         let mut points = Vec::with_capacity(bytes.len() / point_size);
