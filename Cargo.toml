@@ -20,8 +20,12 @@ required-features = [ "eddsa", "test-support" ]
 name = "refresh"
 required-features = [ "eddsa", "test-support" ]
 
+[[example]]
+name = "keygen_server"
+required-features = [ "eddsa", "serde", "test-support", "server-storage" ]
+
 [features]
-default = ["eddsa"]
+default = ["eddsa", "encryption-chacha20poly1305"]
 eddsa = ["curve25519-dalek", "ed25519-dalek"]
 taproot = ["k256/schnorr"]
 keyshare-session-id = []
@@ -36,6 +40,11 @@ serde = [
   "crypto_box/serde",
 ]
 test-support = []
+# Encryption backends for server state encryption
+encryption-chacha20poly1305 = ["dep:chacha20poly1305"]
+encryption-aes256gcm = ["dep:aes-gcm"]
+# Server storage for stateless server operation
+server-storage = []
 
 [dependencies]
 zeroize = { version = "1.6.1", features = ["zeroize_derive"] }
@@ -70,6 +79,9 @@ sl-mpc-mate = "1.0.1-beta"
 thiserror = "1"
 derivation-path = "0.2.0"
 hmac = { version = "0.12.1" }
+chacha20poly1305 = { version = "0.10", features = ["std"], optional = true }
+aes-gcm = { version = "0.10", features = ["std"], optional = true }
+bincode = "1.3"
 
 [dev-dependencies]
 k256 = { version = "0.13.2" }
