@@ -872,4 +872,221 @@ mod test {
         run_dkg_session::<10, 10, ProjectivePoint>();
         run_dkg_session::<9, 20, ProjectivePoint>();
     }
+
+    #[cfg(all(feature = "serde", feature = "server-storage"))]
+    fn run_dkg_server_session<const T: usize, const N: usize, G: GroupElem>()
+    where
+        G::Scalar: ScalarReduce<[u8; 32]>,
+        G::Scalar: Serializable,
+    {
+        use std::sync::Arc;
+
+        use crate::common::storage::InMemoryDB;
+        use crate::keygen::{
+            client::DkgClient,
+            server::{DkgServer, ServerError},
+        };
+        use rand::RngCore;
+
+        // ServerSession wrapper to match Session API
+        struct ServerSessionRound0<G>
+        where
+            G: GroupElem + GroupEncoding,
+            G::Scalar: ScalarReduce<[u8; 32]> + Serializable,
+        {
+            session_id: SessionId,
+            server: Arc<DkgServer<G, InMemoryDB>>,
+            output_msg: KeygenMsg1,
+            messages: Vec<KeygenMsg1>,
+            n: usize,
+        }
+
+        impl<G> ServerSessionRound0<G>
+        where
+            G: GroupElem + GroupEncoding,
+            G::Scalar: ScalarReduce<[u8; 32]> + Serializable,
+        {
+            fn init(
+                session_id: SessionId,
+                server: Arc<DkgServer<G, InMemoryDB>>,
+                party: KeygenParty<R0, G>,
+                n: usize,
+            ) -> Result<Self, ServerError> {
+                let output_msg = server.start_round_0(session_id, party)?;
+                Ok(Self {
+                    session_id,
+                    server,
+                    output_msg: output_msg.clone(),
+                    messages: vec![output_msg],
+                    n,
+                })
+            }
+
+            fn output_message(&self) -> KeygenMsg1 {
+                self.output_msg.clone()
+            }
+
+            fn recv_message(&mut self, msg: KeygenMsg1) -> bool {
+                self.messages.push(msg);
+                self.messages.len() == self.n
+            }
+
+            fn process_messages(self) -> Result<(ServerSessionRound1<G>, KeygenMsg2<G>), ServerError> {
+                let msg2 = self.server.process_round_1(self.session_id, self.messages)?;
+                let msg2_clone = msg2.clone();
+                Ok((
+                    ServerSessionRound1 {
+                        session_id: self.session_id,
+                        server: self.server,
+                        output_msg: msg2_clone.clone(),
+                        messages: vec![msg2_clone],
+                        n: self.n,
+                    },
+                    msg2,
+                ))
+            }
+        }
+
+        struct ServerSessionRound1<G>
+        where
+            G: GroupElem + GroupEncoding + ConstantTimeEq,
+            G::Scalar: ScalarReduce<[u8; 32]> + Serializable,
+        {
+            session_id: SessionId,
+            server: Arc<DkgServer<G, InMemoryDB>>,
+            output_msg: KeygenMsg2<G>,
+            messages: Vec<KeygenMsg2<G>>,
+            n: usize,
+        }
+
+        impl<G> ServerSessionRound1<G>
+        where
+            G: GroupElem + GroupEncoding + ConstantTimeEq,
+            G::Scalar: ScalarReduce<[u8; 32]> + Serializable,
+        {
+            fn next(
+                session_id: SessionId,
+                server: Arc<DkgServer<G, InMemoryDB>>,
+                prev: KeygenMsg2<G>,
+                n: usize,
+            ) -> Self {
+                Self {
+                    session_id,
+                    server,
+                    output_msg: prev.clone(),
+                    messages: vec![prev],
+                    n,
+                }
+            }
+
+            fn output_message(&self) -> KeygenMsg2<G> {
+                self.output_msg.clone()
+            }
+
+            fn recv_message(&mut self, msg: KeygenMsg2<G>) -> bool {
+                self.messages.push(msg);
+                self.messages.len() == self.n
+            }
+
+            fn process_messages(self) -> Result<Keyshare<G>, ServerError> {
+                self.server.process_round_2(self.session_id, self.messages)
+            }
+        }
+
+        // Setup: Create encryption keys for all parties
+        let parties = setup_keygen::<G>(T as u8, N as u8);
+        let party_list: Vec<KeygenParty<R0, G>> = parties.collect();
+
+        // Server setup: Create server with encryption key and database
+        let mut encryption_key = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut encryption_key);
+        let db = Arc::new(InMemoryDB::new());
+        let server = Arc::new(DkgServer::<G, _>::new(encryption_key, db.clone()));
+
+        // Each party generates its own session_id for server state storage
+        let mut party_session_ids = Vec::new();
+        for _ in 0..N {
+            party_session_ids.push(DkgClient::generate_session_id());
+        }
+
+        // Round 0: Initialize DKG for each party using server
+        let mut first_round: Vec<ServerSessionRound0<G>> = party_list
+            .into_iter()
+            .enumerate()
+            .map(|(i, party)| {
+                let session_id = party_session_ids[i];
+                ServerSessionRound0::init(session_id, server.clone(), party, N).unwrap()
+            })
+            .collect();
+
+        // collect first broadcast message from all sessions
+        let msgs = first_round
+            .iter()
+            .map(|s| s.output_message())
+            .collect::<Vec<_>>();
+
+        // broadcast the first message to appropriate sessions
+        for (p, msg) in msgs.into_iter().enumerate() {
+            first_round
+                .iter_mut()
+                .enumerate()
+                .filter(|&(other, _)| other != p)
+                .for_each(|(_, s)| {
+                    s.recv_message(msg.clone());
+                });
+        }
+
+        // Handle the first round, create new session/state and
+        // collect second broadcast message from the new sessions.
+        let (mut second_round, msgs): (Vec<_>, Vec<_>) = first_round
+            .into_iter()
+            .map(|s| {
+                let (state, msg) = s.process_messages().unwrap();
+                let state = ServerSessionRound1::next(state.session_id, state.server, msg.clone(), N);
+                (state, msg)
+            })
+            .unzip();
+
+        // broadcast the second message to appropriate sessions
+        for (p, msg) in msgs.into_iter().enumerate() {
+            second_round
+                .iter_mut()
+                .enumerate()
+                .filter(|&(other, _)| other != p)
+                .for_each(|(_, s)| {
+                    s.recv_message(msg.clone());
+                });
+        }
+
+        // Process messages of the second round and output key shares.
+        let keyshares = second_round
+            .into_iter()
+            .map(|s| s.process_messages().unwrap())
+            .collect::<Vec<_>>();
+
+        // Verify all parties have the same public key
+        let public_key = keyshares[0].public_key();
+        assert!(keyshares.iter().all(|ks| ks.public_key() == public_key));
+    }
+
+    #[cfg(all(feature = "eddsa", feature = "serde", feature = "server-storage"))]
+    #[test]
+    fn server_session_curve25519() {
+        use curve25519_dalek::EdwardsPoint;
+
+        run_dkg_server_session::<2, 2, EdwardsPoint>();
+        run_dkg_server_session::<2, 3, EdwardsPoint>();
+        run_dkg_server_session::<3, 5, EdwardsPoint>();
+        run_dkg_server_session::<5, 5, EdwardsPoint>();
+    }
+
+    #[cfg(all(feature = "taproot", feature = "serde", feature = "server-storage"))]
+    #[test]
+    fn server_session_taproot() {
+        use k256::ProjectivePoint;
+
+        run_dkg_server_session::<2, 2, ProjectivePoint>();
+        run_dkg_server_session::<2, 3, ProjectivePoint>();
+        run_dkg_server_session::<3, 5, ProjectivePoint>();
+    }
 }
