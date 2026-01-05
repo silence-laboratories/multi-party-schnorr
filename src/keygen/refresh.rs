@@ -29,6 +29,9 @@ where
     #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
     pub expected_public_key: G,
     pub root_chain_code: [u8; 32],
+
+    /// Extra data contains the seed share for the key share
+    pub extra_data: Option<Vec<u8>>,
 }
 
 impl<G> KeyRefreshData<G>
@@ -51,6 +54,7 @@ where
             lost_keyshare_party_ids,
             expected_public_key,
             root_chain_code: [0; 32],
+            extra_data:None,
         }
     }
 
@@ -70,6 +74,7 @@ where
             lost_keyshare_party_ids: vec![],
             expected_public_key,
             root_chain_code,
+            extra_data: None,
         }
     }
 

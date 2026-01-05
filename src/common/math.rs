@@ -56,6 +56,7 @@ pub fn schnorr_split_private_key<G: Group + GroupEncoding, R: CryptoRng + RngCor
                 lost_keyshare_party_ids: vec![],
                 expected_public_key,
                 root_chain_code,
+                extra_data:None,
             }
         })
         .collect();
@@ -95,6 +96,7 @@ pub fn schnorr_split_private_key_with_lost<G: Group + GroupEncoding, R: CryptoRn
             lost_keyshare_party_ids: lost_ids.clone(),
             expected_public_key,
             root_chain_code,
+            extra_data:None,
         });
     }
 

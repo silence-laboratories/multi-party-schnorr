@@ -239,6 +239,7 @@ where
             lost_keyshare_party_ids,
             expected_public_key: self.public_key,
             root_chain_code: self.root_chain_code,
+            extra_data: self.extra_data.clone(),
         }
     }
 }
