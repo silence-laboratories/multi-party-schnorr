@@ -262,7 +262,7 @@ where
         self.output_msg.clone()
     }
 
-    /// Receive a broadcast message. Returns `true` if all messages
+    /// Receive a broadcast message. Returns `true` if all messages have been received.
     pub fn recv_message(&mut self, msg: KeygenMsg1) -> bool {
         self.messages.push(msg);
         self.messages.len() == self.n
