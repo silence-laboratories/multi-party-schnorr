@@ -185,7 +185,7 @@ mod aes256gcm_impl {
             result.extend_from_slice(&rest[..tag_len]);
 
             // Decrypt with AAD (decrypts in place, converting ciphertext to plaintext)
-            let cipher = Aes256Gcm::new_from_slice(&self.key)
+            let cipher = Aes256Gcm::new_from_slice(self.key.as_ref())
                 .map_err(|_| EncryptionError::InvalidKeyLength)?;
 
             cipher

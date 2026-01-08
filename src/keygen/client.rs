@@ -2,7 +2,6 @@
 // This software is licensed under the Silence Laboratories License Agreement.
 
 use rand::RngCore;
-use sha2::{Digest, Sha256};
 
 use crate::common::utils::SessionId;
 
@@ -18,5 +17,4 @@ impl DkgClient {
         rng.fill_bytes(&mut session_id);
         session_id
     }
-
 }
