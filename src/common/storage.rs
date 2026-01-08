@@ -30,8 +30,6 @@ pub enum StorageError {
     LockError,
 }
 
-// InMemoryDB implementation is conditionally compiled
-#[cfg(feature = "server-storage")]
 mod in_memory_db {
     use super::*;
     use std::collections::HashMap;
@@ -77,5 +75,4 @@ mod in_memory_db {
     }
 }
 
-#[cfg(feature = "server-storage")]
 pub use in_memory_db::InMemoryDB;

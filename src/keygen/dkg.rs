@@ -995,7 +995,7 @@ mod test {
 
     /// Test mixed scenario: one client uses Session (no DB), others use ServerSession (with DB)
     #[cfg(all(feature = "serde", feature = "server-storage"))]
-    fn run_dkg_mixed_session<const T: usize, const N: usize, G: GroupElem>()
+    fn run_dkg_mixed_session<const T: usize, const N: usize, G>()
     where
         G: GroupElem + GroupEncoding + ConstantTimeEq,
         G::Scalar: ScalarReduce<[u8; 32]> + Serializable,
