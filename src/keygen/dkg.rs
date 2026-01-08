@@ -872,4 +872,274 @@ mod test {
         run_dkg_session::<10, 10, ProjectivePoint>();
         run_dkg_session::<9, 20, ProjectivePoint>();
     }
+
+    #[cfg(all(feature = "serde", feature = "server-storage"))]
+    fn run_dkg_server_session<const T: usize, const N: usize, G: GroupElem>()
+    where
+        G::Scalar: ScalarReduce<[u8; 32]>,
+        G::Scalar: Serializable,
+    {
+        use std::sync::Arc;
+
+        use crate::common::storage::InMemoryDB;
+        use crate::keygen::{
+            client::DkgClient,
+            server::{DkgServer, ServerSessionRound0, ServerSessionRound1},
+        };
+        use rand::RngCore;
+
+        // Setup: Create encryption keys for all parties
+        let parties = setup_keygen::<G>(T as u8, N as u8);
+        let party_list: Vec<KeygenParty<R0, G>> = parties.collect();
+
+        // Server setup: Create server with encryption key and database
+        let mut encryption_key = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut encryption_key);
+        let db = Arc::new(InMemoryDB::new());
+        let server = Arc::new(DkgServer::<G, _>::new(encryption_key, db.clone()));
+
+        // Each party generates its own session_id for server state storage
+        let mut party_session_ids = Vec::new();
+        for _ in 0..N {
+            party_session_ids.push(DkgClient::generate_session_id());
+        }
+
+        // Round 0: Initialize DKG for each party using server
+        let mut first_round: Vec<ServerSessionRound0<G, InMemoryDB>> = party_list
+            .into_iter()
+            .enumerate()
+            .map(|(i, party)| {
+                let session_id = party_session_ids[i];
+                ServerSessionRound0::init(session_id, server.clone(), party, N).unwrap()
+            })
+            .collect();
+
+        // collect first broadcast message from all sessions
+        let msgs = first_round
+            .iter()
+            .map(|s| s.output_message())
+            .collect::<Vec<_>>();
+
+        // broadcast the first message to appropriate sessions
+        for (p, msg) in msgs.into_iter().enumerate() {
+            first_round
+                .iter_mut()
+                .enumerate()
+                .filter(|&(other, _)| other != p)
+                .for_each(|(_, s)| {
+                    s.recv_message(msg.clone());
+                });
+        }
+
+        // Handle the first round, create new session/state and
+        // collect second broadcast message from the new sessions.
+        let (mut second_round, msgs): (Vec<_>, Vec<_>) = first_round
+            .into_iter()
+            .map(|s| {
+                let (state, msg) = s.process_messages().unwrap();
+                let msg_clone = msg.clone();
+                let state = ServerSessionRound1::next(
+                    state.session_id(),
+                    state.server().clone(),
+                    msg_clone,
+                    N,
+                );
+                (state, msg)
+            })
+            .unzip();
+
+        // broadcast the second message to appropriate sessions
+        for (p, msg) in msgs.into_iter().enumerate() {
+            second_round
+                .iter_mut()
+                .enumerate()
+                .filter(|&(other, _)| other != p)
+                .for_each(|(_, s)| {
+                    s.recv_message(msg.clone());
+                });
+        }
+
+        // Process messages of the second round and output key shares.
+        let keyshares = second_round
+            .into_iter()
+            .map(|s| s.process_messages().unwrap())
+            .collect::<Vec<_>>();
+
+        // Verify all parties have the same public key
+        let public_key = keyshares[0].public_key();
+        assert!(keyshares.iter().all(|ks| ks.public_key() == public_key));
+    }
+
+    /// Test server-side DKG sessions with encrypted state storage
+    /// Requires: --features serde,server-storage
+    #[cfg(all(feature = "eddsa", feature = "serde", feature = "server-storage"))]
+    #[test]
+    fn server_session_curve25519() {
+        use curve25519_dalek::EdwardsPoint;
+
+        run_dkg_server_session::<2, 2, EdwardsPoint>();
+        run_dkg_server_session::<2, 3, EdwardsPoint>();
+        run_dkg_server_session::<3, 5, EdwardsPoint>();
+        run_dkg_server_session::<5, 5, EdwardsPoint>();
+    }
+
+    #[cfg(all(feature = "taproot", feature = "serde", feature = "server-storage"))]
+    #[test]
+    fn server_session_taproot() {
+        use k256::ProjectivePoint;
+
+        run_dkg_server_session::<2, 2, ProjectivePoint>();
+        run_dkg_server_session::<2, 3, ProjectivePoint>();
+        run_dkg_server_session::<3, 5, ProjectivePoint>();
+    }
+
+    /// Test mixed scenario: one client uses Session (no DB), others use ServerSession (with DB)
+    #[cfg(all(feature = "serde", feature = "server-storage"))]
+    fn run_dkg_mixed_session<const T: usize, const N: usize, G>()
+    where
+        G: GroupElem + GroupEncoding + ConstantTimeEq,
+        G::Scalar: ScalarReduce<[u8; 32]> + Serializable,
+    {
+        use std::sync::Arc;
+
+        use crate::common::storage::InMemoryDB;
+        use crate::keygen::{
+            client::DkgClient,
+            server::{DkgServer, ServerSessionRound0, ServerSessionRound1},
+        };
+        use rand::RngCore;
+
+        // Setup: Create encryption keys for all parties
+        let parties = setup_keygen::<G>(T as u8, N as u8);
+        let mut party_list: Vec<KeygenParty<R0, G>> = parties.collect();
+
+        // Server setup: Create server with encryption key and database
+        let mut encryption_key = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut encryption_key);
+        let db = Arc::new(InMemoryDB::new());
+        let server = Arc::new(DkgServer::<G, _>::new(encryption_key, db.clone()));
+
+        // Party 0 uses client Session (no DB storage), others use server sessions
+        let client_party = party_list.remove(0);
+        let server_parties = party_list;
+
+        // Client generates session IDs for all server parties and passes them to servers
+        let mut server_session_ids = Vec::new();
+        for _ in 0..(N - 1) {
+            server_session_ids.push(DkgClient::generate_session_id());
+        }
+
+        // Round 0: Initialize client session (no DB storage)
+        let mut client_session = Session::init(client_party).unwrap();
+
+        // Client passes session IDs to servers, which initialize server sessions with encrypted state storage
+        let mut server_sessions: Vec<ServerSessionRound0<G, InMemoryDB>> = server_parties
+            .into_iter()
+            .enumerate()
+            .map(|(i, party)| {
+                // Use the session_id that the client generated for this server
+                let session_id = server_session_ids[i];
+                ServerSessionRound0::init(session_id, server.clone(), party, N).unwrap()
+            })
+            .collect();
+
+        // Collect first broadcast messages from all sessions
+        let mut msgs = Vec::new();
+        msgs.push(client_session.output_message());
+        for server_session in &server_sessions {
+            msgs.push(server_session.output_message());
+        }
+
+        // Broadcast messages: each party receives from all other parties
+        for (p, msg) in msgs.iter().enumerate() {
+            // Client (party 0) receives from all servers
+            if p != 0 {
+                client_session.recv_message(msg.clone());
+            }
+            // Each server receives from client and other servers (but not itself)
+            for (i, server_session) in server_sessions.iter_mut().enumerate() {
+                // Server index i corresponds to party index (i + 1)
+                // So server i should receive from party p if p != (i + 1)
+                if p != (i + 1) {
+                    server_session.recv_message(msg.clone());
+                }
+            }
+        }
+
+        // Process round 0: client and servers
+        let (client_state, client_msg2) = client_session.process_messages().unwrap();
+        let client_msg2_clone = client_msg2.clone();
+        let mut client_session_r1 = Session::next(client_state, client_msg2_clone);
+
+        let (mut server_sessions_r1, server_msgs2): (Vec<_>, Vec<_>) = server_sessions
+            .into_iter()
+            .map(|s| {
+                let (state, msg) = s.process_messages().unwrap();
+                let msg_clone = msg.clone();
+                let state = ServerSessionRound1::next(
+                    state.session_id(),
+                    state.server().clone(),
+                    msg_clone,
+                    N,
+                );
+                (state, msg)
+            })
+            .unzip();
+
+        // Collect round 2 messages
+        let mut msgs2 = Vec::new();
+        msgs2.push(client_msg2);
+        msgs2.extend(server_msgs2);
+
+        // Broadcast round 2 messages: each party receives from all other parties
+        for (p, msg) in msgs2.iter().enumerate() {
+            // Client (party 0) receives from all servers
+            if p != 0 {
+                client_session_r1.recv_message(msg.clone());
+            }
+            // Each server receives from client and other servers (but not itself)
+            for (i, server_session) in server_sessions_r1.iter_mut().enumerate() {
+                // Server index i corresponds to party index (i + 1)
+                // So server i should receive from party p if p != (i + 1)
+                if p != (i + 1) {
+                    server_session.recv_message(msg.clone());
+                }
+            }
+        }
+
+        // Process round 2 and get keyshares
+        let client_keyshare = client_session_r1.process_messages().unwrap();
+        let server_keyshares: Vec<Keyshare<G>> = server_sessions_r1
+            .into_iter()
+            .map(|s| s.process_messages().unwrap())
+            .collect();
+
+        // Verify all parties (client + servers) have the same public key
+        let public_key = client_keyshare.public_key();
+        for keyshare in &server_keyshares {
+            assert_eq!(public_key, keyshare.public_key());
+        }
+    }
+
+    /// Test mixed scenario: client Session + server ServerSession
+    /// Requires: --features serde,server-storage
+    #[cfg(all(feature = "eddsa", feature = "serde", feature = "server-storage"))]
+    #[test]
+    fn mixed_session_curve25519() {
+        use curve25519_dalek::EdwardsPoint;
+
+        run_dkg_mixed_session::<2, 2, EdwardsPoint>();
+        run_dkg_mixed_session::<2, 3, EdwardsPoint>();
+        run_dkg_mixed_session::<3, 5, EdwardsPoint>();
+    }
+
+    #[cfg(all(feature = "taproot", feature = "serde", feature = "server-storage"))]
+    #[test]
+    fn mixed_session_taproot() {
+        use k256::ProjectivePoint;
+
+        run_dkg_mixed_session::<2, 2, ProjectivePoint>();
+        run_dkg_mixed_session::<2, 3, ProjectivePoint>();
+        run_dkg_mixed_session::<3, 5, ProjectivePoint>();
+    }
 }

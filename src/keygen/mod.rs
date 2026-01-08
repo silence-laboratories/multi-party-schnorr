@@ -14,3 +14,9 @@ pub use types::*;
 /// Utility functions
 #[cfg(any(test, feature = "test-support"))]
 pub mod utils;
+
+/// Client-server DKG library for stateless server operation
+#[cfg(feature = "serde")]
+pub mod client;
+#[cfg(feature = "serde")]
+pub mod server;
