@@ -120,21 +120,24 @@ mod aes256gcm_impl {
         aead::{AeadCore, AeadInPlace, KeyInit, OsRng},
         Aes256Gcm, Nonce,
     };
+    use zeroize::Zeroizing;
 
     /// AES-256-GCM implementation of StateEncryption
     pub struct Aes256GcmEncryption {
-        key: [u8; 32],
+        key: Zeroizing<[u8; 32]>,
     }
 
     impl Aes256GcmEncryption {
         pub fn new(key: [u8; 32]) -> Self {
-            Self { key }
+            Self {
+                key: Zeroizing::new(key),
+            }
         }
     }
 
     impl StateEncryption for Aes256GcmEncryption {
         fn encrypt(&self, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>, EncryptionError> {
-            let cipher = Aes256Gcm::new_from_slice(&self.key)
+            let cipher = Aes256Gcm::new_from_slice(self.key.as_ref())
                 .map_err(|_| EncryptionError::InvalidKeyLength)?;
 
             // Generate a random nonce (12 bytes for AES-GCM)
