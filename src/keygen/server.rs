@@ -15,6 +15,10 @@ use crate::common::{
     utils::SessionId,
 };
 #[cfg(feature = "serde")]
+use crypto_bigint::subtle::ConstantTimeEq;
+#[cfg(feature = "serde")]
+use elliptic_curve::group::GroupEncoding;
+#[cfg(feature = "serde")]
 use sha2::{Digest, Sha256};
 
 #[cfg(feature = "serde")]
@@ -226,4 +230,151 @@ pub enum ServerError {
     ProtocolError(&'static str),
     #[error("Keygen protocol error: {0}")]
     KeygenProtocol(#[from] KeygenError),
+}
+
+#[cfg(all(feature = "serde", feature = "server-storage"))]
+pub struct ServerSessionRound0<G, DB>
+where
+    G: GroupElem + GroupEncoding,
+    G::Scalar: ScalarReduce<[u8; 32]> + Serializable,
+    DB: UntrustedDB,
+{
+    session_id: SessionId,
+    server: Arc<DkgServer<G, DB>>,
+    output_msg: KeygenMsg1,
+    messages: Vec<KeygenMsg1>,
+    n: usize,
+}
+
+#[cfg(all(feature = "serde", feature = "server-storage"))]
+impl<G, DB> ServerSessionRound0<G, DB>
+where
+    G: GroupElem + GroupEncoding,
+    G::Scalar: ScalarReduce<[u8; 32]> + Serializable,
+    DB: UntrustedDB,
+{
+    /// Initialize round 0 session with server-side state storage.
+    pub fn init(
+        session_id: SessionId,
+        server: Arc<DkgServer<G, DB>>,
+        party: KeygenParty<R0, G>,
+        n: usize,
+    ) -> Result<Self, ServerError> {
+        let output_msg = server.start_round_0(session_id, party)?;
+        Ok(Self {
+            session_id,
+            server,
+            output_msg: output_msg.clone(),
+            messages: vec![output_msg],
+            n,
+        })
+    }
+
+    /// Get the output message for this round.
+    pub fn output_message(&self) -> KeygenMsg1 {
+        self.output_msg.clone()
+    }
+
+    /// Receive a broadcast message. Returns `true` if all messages
+    pub fn recv_message(&mut self, msg: KeygenMsg1) -> bool {
+        self.messages.push(msg);
+        self.messages.len() == self.n
+    }
+
+    /// Process messages and return next round session and message.
+    pub fn process_messages(
+        self,
+    ) -> Result<(ServerSessionRound1<G, DB>, KeygenMsg2<G>), ServerError> {
+        let msg2 = self
+            .server
+            .process_round_1(self.session_id, self.messages)?;
+        let msg2_clone = msg2.clone();
+        Ok((
+            ServerSessionRound1 {
+                session_id: self.session_id,
+                server: self.server,
+                output_msg: msg2_clone.clone(),
+                messages: vec![msg2_clone],
+                n: self.n,
+            },
+            msg2,
+        ))
+    }
+
+    /// Get the session ID (for use in tests and transitions).
+    pub fn session_id(&self) -> SessionId {
+        self.session_id
+    }
+
+    /// Get a reference to the server (for use in tests and transitions).
+    pub fn server(&self) -> &Arc<DkgServer<G, DB>> {
+        &self.server
+    }
+}
+
+#[cfg(all(feature = "serde", feature = "server-storage"))]
+pub struct ServerSessionRound1<G, DB>
+where
+    G: GroupElem + GroupEncoding + ConstantTimeEq,
+    G::Scalar: ScalarReduce<[u8; 32]> + Serializable,
+    DB: UntrustedDB,
+{
+    session_id: SessionId,
+    server: Arc<DkgServer<G, DB>>,
+    output_msg: KeygenMsg2<G>,
+    messages: Vec<KeygenMsg2<G>>,
+    n: usize,
+}
+
+#[cfg(all(feature = "serde", feature = "server-storage"))]
+impl<G, DB> ServerSessionRound1<G, DB>
+where
+    G: GroupElem + GroupEncoding + ConstantTimeEq,
+    G::Scalar: ScalarReduce<[u8; 32]> + Serializable,
+    DB: UntrustedDB,
+{
+    /// Create round 1 session from previous round output.
+    pub fn next(
+        session_id: SessionId,
+        server: Arc<DkgServer<G, DB>>,
+        prev: KeygenMsg2<G>,
+        n: usize,
+    ) -> Self {
+        Self {
+            session_id,
+            server,
+            output_msg: prev.clone(),
+            messages: vec![prev],
+            n,
+        }
+    }
+
+    /// Get the output message for this round.
+    pub fn output_message(&self) -> KeygenMsg2<G> {
+        self.output_msg.clone()
+    }
+
+    /// Receive a broadcast message. Returns `true` if all messages
+    /// received and session ready to call method `process_messages()`.
+    pub fn recv_message(&mut self, msg: KeygenMsg2<G>) -> bool {
+        self.messages.push(msg);
+        self.messages.len() == self.n
+    }
+
+    /// Process messages and return final keyshare.
+    pub fn process_messages(self) -> Result<Keyshare<G>, ServerError> {
+        // Extract final_session_id from the first message
+        // KeygenMsg2.session_id is the final_session_id computed in round 1
+        let final_session_id = self.messages[0].session_id;
+        self.server
+            .process_round_2(self.session_id, final_session_id, self.messages)
+    }
+
+    pub fn session_id(&self) -> SessionId {
+        self.session_id
+    }
+
+    pub fn server(&self) -> &Arc<DkgServer<G, DB>> {
+        &self.server
+    }
 }
