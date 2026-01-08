@@ -937,10 +937,11 @@ mod test {
             .into_iter()
             .map(|s| {
                 let (state, msg) = s.process_messages().unwrap();
+                let msg_clone = msg.clone();
                 let state = ServerSessionRound1::next(
                     state.session_id(),
                     state.server().clone(),
-                    msg.clone(),
+                    msg_clone,
                     N,
                 );
                 (state, msg)
@@ -969,6 +970,8 @@ mod test {
         assert!(keyshares.iter().all(|ks| ks.public_key() == public_key));
     }
 
+    /// Test server-side DKG sessions with encrypted state storage
+    /// Requires: --features serde,server-storage
     #[cfg(all(feature = "eddsa", feature = "serde", feature = "server-storage"))]
     #[test]
     fn server_session_curve25519() {
@@ -1065,16 +1068,18 @@ mod test {
 
         // Process round 0: client and servers
         let (client_state, client_msg2) = client_session.process_messages().unwrap();
-        let mut client_session_r1 = Session::next(client_state, client_msg2.clone());
+        let client_msg2_clone = client_msg2.clone();
+        let mut client_session_r1 = Session::next(client_state, client_msg2_clone);
 
         let (mut server_sessions_r1, server_msgs2): (Vec<_>, Vec<_>) = server_sessions
             .into_iter()
             .map(|s| {
                 let (state, msg) = s.process_messages().unwrap();
+                let msg_clone = msg.clone();
                 let state = ServerSessionRound1::next(
                     state.session_id(),
                     state.server().clone(),
-                    msg.clone(),
+                    msg_clone,
                     N,
                 );
                 (state, msg)
@@ -1116,6 +1121,8 @@ mod test {
         }
     }
 
+    /// Test mixed scenario: client Session + server ServerSession
+    /// Requires: --features serde,server-storage
     #[cfg(all(feature = "eddsa", feature = "serde", feature = "server-storage"))]
     #[test]
     fn mixed_session_curve25519() {

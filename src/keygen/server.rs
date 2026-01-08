@@ -1,12 +1,9 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-#[cfg(feature = "serde")]
 use std::marker::PhantomData;
-#[cfg(feature = "serde")]
 use std::sync::Arc;
 
-#[cfg(feature = "serde")]
 use crate::common::{
     encryption::{create_encryption, EncryptionError, StateEncryption},
     ser::Serializable,
@@ -14,14 +11,10 @@ use crate::common::{
     traits::{GroupElem, Round, ScalarReduce},
     utils::SessionId,
 };
-#[cfg(feature = "serde")]
 use crypto_bigint::subtle::ConstantTimeEq;
-#[cfg(feature = "serde")]
 use elliptic_curve::group::GroupEncoding;
-#[cfg(feature = "serde")]
 use sha2::{Digest, Sha256};
 
-#[cfg(feature = "serde")]
 use super::{
     dkg::{KeygenParty, R0, R1, R2},
     messages::{KeygenMsg1, KeygenMsg2},
@@ -31,7 +24,6 @@ use super::{
 
 /// Server-side DKG handler that stores encrypted state in untrusted database
 /// Requires the `serde` feature to be enabled for serialization
-#[cfg(feature = "serde")]
 pub struct DkgServer<G, DB>
 where
     G: GroupElem,
@@ -46,7 +38,6 @@ where
     _phantom: PhantomData<G>,
 }
 
-#[cfg(feature = "serde")]
 impl<G, DB> DkgServer<G, DB>
 where
     G: GroupElem,
@@ -156,7 +147,6 @@ where
     }
 
     /// Encrypt state using the configured encryption algorithm with session_id as authenticated data
-    #[cfg(feature = "serde")]
     fn encrypt_state<T>(&self, state: &T, session_id: &SessionId) -> Result<Vec<u8>, ServerError>
     where
         T: Serializable + serde::Serialize,
@@ -183,7 +173,6 @@ where
     }
 
     /// Decrypt state using the configured encryption algorithm with session_id as authenticated data
-    #[cfg(feature = "serde")]
     fn decrypt_state<T>(&self, encrypted: &[u8], session_id: &SessionId) -> Result<T, ServerError>
     where
         T: Serializable + serde::de::DeserializeOwned,
@@ -213,7 +202,6 @@ where
     }
 }
 
-#[cfg(feature = "serde")]
 #[derive(Debug, thiserror::Error)]
 pub enum ServerError {
     #[error("Storage error: {0}")]
@@ -232,7 +220,6 @@ pub enum ServerError {
     KeygenProtocol(#[from] KeygenError),
 }
 
-#[cfg(all(feature = "serde", feature = "server-storage"))]
 pub struct ServerSessionRound0<G, DB>
 where
     G: GroupElem + GroupEncoding,
@@ -246,7 +233,6 @@ where
     n: usize,
 }
 
-#[cfg(all(feature = "serde", feature = "server-storage"))]
 impl<G, DB> ServerSessionRound0<G, DB>
 where
     G: GroupElem + GroupEncoding,
@@ -261,11 +247,12 @@ where
         n: usize,
     ) -> Result<Self, ServerError> {
         let output_msg = server.start_round_0(session_id, party)?;
+        let messages = vec![output_msg.clone()];
         Ok(Self {
             session_id,
             server,
-            output_msg: output_msg.clone(),
-            messages: vec![output_msg],
+            output_msg,
+            messages,
             n,
         })
     }
@@ -288,13 +275,14 @@ where
         let msg2 = self
             .server
             .process_round_1(self.session_id, self.messages)?;
-        let msg2_clone = msg2.clone();
+        let messages = vec![msg2.clone()];
+        let output_msg = messages[0].clone();
         Ok((
             ServerSessionRound1 {
                 session_id: self.session_id,
                 server: self.server,
-                output_msg: msg2_clone.clone(),
-                messages: vec![msg2_clone],
+                output_msg,
+                messages,
                 n: self.n,
             },
             msg2,
@@ -312,7 +300,6 @@ where
     }
 }
 
-#[cfg(all(feature = "serde", feature = "server-storage"))]
 pub struct ServerSessionRound1<G, DB>
 where
     G: GroupElem + GroupEncoding + ConstantTimeEq,
@@ -326,7 +313,6 @@ where
     n: usize,
 }
 
-#[cfg(all(feature = "serde", feature = "server-storage"))]
 impl<G, DB> ServerSessionRound1<G, DB>
 where
     G: GroupElem + GroupEncoding + ConstantTimeEq,
@@ -340,11 +326,13 @@ where
         prev: KeygenMsg2<G>,
         n: usize,
     ) -> Self {
+        let messages = vec![prev.clone()];
+        let output_msg = prev;
         Self {
             session_id,
             server,
-            output_msg: prev.clone(),
-            messages: vec![prev],
+            output_msg,
+            messages,
             n,
         }
     }

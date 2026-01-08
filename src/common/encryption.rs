@@ -33,35 +33,43 @@ mod chacha20poly1305_impl {
         aead::{AeadCore, AeadInPlace, KeyInit, OsRng},
         ChaCha20Poly1305, Nonce,
     };
-
+    use zeroize::Zeroizing;
     /// ChaCha20Poly1305 implementation of StateEncryption
     pub struct ChaCha20Poly1305Encryption {
-        key: [u8; 32],
+        key: Zeroizing<[u8; 32]>,
     }
 
     impl ChaCha20Poly1305Encryption {
         pub fn new(key: [u8; 32]) -> Self {
-            Self { key }
+            Self {
+                key: Zeroizing::new(key),
+            }
         }
     }
 
     impl StateEncryption for ChaCha20Poly1305Encryption {
         fn encrypt(&self, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>, EncryptionError> {
-            let cipher = ChaCha20Poly1305::new_from_slice(&self.key)
+            let cipher = ChaCha20Poly1305::new_from_slice(self.key.as_ref())
                 .map_err(|_| EncryptionError::InvalidKeyLength)?;
 
             // Generate a random nonce (12 bytes for ChaCha20Poly1305)
             let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+            let nonce_size = nonce.len();
+            // Tag size is 16 bytes for ChaCha20Poly1305 (Poly1305 tag)
+            const TAG_SIZE: usize = 16;
 
-            // Encrypt with AAD
-            let mut buffer = plaintext.to_vec();
+            // Pre-allocate result: nonce || ciphertext || tag
+            let mut result = Vec::with_capacity(nonce_size + plaintext.len() + TAG_SIZE);
+            result.extend_from_slice(nonce.as_slice());
+            result.extend_from_slice(plaintext);
+
+            // Encrypt in place on the ciphertext portion
+            let ciphertext_range = nonce_size..nonce_size + plaintext.len();
             let tag = cipher
-                .encrypt_in_place_detached(&nonce, aad, &mut buffer)
+                .encrypt_in_place_detached(&nonce, aad, &mut result[ciphertext_range])
                 .map_err(|_| EncryptionError::Encryption("Encryption failed"))?;
 
-            // Combine: nonce || ciphertext || tag
-            let mut result = nonce.to_vec();
-            result.extend_from_slice(&buffer);
+            // Append tag
             result.extend_from_slice(tag.as_slice());
 
             Ok(result)
@@ -82,22 +90,25 @@ mod chacha20poly1305_impl {
             }
 
             let tag_len = rest.len() - 16;
-            let mut buffer = rest[..tag_len].to_vec();
             let tag = chacha20poly1305::Tag::from_slice(&rest[tag_len..]);
 
-            // Decrypt with AAD
-            let cipher = ChaCha20Poly1305::new_from_slice(&self.key)
+            // Pre-allocate result and copy ciphertext directly into it
+            let mut result = Vec::with_capacity(tag_len);
+            result.extend_from_slice(&rest[..tag_len]);
+
+            // Decrypt with AAD (decrypts in place, converting ciphertext to plaintext)
+            let cipher = ChaCha20Poly1305::new_from_slice(self.key.as_ref())
                 .map_err(|_| EncryptionError::InvalidKeyLength)?;
 
             cipher
-                .decrypt_in_place_detached(nonce, aad, &mut buffer, tag)
+                .decrypt_in_place_detached(nonce, aad, &mut result, tag)
                 .map_err(|_| {
                     EncryptionError::Decryption(
                         "Decryption failed - wrong session or corrupted data",
                     )
                 })?;
 
-            Ok(buffer)
+            Ok(result)
         }
     }
 }
@@ -128,16 +139,22 @@ mod aes256gcm_impl {
 
             // Generate a random nonce (12 bytes for AES-GCM)
             let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+            let nonce_size = nonce.len();
+            // Tag size is 16 bytes for AES-256-GCM
+            const TAG_SIZE: usize = 16;
 
-            // Encrypt with AAD
-            let mut buffer = plaintext.to_vec();
+            // Pre-allocate result: nonce || ciphertext || tag
+            let mut result = Vec::with_capacity(nonce_size + plaintext.len() + TAG_SIZE);
+            result.extend_from_slice(nonce.as_slice());
+            result.extend_from_slice(plaintext);
+
+            // Encrypt in place on the ciphertext portion
+            let ciphertext_range = nonce_size..nonce_size + plaintext.len();
             let tag = cipher
-                .encrypt_in_place_detached(&nonce, aad, &mut buffer)
+                .encrypt_in_place_detached(&nonce, aad, &mut result[ciphertext_range])
                 .map_err(|_| EncryptionError::Encryption("Encryption failed"))?;
 
-            // Combine: nonce || ciphertext || tag
-            let mut result = nonce.to_vec();
-            result.extend_from_slice(&buffer);
+            // Append tag
             result.extend_from_slice(tag.as_slice());
 
             Ok(result)
@@ -158,22 +175,25 @@ mod aes256gcm_impl {
             }
 
             let tag_len = rest.len() - 16;
-            let mut buffer = rest[..tag_len].to_vec();
             let tag = aes_gcm::Tag::from_slice(&rest[tag_len..]);
 
-            // Decrypt with AAD
+            // Pre-allocate result and copy ciphertext directly into it
+            let mut result = Vec::with_capacity(tag_len);
+            result.extend_from_slice(&rest[..tag_len]);
+
+            // Decrypt with AAD (decrypts in place, converting ciphertext to plaintext)
             let cipher = Aes256Gcm::new_from_slice(&self.key)
                 .map_err(|_| EncryptionError::InvalidKeyLength)?;
 
             cipher
-                .decrypt_in_place_detached(nonce, aad, &mut buffer, tag)
+                .decrypt_in_place_detached(nonce, aad, &mut result, tag)
                 .map_err(|_| {
                     EncryptionError::Decryption(
                         "Decryption failed - wrong session or corrupted data",
                     )
                 })?;
 
-            Ok(buffer)
+            Ok(result)
         }
     }
 }

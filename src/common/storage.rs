@@ -3,11 +3,6 @@
 
 use crate::common::utils::SessionId;
 
-#[cfg(feature = "server-storage")]
-use std::collections::HashMap;
-#[cfg(feature = "server-storage")]
-use std::sync::{Arc, Mutex};
-
 /// Database key: (round_number, session_id)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct DBKey(pub u8, pub SessionId);
@@ -27,49 +22,6 @@ pub trait UntrustedDB: Send + Sync {
     fn delete(&self, key: DBKey) -> Result<(), StorageError>;
 }
 
-#[cfg(feature = "server-storage")]
-/// In-memory implementation of UntrustedDB using HashMap
-pub struct InMemoryDB {
-    storage: Arc<Mutex<HashMap<DBKey, DBValue>>>,
-}
-
-#[cfg(feature = "server-storage")]
-impl InMemoryDB {
-    /// Create a new in-memory database
-    pub fn new() -> Self {
-        Self {
-            storage: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-}
-
-#[cfg(feature = "server-storage")]
-impl Default for InMemoryDB {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[cfg(feature = "server-storage")]
-impl UntrustedDB for InMemoryDB {
-    fn store(&self, key: DBKey, value: DBValue) -> Result<(), StorageError> {
-        let mut storage = self.storage.lock().map_err(|_| StorageError::LockError)?;
-        storage.insert(key, value);
-        Ok(())
-    }
-
-    fn retrieve(&self, key: DBKey) -> Result<DBValue, StorageError> {
-        let storage = self.storage.lock().map_err(|_| StorageError::LockError)?;
-        storage.get(&key).cloned().ok_or(StorageError::KeyNotFound)
-    }
-
-    fn delete(&self, key: DBKey) -> Result<(), StorageError> {
-        let mut storage = self.storage.lock().map_err(|_| StorageError::LockError)?;
-        storage.remove(&key);
-        Ok(())
-    }
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
     #[error("Key not found in database")]
@@ -77,3 +29,53 @@ pub enum StorageError {
     #[error("Failed to acquire lock")]
     LockError,
 }
+
+// InMemoryDB implementation is conditionally compiled
+#[cfg(feature = "server-storage")]
+mod in_memory_db {
+    use super::*;
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+
+    /// In-memory implementation of UntrustedDB using HashMap
+    pub struct InMemoryDB {
+        storage: Arc<Mutex<HashMap<DBKey, DBValue>>>,
+    }
+
+    impl InMemoryDB {
+        /// Create a new in-memory database
+        pub fn new() -> Self {
+            Self {
+                storage: Arc::new(Mutex::new(HashMap::new())),
+            }
+        }
+    }
+
+    impl Default for InMemoryDB {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl UntrustedDB for InMemoryDB {
+        fn store(&self, key: DBKey, value: DBValue) -> Result<(), StorageError> {
+            let mut storage = self.storage.lock().map_err(|_| StorageError::LockError)?;
+            storage.insert(key, value);
+            Ok(())
+        }
+
+        fn retrieve(&self, key: DBKey) -> Result<DBValue, StorageError> {
+            let storage = self.storage.lock().map_err(|_| StorageError::LockError)?;
+            storage.get(&key).cloned().ok_or(StorageError::KeyNotFound)
+        }
+
+        fn delete(&self, key: DBKey) -> Result<(), StorageError> {
+            let mut storage = self.storage.lock().map_err(|_| StorageError::LockError)?;
+            storage.remove(&key);
+            Ok(())
+        }
+    }
+}
+
+#[cfg(feature = "server-storage")]
+pub use in_memory_db::InMemoryDB;
