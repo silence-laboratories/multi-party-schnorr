@@ -400,7 +400,6 @@ mod tests {
             &client_msg1.session_id,
             &s1_state_1,
             |_final_session_id, ad, payload| {
-                // (S2, [msg1])
                 s1_state_2.extend_from_slice(ad);
                 s1_state_2.extend_from_slice(payload);
                 // DB[_id] = s1_state_2
@@ -408,9 +407,16 @@ mod tests {
         )
         .unwrap();
 
+        // We can use `server_round1_decode_server_message()` to
+        // extract `s1_1` from encrypted s1_state_1.
+        let s1_1_decoded = server_round1_decode_server_message(&s1_state_1).unwrap();
+
+        assert_eq!(s1_1.session_id, s1_1_decoded.session_id);
+        assert_eq!(s1_1.commitment, s1_1_decoded.commitment);
+
         let mut s2_state_2 = vec![];
         let s2_2 = server_round1_finish::<G>(
-            s1_1,
+            s1_1_decoded,
             &client_msg1.session_id,
             &s2_state_1,
             |_final_session_id, ad, payload| {
@@ -466,9 +472,13 @@ mod tests {
         let s1_2_decoded = server_round2_decode_server_message::<G>(&s1_state_3).unwrap();
 
         let mut s2_share = vec![];
-        server_round2_message::<G>(s1_2_decoded, &s2_state_3, |_final_session_id, _ad, share| {
-            s2_share.extend_from_slice(share);
-        })
+        server_round2_message::<G>(
+            s1_2_decoded,
+            &s2_state_3,
+            |_final_session_id, _ad, share| {
+                s2_share.extend_from_slice(share);
+            },
+        )
         .unwrap();
     }
 
