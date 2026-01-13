@@ -14,3 +14,6 @@ pub use types::*;
 /// Utility functions
 #[cfg(any(test, feature = "test-support"))]
 pub mod utils;
+
+#[cfg(feature = "session")]
+pub mod session;

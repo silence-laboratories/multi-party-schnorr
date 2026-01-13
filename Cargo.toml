@@ -21,7 +21,7 @@ name = "refresh"
 required-features = [ "eddsa", "test-support" ]
 
 [features]
-default = ["eddsa"]
+default = ["eddsa", "session"]
 eddsa = ["curve25519-dalek", "ed25519-dalek"]
 taproot = ["k256/schnorr"]
 keyshare-session-id = []
@@ -35,6 +35,7 @@ serde = [
   "sl-mpc-mate/serde",
   "crypto_box/serde",
 ]
+session = ["serde", "dep:ciborium"]
 test-support = []
 
 [dependencies]
@@ -70,6 +71,7 @@ sl-mpc-mate = "1.0.1-beta"
 thiserror = "1"
 derivation-path = "0.2.0"
 hmac = { version = "0.12.1" }
+ciborium = { version = "0.2", optional = true }
 
 [dev-dependencies]
 k256 = { version = "0.13.2" }

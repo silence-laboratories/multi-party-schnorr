@@ -29,7 +29,7 @@ const KEY_SIZE: usize = 32;
 
 /// Type for the key generation protocol's message 1.
 ///
-#[derive(Hash, Clone)]
+#[derive(Hash, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeygenMsg1 {
     /// Participant Id of the sender
