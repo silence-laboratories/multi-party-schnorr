@@ -1,12 +1,13 @@
 [package]
 name = "multi-party-schnorr"
-version = "1.0.0-beta"
+version = "1.1.0"
 edition = "2021"
 license-file = "LICENSE"
 description = "Multi party schnorr protocol"
 repository = "https://github.com/silence-laboratories/multi-party-schnorr"
-keywords = ["mpc","threshold_signatures", "schnorr"]
+keywords = ["mpc", "threshold_signatures", "schnorr"]
 readme = "README.md"
+rust-version = "1.88"
 
 [[example]]
 name = "sign"
@@ -54,9 +55,7 @@ ed25519-dalek = { version = "2.1.0", features = [
   "rand_core",
   "digest",
 ], optional = true }
-curve25519-dalek = { version = "4.1.3", features = [
-  "rand_core",
-  "precomputed-tables",
+curve25519-dalek = { version = "~4.1.3", features = [
   "digest",
   "group",
 ], optional = true }
@@ -67,7 +66,7 @@ sha2 = "0.10.7"
 crypto_box = { version = "0.9.1" }
 ff = "0.13.0"
 rand_chacha = "0.3.1"
-sl-mpc-mate = "1.0.1-beta"
+sl-mpc-mate = "1.1.0"
 thiserror = "1"
 derivation-path = "0.2.0"
 hmac = { version = "0.12.1" }
@@ -77,9 +76,4 @@ ciborium = { version = "0.2", optional = true }
 k256 = { version = "0.13.2" }
 bs58 = "0.5.0"
 ciborium = "0.2"
-tokio = { version = "1.34.0", features = [
-  "rt",
-  "sync",
-  "macros",
-  "rt-multi-thread",
-] }
+tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
