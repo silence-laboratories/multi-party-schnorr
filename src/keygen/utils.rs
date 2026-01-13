@@ -17,7 +17,7 @@ use crate::common::{
 use super::{messages::Keyshare, KeyRefreshData, KeygenError, KeygenParty, R0};
 
 // Helper method to generate PKI for a set of parties.
-fn generate_pki<R: CryptoRngCore>(
+pub fn generate_pki<R: CryptoRngCore>(
     total_parties: usize,
     rng: &mut R,
 ) -> (
