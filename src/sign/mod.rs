@@ -5,14 +5,14 @@ use std::collections::HashSet;
 
 mod types;
 
-#[cfg(any(feature = "taproot", feature = "eddsa"))]
+#[cfg(any(feature = "taproot", feature = "eddsa", feature = "redpallas"))]
 /// Messages used in the signing protocol
 pub mod messages;
 
-#[cfg(any(feature = "taproot", feature = "eddsa"))]
+#[cfg(any(feature = "taproot", feature = "eddsa", feature = "redpallas"))]
 mod shared_rounds;
 
-#[cfg(any(feature = "taproot", feature = "eddsa"))]
+#[cfg(any(feature = "taproot", feature = "eddsa", feature = "redpallas"))]
 pub use shared_rounds::*;
 
 #[cfg(feature = "taproot")]
@@ -22,6 +22,10 @@ pub mod taproot;
 #[cfg(feature = "eddsa")]
 /// EdDSA signing protocol using Curve25519
 pub mod eddsa;
+
+#[cfg(feature = "redpallas")]
+/// RedDSA signing protocol using RedPallas (compatible with Zcash reddsa)
+pub mod reddsa;
 
 pub use types::*;
 

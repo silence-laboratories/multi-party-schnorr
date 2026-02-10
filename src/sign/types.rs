@@ -1,18 +1,18 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-#[cfg(any(feature = "taproot", feature = "eddsa"))]
+#[cfg(any(feature = "taproot", feature = "eddsa", feature = "redpallas"))]
 use elliptic_curve::Group;
 
-#[cfg(any(feature = "taproot", feature = "eddsa"))]
+#[cfg(any(feature = "taproot", feature = "eddsa", feature = "redpallas"))]
 use rand::{CryptoRng, Rng, RngCore};
 
 use thiserror::Error;
 
-#[cfg(any(feature = "taproot", feature = "eddsa"))]
+#[cfg(any(feature = "taproot", feature = "eddsa", feature = "redpallas"))]
 use crate::common::utils::SessionId;
 
-#[cfg(any(feature = "taproot", feature = "eddsa"))]
+#[cfg(any(feature = "taproot", feature = "eddsa", feature = "redpallas"))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// All random params needed for sign protocol
 pub struct SignEntropy<G: Group> {
@@ -22,7 +22,7 @@ pub struct SignEntropy<G: Group> {
     pub(crate) seed: [u8; 32],
 }
 
-#[cfg(any(feature = "taproot", feature = "eddsa"))]
+#[cfg(any(feature = "taproot", feature = "eddsa", feature = "redpallas"))]
 impl<G: Group> SignEntropy<G> {
     /// Generate all the random values used in the sign protocol
     pub fn generate<R: CryptoRng + RngCore>(rng: &mut R) -> Self {

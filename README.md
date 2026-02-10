@@ -65,8 +65,10 @@ cargo run --example refresh --features "eddsa test-support"
 
 | Feature              | Default? | Description |
 | :---                 |  :---:   | :---        |
-| `eddsa`              |    ✓     | Enables signing over curve25519 with edd25519-dalek signing objects compatibility|
+| `eddsa`              |    ✓     | Enables signing over curve25519 with ed25519-dalek signing objects compatibility |
 | `taproot`            |          | Enables Bitcoin Taproot Schnorr signing over secp256k1 |
+| `redpallas`          |          | Enables RedDSA signing over Pallas (Zcash Orchard–compatible, verifiable with the `reddsa` crate) |
+| `session`            |    ✓     | Enables session support (serde + ciborium for encoding) |
 | `serde`              |          | Make messages, state and session structures serializable |
 | `keyshare-session-id`|          | Enable field `final_session_id` in `Keyshare` structure and use it to calculate session-id for DSG |
 | `test-support`       |          | Enable internal helpers and fixtures required by the bundled examples |

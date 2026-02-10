@@ -7,6 +7,9 @@ mod math;
 /// Utility functions
 pub mod utils;
 
+#[cfg(feature = "redpallas")]
+pub mod redpallas;
+
 pub use dlog_proof::*;
 
 pub use math::*;
@@ -102,6 +105,19 @@ pub mod traits {
         fn parse_offset(bytes: [u8; 32]) -> CtOption<k256::Scalar> {
             use ff::PrimeField;
             Self::from_repr(bytes.into())
+        }
+    }
+
+    #[cfg(feature = "redpallas")]
+    impl BIP32Derive for pasta_curves::Fq {
+        fn parse_offset(bytes: [u8; 32]) -> CtOption<pasta_curves::Fq> {
+            use ff::FromUniformBytes;
+            let mut wide = [0u8; 64];
+            wide[..32].copy_from_slice(&bytes);
+            CtOption::new(
+                <pasta_curves::Fq as FromUniformBytes<64>>::from_uniform_bytes(&wide),
+                1.into(),
+            )
         }
     }
 
