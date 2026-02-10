@@ -1,13 +1,9 @@
 [package]
 name = "multi-party-schnorr"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 license-file = "LICENSE"
-description = "Multi party schnorr protocol"
-repository = "https://github.com/silence-laboratories/multi-party-schnorr"
-keywords = ["mpc", "threshold_signatures", "schnorr"]
-readme = "README.md"
-rust-version = "1.88"
+
 
 [[example]]
 name = "sign"
@@ -25,6 +21,7 @@ required-features = [ "eddsa", "test-support" ]
 default = ["eddsa", "session"]
 eddsa = ["curve25519-dalek", "ed25519-dalek"]
 taproot = ["k256/schnorr"]
+redpallas = ["dep:pasta_curves", "dep:group", "dep:rand_core", "dep:blake2b_simd", "dep:reddsa"]
 keyshare-session-id = []
 serde = [
   "dep:serde",
@@ -35,6 +32,7 @@ serde = [
   "k256/pkcs8",
   "sl-mpc-mate/serde",
   "crypto_box/serde",
+  "pasta_curves?/serde",
 ]
 session = ["serde", "dep:ciborium"]
 test-support = []
@@ -71,6 +69,11 @@ thiserror = "1"
 derivation-path = "0.2.0"
 hmac = { version = "0.12.1" }
 ciborium = { version = "0.2", optional = true }
+group = { version = "0.13.0", optional = true }
+pasta_curves = { version = "0.5", default-features = false, optional = true }
+rand_core = { version = "0.6.4", optional = true }
+reddsa = { version = "0.5", optional = true }
+blake2b_simd = { version = "1", default-features = false, optional = true }
 
 [dev-dependencies]
 k256 = { version = "0.13.2" }

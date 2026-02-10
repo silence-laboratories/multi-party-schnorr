@@ -497,4 +497,11 @@ mod tests {
 
         server_session::<ProjectivePoint>();
     }
+    #[cfg(feature = "redpallas")]
+    #[test]
+    fn session_redpallas() {
+        use crate::common::redpallas::RedPallasPoint;
+
+        server_session::<RedPallasPoint>();
+    }
 }

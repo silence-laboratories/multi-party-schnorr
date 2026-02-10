@@ -11,7 +11,7 @@ use std::sync::Arc;
 use crypto_bigint::subtle::ConstantTimeEq;
 use derivation_path::DerivationPath;
 use elliptic_curve::{group::GroupEncoding, Group};
-use ff::Field;
+
 use rand::prelude::*;
 use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256};
@@ -19,8 +19,12 @@ use sha2::{Digest, Sha256};
 #[cfg(feature = "eddsa")]
 use curve25519_dalek::EdwardsPoint;
 
+#[cfg(feature = "redpallas")]
+use crate::common::redpallas::RedPallasPoint;
+#[cfg(feature = "redpallas")]
+use ff::{Field, PrimeField};
+
 use crate::{
-    common::traits::BIP32Derive,
     common::{
         get_lagrange_coeff,
         traits::{GroupElem, Round, ScalarReduce},
@@ -212,6 +216,36 @@ impl SignerParty<R0, k256::ProjectivePoint> {
     }
 }
 
+#[cfg(feature = "redpallas")]
+impl SignerParty<R0, RedPallasPoint> {
+    /// Create a new signer party with the given keyshare (RedDSA / RedPallas)
+    pub fn new<R: CryptoRng + RngCore>(
+        keyshare: Arc<Keyshare<RedPallasPoint>>,
+        message: Vec<u8>,
+        derivation_path: DerivationPath,
+        rng: &mut R,
+    ) -> Self {
+        let (additive_offset, derived_public_key) =
+            keyshare.derive_with_offset(&derivation_path).unwrap();
+
+        Self {
+            params: Params {
+                party_id: keyshare.party_id(),
+                threshold: keyshare.threshold,
+                total_parties: keyshare.total_parties,
+                additive_offset,
+                derived_public_key,
+                shamir_share: *keyshare.shamir_share(),
+                message,
+            },
+            #[cfg(feature = "keyshare-session-id")]
+            final_session_id: keyshare.final_session_id,
+            rand_params: SignEntropy::generate(rng),
+            state: R0,
+        }
+    }
+}
+
 // Protocol 11 from https://eprint.iacr.org/2022/374.pdf
 impl<G> Round for SignerParty<R0, G>
 where
@@ -350,16 +384,12 @@ where
         Ok((next, msg2))
     }
 }
-
-impl<G> Round for SignerParty<R2<G>, G>
-where
-    G: GroupElem,
-    G::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
-{
-    type InputMessage = SignMsg2<G>;
-    type Input = Vec<SignMsg2<G>>;
+#[cfg(feature = "eddsa")]
+impl Round for SignerParty<R2<EdwardsPoint>, EdwardsPoint> {
+    type InputMessage = SignMsg2<EdwardsPoint>;
+    type Input = Vec<SignMsg2<EdwardsPoint>>;
     type Error = SignError;
-    type Output = SignReady<G>;
+    type Output = SignReady<EdwardsPoint>;
 
     fn process(self, msgs: Self::Input) -> Result<Self::Output, Self::Error> {
         let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
@@ -372,13 +402,13 @@ where
                 continue;
             }
 
-            let mut encoding = G::Repr::default();
+            let mut encoding = <EdwardsPoint as GroupEncoding>::Repr::default();
             if encoding.as_ref().len() != msg.big_r_i.len() {
                 return Err(SignError::InvalidBigRi);
             }
             encoding.as_mut().copy_from_slice(&msg.big_r_i);
 
-            let msg_big_r_i = G::from_bytes(&encoding)
+            let msg_big_r_i = EdwardsPoint::from_bytes(&encoding)
                 .into_option()
                 .ok_or(SignError::InvalidBigRi)?;
             if msg_big_r_i.is_identity().into() {
@@ -411,14 +441,14 @@ where
             big_r_i += msg_big_r_i;
         }
 
-        let coeff =
-            get_lagrange_coeff::<G>(&self.params.party_id, self.state.pid_list.iter().copied());
+        let coeff = get_lagrange_coeff::<EdwardsPoint>(
+            &self.params.party_id,
+            self.state.pid_list.iter().copied(),
+        );
 
         let d_i = coeff * self.params.shamir_share;
 
-        let threshold_inv = <G as Group>::Scalar::from(participants as u64)
-            .invert()
-            .unwrap();
+        let threshold_inv = curve25519_dalek::Scalar::from(participants as u64).invert();
 
         let additive_offset = self.params.additive_offset * threshold_inv;
 
@@ -429,7 +459,201 @@ where
             big_r: big_r_i,
             d_i,
             pid_list: self.state.pid_list,
-            public_key: self.params.derived_public_key, //replase the public key for that signature with the tweaked public key
+            public_key: self.params.derived_public_key,
+            session_id: self.state.final_session_id,
+            message: self.params.message,
+            k_i: self.rand_params.k_i,
+            party_id: self.params.party_id,
+        };
+
+        Ok(next)
+    }
+}
+
+#[cfg(feature = "taproot")]
+impl Round for SignerParty<R2<k256::ProjectivePoint>, k256::ProjectivePoint> {
+    type InputMessage = SignMsg2<k256::ProjectivePoint>;
+    type Input = Vec<SignMsg2<k256::ProjectivePoint>>;
+    type Error = SignError;
+    type Output = SignReady<k256::ProjectivePoint>;
+
+    fn process(self, msgs: Self::Input) -> Result<Self::Output, Self::Error> {
+        let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
+
+        let mut big_r_i = self.state.big_r_i;
+        let participants = msgs.len();
+
+        for (idx, msg) in msgs.iter().enumerate() {
+            if msg.from_party == self.params.party_id {
+                continue;
+            }
+
+            let mut encoding: <k256::ProjectivePoint as GroupEncoding>::Repr = Default::default();
+            if encoding.len() != msg.big_r_i.len() {
+                return Err(SignError::InvalidBigRi);
+            }
+            encoding[..].copy_from_slice(&msg.big_r_i);
+
+            let msg_big_r_i = k256::ProjectivePoint::from_bytes(&encoding)
+                .into_option()
+                .ok_or(SignError::InvalidBigRi)?;
+            if msg_big_r_i.is_identity().into() {
+                return Err(SignError::InvalidBigRi);
+            }
+
+            if !verify_commitment_r_i(
+                &self.state.sid_list[idx],
+                msg.from_party,
+                &msg_big_r_i,
+                &msg.blind_factor,
+                &self.state.commitment_list[idx],
+            ) {
+                return Err(SignError::InvalidCommitment(msg.from_party));
+            }
+
+            let mut h = Sha256::new();
+            h.update(b"SL-EDDSA-SIGN");
+            h.update(self.state.final_session_id.as_ref());
+            h.update((msg.from_party as u32).to_be_bytes());
+            h.update(b"DLOG-SID");
+
+            let dlog_sid = h.finalize().into();
+
+            msg.dlog_proof
+                .verify(&dlog_sid, &msg_big_r_i)
+                .then_some(())
+                .ok_or(SignError::InvalidDLogProof(msg.from_party))?;
+
+            big_r_i += msg_big_r_i;
+        }
+
+        let coeff = get_lagrange_coeff::<k256::ProjectivePoint>(
+            &self.params.party_id,
+            self.state.pid_list.iter().copied(),
+        );
+
+        let d_i = coeff * self.params.shamir_share;
+
+        let scalar = k256::Scalar::from(participants as u64);
+        let threshold_inv: k256::Scalar =
+            Option::from(scalar.invert()).ok_or(SignError::InvalidThreshold)?;
+
+        let additive_offset = self.params.additive_offset * threshold_inv;
+
+        //tweak the secret key share by the computed additive offset
+        let d_i = d_i + additive_offset;
+
+        let next = SignReady {
+            big_r: big_r_i,
+            d_i,
+            pid_list: self.state.pid_list,
+            public_key: self.params.derived_public_key,
+            session_id: self.state.final_session_id,
+            message: self.params.message,
+            k_i: self.rand_params.k_i,
+            party_id: self.params.party_id,
+        };
+
+        Ok(next)
+    }
+}
+
+#[cfg(feature = "redpallas")]
+impl Round for SignerParty<R2<RedPallasPoint>, RedPallasPoint> {
+    type InputMessage = SignMsg2<RedPallasPoint>;
+    type Input = Vec<SignMsg2<RedPallasPoint>>;
+    type Error = SignError;
+    type Output = SignReady<RedPallasPoint>;
+
+    fn process(self, msgs: Self::Input) -> Result<Self::Output, Self::Error> {
+        let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
+
+        let mut big_r_i = self.state.big_r_i;
+        let participants = msgs.len();
+        // Use commitment hashes as randomizer source (each party's commitment is bound in round 1)
+        let commitment_r_i = hash_commitment_r_i(
+            &self.rand_params.session_id,
+            self.params.party_id,
+            &big_r_i,
+            &self.rand_params.blind_factor,
+        );
+        let mut randomizer_i =
+            <pasta_curves::Fq as ScalarReduce<[u8; 32]>>::reduce_from_bytes(&commitment_r_i);
+
+        for (idx, msg) in msgs.iter().enumerate() {
+            if msg.from_party == self.params.party_id {
+                continue;
+            }
+
+            let mut encoding = <RedPallasPoint as GroupEncoding>::Repr::default();
+            if encoding.as_ref().len() != msg.big_r_i.len() {
+                return Err(SignError::InvalidBigRi);
+            }
+            encoding.as_mut().copy_from_slice(&msg.big_r_i);
+
+            let msg_big_r_i = RedPallasPoint::from_bytes(&encoding)
+                .into_option()
+                .ok_or(SignError::InvalidBigRi)?;
+            if msg_big_r_i.is_identity().into() {
+                return Err(SignError::InvalidBigRi);
+            }
+
+            if !verify_commitment_r_i(
+                &self.state.sid_list[idx],
+                msg.from_party,
+                &msg_big_r_i,
+                &msg.blind_factor,
+                &self.state.commitment_list[idx],
+            ) {
+                return Err(SignError::InvalidCommitment(msg.from_party));
+            }
+
+            let mut h = Sha256::new();
+            h.update(b"SL-EDDSA-SIGN");
+            h.update(self.state.final_session_id.as_ref());
+            h.update((msg.from_party as u32).to_be_bytes());
+            h.update(b"DLOG-SID");
+
+            let dlog_sid = h.finalize().into();
+
+            msg.dlog_proof
+                .verify(&dlog_sid, &msg_big_r_i)
+                .then_some(())
+                .ok_or(SignError::InvalidDLogProof(msg.from_party))?;
+
+            big_r_i += msg_big_r_i;
+            //add randomness from commitment_r_i to the randomizer
+            randomizer_i += <pasta_curves::Fq as ScalarReduce<[u8; 32]>>::reduce_from_bytes(
+                &self.state.commitment_list[idx],
+            );
+        }
+
+        let coeff = get_lagrange_coeff::<RedPallasPoint>(
+            &self.params.party_id,
+            self.state.pid_list.iter().copied(),
+        );
+
+        let d_i = coeff * self.params.shamir_share;
+
+        let scalar = <RedPallasPoint as Group>::Scalar::from(participants as u64);
+        let threshold_inv: pasta_curves::Fq =
+            Option::from(scalar.invert()).ok_or(SignError::InvalidThreshold)?;
+
+        let additive_offset = self.params.additive_offset * threshold_inv;
+
+        let rand_offset = randomizer_i;
+        //hash the randomizer to get a scalar
+        let rand_offset_hashed = RedPallasPoint::hash_randomizer(rand_offset.to_repr().as_ref());
+
+        let d_i = d_i + additive_offset + rand_offset_hashed;
+
+        let next = SignReady {
+            big_r: big_r_i,
+            d_i,
+            pid_list: self.state.pid_list,
+            public_key: self.params.derived_public_key
+                + (RedPallasPoint::generator()
+                    * (rand_offset_hashed * pasta_curves::Fq::from(participants as u64))),
             session_id: self.state.final_session_id,
             message: self.params.message,
             k_i: self.rand_params.k_i,

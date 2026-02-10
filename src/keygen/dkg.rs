@@ -832,6 +832,32 @@ mod test {
         run_keygen::<10, 10, EdwardsPoint>();
         run_keygen::<9, 20, EdwardsPoint>();
     }
+    #[cfg(feature = "redpallas")]
+    #[test]
+    fn keygen_redpallas() {
+        use crate::common::redpallas::RedPallasPoint;
+
+        run_keygen::<2, 2, RedPallasPoint>();
+        run_keygen::<2, 3, RedPallasPoint>();
+        run_keygen::<3, 5, RedPallasPoint>();
+        run_keygen::<5, 5, RedPallasPoint>();
+        run_keygen::<5, 10, RedPallasPoint>();
+        run_keygen::<10, 10, RedPallasPoint>();
+        run_keygen::<9, 20, RedPallasPoint>();
+    }
+    #[cfg(feature = "redpallas")]
+    #[test]
+    fn keygen_redpallas_session() {
+        use crate::common::redpallas::RedPallasPoint;
+
+        run_dkg_session::<2, 2, RedPallasPoint>();
+        run_dkg_session::<2, 3, RedPallasPoint>();
+        run_dkg_session::<3, 5, RedPallasPoint>();
+        run_dkg_session::<5, 5, RedPallasPoint>();
+        run_dkg_session::<5, 10, RedPallasPoint>();
+        run_dkg_session::<10, 10, RedPallasPoint>();
+        run_dkg_session::<9, 20, RedPallasPoint>();
+    }
 
     #[cfg(feature = "taproot")]
     #[test]
