@@ -3,7 +3,11 @@ name = "multi-party-schnorr"
 version = "1.2.0-pre.1"
 edition = "2021"
 license-file = "LICENSE"
-
+description = "Multi party schnorr protocol"
+repository = "https://github.com/silence-laboratories/multi-party-schnorr"
+keywords = ["mpc", "threshold_signatures", "schnorr"]
+readme = "README.md"
+rust-version = "1.88"
 
 [[example]]
 name = "sign"
