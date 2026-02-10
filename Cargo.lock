@@ -494,7 +494,7 @@ checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
 
 [[package]]
 name = "multi-party-schnorr"
-version = "1.2.0"
+version = "1.2.0-pre.1"
 dependencies = [
  "blake2b_simd",
  "bs58",
