@@ -24,6 +24,33 @@ const ORCHARD_SPENDAUTHSIG_BASEPOINT_BYTES: [u8; 32] = [
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RedPallasPoint(pub pallas::Point);
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RedPallasPointBytes(pub [u8; 32]);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RedPallasPointDecodeError {
+    InvalidPointEncoding,
+}
+
+impl From<RedPallasPoint> for RedPallasPointBytes {
+    fn from(value: RedPallasPoint) -> Self {
+        let mut out = [0u8; 32];
+        out.copy_from_slice(value.to_bytes().as_ref());
+        Self(out)
+    }
+}
+
+impl TryFrom<RedPallasPointBytes> for RedPallasPoint {
+    type Error = RedPallasPointDecodeError;
+
+    fn try_from(value: RedPallasPointBytes) -> Result<Self, Self::Error> {
+        let mut repr = <Self as GroupEncoding>::Repr::default();
+        repr.as_mut().copy_from_slice(&value.0);
+        Option::from(Self::from_bytes(&repr)).ok_or(RedPallasPointDecodeError::InvalidPointEncoding)
+    }
+}
+
 impl RedPallasPoint {
     /// Hash bytes to a scalar using BLAKE2b-512.
     pub fn hash_randomizer(m: &[u8]) -> Fq {
@@ -192,5 +219,30 @@ impl ScalarReduce<[u8; 32]> for Fq {
         let mut wide = [0u8; 64];
         wide[..32].copy_from_slice(bytes);
         <Fq as FromUniformBytes<64>>::from_uniform_bytes(&wide)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use group::Group;
+
+    use super::{RedPallasPoint, RedPallasPointBytes};
+
+    #[test]
+    fn redpallas_point_bytes_roundtrip() {
+        let original = RedPallasPoint::generator();
+        let encoded = RedPallasPointBytes::from(original);
+        let decoded = RedPallasPoint::try_from(encoded).unwrap();
+        assert_eq!(decoded, original);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn redpallas_point_bytes_serde_roundtrip() {
+        let original = RedPallasPointBytes::from(RedPallasPoint::generator());
+        let mut encoded = Vec::new();
+        ciborium::into_writer(&original, &mut encoded).unwrap();
+        let decoded: RedPallasPointBytes = ciborium::from_reader(encoded.as_slice()).unwrap();
+        assert_eq!(decoded, original);
     }
 }
