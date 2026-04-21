@@ -68,6 +68,11 @@ sha2 = "0.10.7"
 crypto_box = { version = "0.9.1" }
 ff = "0.13.0"
 rand_chacha = "0.3.1"
+sl-compute-common = { version = "1.1.0" }
+sl-messages = { version = "1.2.0", features = ["setup"] }
+sl-compute = { git = "https://github.com/silence-laboratories/sl-compute.git"}
+garbled-circuit = { git = "https://github.com/silence-laboratories/garbling.git", branch = "zcash"}
+zcash = { git = "https://github.com/silence-laboratories/garbling.git", branch = "zcash", package = "zcash"}
 sl-mpc-mate = "1.1.0"
 thiserror = "1"
 derivation-path = "0.2.0"
@@ -84,3 +89,4 @@ k256 = { version = "0.13.2" }
 bs58 = "0.5.0"
 ciborium = "0.2"
 tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
+hex = "0.4"
