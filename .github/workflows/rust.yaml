@@ -26,8 +26,14 @@ jobs:
       with:
         shared-key: "build"
 
-    - name: Run cargo clippy
-      run: cargo clippy --all --all-features --locked -- -D warnings
+    - name: Run cargo clippy (EdDSA + Taproot + RedPallas + session)
+      run: cargo clippy --all --no-default-features --features "eddsa taproot redpallas session keyshare-session-id test-support" --locked -- -D warnings
 
-    - name: Run tests
-      run: cargo test --all-features --release --locked
+    - name: Run cargo clippy (EdDSA + associated-data)
+      run: cargo clippy --all --no-default-features --features "eddsa ad session keyshare-session-id test-support" --locked -- -D warnings
+
+    - name: Run tests (EdDSA + Taproot + RedPallas + session)
+      run: cargo test --release --no-default-features --features "eddsa taproot redpallas session keyshare-session-id test-support" --locked
+
+    - name: Run tests (EdDSA + associated-data)
+      run: cargo test --release --no-default-features --features "eddsa ad session keyshare-session-id test-support" --locked
