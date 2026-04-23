@@ -2,6 +2,7 @@
 // This software is licensed under the Silence Laboratories License Agreement.
 
 use curve25519_dalek::EdwardsPoint;
+use ed25519_dalek::{Verifier, VerifyingKey};
 use rand::seq::SliceRandom;
 
 use multi_party_schnorr::{
@@ -48,6 +49,14 @@ fn main() {
         run_round(parties, partial_sigs).into_iter().unzip();
 
     println!("Time: {:?}", start.elapsed());
+
+    // Verify the produced signatures against the public key using a standard Ed25519 verifier.
+    let pk = *subset[0].public_key();
+    let vk = VerifyingKey::from(pk);
+    for sig in &signatures {
+        vk.verify(msg, sig).expect("signature verification failed");
+    }
+
     for sig in signatures {
         println!("Signature: {}", bs58::encode(sig.to_bytes()).into_string())
     }

@@ -24,6 +24,9 @@ use crate::common::redpallas::RedPallasPoint;
 #[cfg(feature = "redpallas")]
 use ff::{Field, PrimeField};
 
+#[cfg(all(feature = "eddsa", feature = "ad"))]
+use super::auth_data::AssociatedDataProof;
+
 use crate::{
     common::{
         get_lagrange_coeff,
@@ -66,6 +69,9 @@ where
     #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
     derived_public_key: G,
     shamir_share: G::Scalar,
+
+    #[cfg(all(feature = "eddsa", feature = "ad"))]
+    auth_data: Vec<u8>,
 }
 
 /// Signer party
@@ -133,6 +139,8 @@ pub struct SignReady<G: Group> {
     pub message: Vec<u8>,
     pub(crate) k_i: G::Scalar,
     pub party_id: u8,
+    #[cfg(all(feature = "eddsa", feature = "ad"))]
+    pub auth_proof: AssociatedDataProof,
 }
 
 /// State of Signer party after processing all SignMsg3 messages
@@ -177,6 +185,38 @@ impl SignerParty<R0, EdwardsPoint> {
                 derived_public_key,
                 shamir_share: *keyshare.shamir_share(),
                 message,
+                #[cfg(all(feature = "eddsa", feature = "ad"))]
+                auth_data: Vec::new(),
+            },
+            #[cfg(feature = "keyshare-session-id")]
+            final_session_id: keyshare.final_session_id,
+            rand_params: SignEntropy::generate(rng),
+            state: R0,
+        }
+    }
+
+    #[cfg(all(feature = "eddsa", feature = "ad"))]
+    /// Create a new signer party with associated data for the AD-tweak.
+    pub fn new_with_auth_data<R: CryptoRng + RngCore>(
+        keyshare: Arc<Keyshare<EdwardsPoint>>,
+        message: Vec<u8>,
+        derivation_path: DerivationPath,
+        auth_data: Vec<u8>,
+        rng: &mut R,
+    ) -> Self {
+        let (additive_offset, derived_public_key) =
+            keyshare.derive_with_offset(&derivation_path).unwrap();
+
+        Self {
+            params: Params {
+                party_id: keyshare.party_id(),
+                threshold: keyshare.threshold,
+                total_parties: keyshare.total_parties,
+                additive_offset,
+                derived_public_key,
+                shamir_share: *keyshare.shamir_share(),
+                message,
+                auth_data,
             },
             #[cfg(feature = "keyshare-session-id")]
             final_session_id: keyshare.final_session_id,
@@ -455,15 +495,36 @@ impl Round for SignerParty<R2<EdwardsPoint>, EdwardsPoint> {
         //tweak the secret key share by the computed additive offset
         let d_i = d_i + additive_offset;
 
+        #[cfg(not(all(feature = "eddsa", feature = "ad")))]
+        let (big_r, k_i) = (big_r_i, self.rand_params.k_i);
+
+        #[cfg(all(feature = "eddsa", feature = "ad"))]
+        let (big_r, big_r_prime, k_i) = {
+            let big_r_prime = big_r_i;
+            let ad_tweak = AssociatedDataProof::ro(
+                &self.params.auth_data,
+                &self.params.derived_public_key,
+                &big_r_prime,
+            );
+            (
+                big_r_prime * ad_tweak,
+                big_r_prime,
+                // Keep the signature equation consistent with the tweaked `R`.
+                self.rand_params.k_i * ad_tweak,
+            )
+        };
+
         let next = SignReady {
-            big_r: big_r_i,
+            big_r,
             d_i,
             pid_list: self.state.pid_list,
             public_key: self.params.derived_public_key,
             session_id: self.state.final_session_id,
             message: self.params.message,
-            k_i: self.rand_params.k_i,
+            k_i,
             party_id: self.params.party_id,
+            #[cfg(all(feature = "eddsa", feature = "ad"))]
+            auth_proof: AssociatedDataProof { big_r_prime },
         };
 
         Ok(next)

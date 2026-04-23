@@ -25,6 +25,7 @@ required-features = [ "eddsa", "test-support" ]
 default = ["eddsa", "session"]
 eddsa = ["curve25519-dalek", "ed25519-dalek"]
 taproot = ["k256/schnorr"]
+ad = []
 redpallas = ["dep:pasta_curves", "dep:group", "dep:rand_core", "dep:blake2b_simd", "dep:reddsa"]
 keyshare-session-id = []
 serde = [
