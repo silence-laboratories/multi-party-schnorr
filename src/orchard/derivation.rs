@@ -109,7 +109,8 @@ mod tests {
     use sl_messages::{relay::Relay, setup::ProtocolParticipant};
 
     use crate::{
-        common::{redpallas::RedPallasPoint, utils::support::run_keygen}, keygen::Keyshare,
+        common::{redpallas::RedPallasPoint, utils::support::run_keygen},
+        keygen::Keyshare,
         orchard::derivation::run_orchard_key_components,
     };
 
