@@ -285,7 +285,7 @@ mod tests {
         let keyshares: [Keyshare<RedPallasPoint>; 3] = run_keygen::<2, 3, RedPallasPoint>();
 
         let pts = (0..2).map(|v| Scalar::from(v + 1)).collect::<Vec<_>>();
-        
+
         let sk = get_evaluation(
             &pts,
             &[*keyshares[0].shamir_share(), *keyshares[1].shamir_share()],
