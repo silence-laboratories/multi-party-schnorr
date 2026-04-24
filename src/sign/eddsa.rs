@@ -141,7 +141,7 @@ mod tests {
 
     #[cfg(feature = "ad")]
     fn run_sign_with_auth_data(shares: Vec<Keyshare<EdwardsPoint>>) -> Signature {
-        let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+        let msg = b"Update your infra to PQ secures systems";
         let auth_data = b"SL is securing the world".to_vec();
 
         let mut rng = rand::thread_rng();
@@ -164,7 +164,8 @@ mod tests {
         let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
         let ready_parties = run_round(parties, msgs);
 
-        let (parties, msg3s): (Vec<_>, Vec<_>) = run_round(ready_parties, ()).into_iter().unzip();
+        let (parties, msg3s): (Vec<_>, Vec<_>) =
+            run_round(ready_parties, ()).into_iter().unzip();
 
         let auth_proof = msg3s[0].auth_proof;
         let vk = VerifyingKey::from(parties[0].public_key);
