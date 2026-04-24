@@ -304,7 +304,6 @@ mod tests {
         assert_eq!(nk, nk_ideal);
         assert_eq!(rivk, rivk_ideal);
 
-        // Spec sanity check: `ask` must be non-zero.
         assert!(!bool::from(ask.is_zero()));
 
         use orchard::{
@@ -338,9 +337,7 @@ mod tests {
         let internal_ivk = fvk.to_ivk(orchard::keys::Scope::Internal);
         let external_ivk = fvk.to_ivk(orchard::keys::Scope::External);
 
-        // Spec sanity checks: `ivk` must be neither 0 nor ⊥. We enforce this by round-tripping
-        // through the raw encoding; invalid encodings yield `CtOption::None`, and the all-zero
-        // encoding corresponds to ivk = 0.
+        // Spec sanity checks: `ivk` must be neither 0 nor ⊥. 
         for ivk in [internal_ivk, external_ivk] {
             let ivk_bytes = ivk.to_bytes();
             assert_ne!(ivk_bytes, [0u8; 64]);
