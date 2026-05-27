@@ -1,6 +1,8 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
+//! BIP32 soft derivation party (stays in the main crate: needs [`crate::keygen::Keyshare`]).
+
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -66,8 +68,6 @@ mod test {
 
     use rand::prelude::SliceRandom;
 
-    // Execute one round of DKG protocol locally, execute parties in
-    // parallel. Used for testing purposes.
     fn run_round_no_serde<I, R, O, E>(actors: Vec<R>, msgs: I) -> Vec<O>
     where
         R: Round<Input = I, Output = O, Error = E>,

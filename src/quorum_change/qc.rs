@@ -28,6 +28,9 @@ use crate::{
     },
 };
 
+#[cfg(feature = "vrf")]
+use crate::common::compute_additive_public_shares;
+
 /// LABEL for the QuorumChange protocol
 pub const QC_LABEL: &[u8] = b"Schnorr-QC";
 
@@ -879,6 +882,11 @@ where
             return Err(QCError::PublicKeyMismatch);
         }
 
+        let n = self.params.new_parties.len() as u8;
+
+        #[cfg(feature = "vrf")]
+        let party_public_shares = compute_additive_public_shares(&big_p_poly, n);
+
         let key_id = if let Some(key_id) = self.params.key_id {
             key_id
         } else {
@@ -887,11 +895,13 @@ where
 
         let keyshare = Keyshare {
             threshold: self.params.new_t,
-            total_parties: self.params.new_parties.len() as u8,
+            total_parties: n,
             party_id: my_new_party_id,
             key_id,
             d_i: p_i,
             public_key,
+            #[cfg(feature = "vrf")]
+            party_public_shares,
             extra_data: self.params.extra_data,
             root_chain_code: self.root_chain_code,
             #[cfg(feature = "keyshare-session-id")]
@@ -1248,6 +1258,11 @@ where
             return Err(QCError::PublicKeyMismatch);
         }
 
+        let n = self.params.new_parties.len() as u8;
+
+        #[cfg(feature = "vrf")]
+        let party_public_shares = compute_additive_public_shares(&big_p_poly, n);
+
         let key_id = if let Some(key_id) = self.params.key_id {
             key_id
         } else {
@@ -1256,11 +1271,13 @@ where
 
         let keyshare = Keyshare {
             threshold: self.params.new_t,
-            total_parties: self.params.new_parties.len() as u8,
+            total_parties: n,
             party_id: my_new_party_id,
             key_id,
             d_i: p_i,
             public_key,
+            #[cfg(feature = "vrf")]
+            party_public_shares,
             extra_data: self.params.extra_data,
             root_chain_code: root_chain_code_list[0],
             #[cfg(feature = "keyshare-session-id")]

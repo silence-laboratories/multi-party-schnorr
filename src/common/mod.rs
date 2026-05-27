@@ -3,6 +3,7 @@
 
 mod dlog_proof;
 mod math;
+mod transcript;
 
 /// Utility functions
 pub mod utils;

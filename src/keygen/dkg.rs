@@ -24,6 +24,9 @@ use crate::common::{
     DLogProof,
 };
 
+#[cfg(feature = "vrf")]
+use crate::common::compute_additive_public_shares;
+
 use super::{
     types::{KeyEntropy, KeygenError, KeygenParams},
     KeyRefreshData, KeygenMsg1, KeygenMsg2, Keyshare,
@@ -568,6 +571,9 @@ where
 
         let public_key = big_a_poly.get_constant();
 
+        #[cfg(feature = "vrf")]
+        let party_public_shares = compute_additive_public_shares(&big_a_poly, self.params.n);
+
         // 12.6(e)
         let expected_point: G = G::generator() * d_i_share;
         let calc_point =
@@ -618,6 +624,8 @@ where
             key_id,
             d_i: d_i_share,
             public_key,
+            #[cfg(feature = "vrf")]
+            party_public_shares,
             extra_data: self.params.extra_data,
             root_chain_code,
             #[cfg(feature = "keyshare-session-id")]

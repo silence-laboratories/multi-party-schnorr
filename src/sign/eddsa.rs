@@ -89,51 +89,56 @@ impl Round for PartialSign<EdwardsPoint> {
     }
 }
 
-#[cfg(test)]
-mod tests {
+#[cfg(any(test, feature = "test-support"))]
+#[allow(dead_code)]
+pub(crate) const TEST_SIGN_MESSAGE: &[u8] = b"press the blue button";
+
+#[cfg(any(test, feature = "test-support"))]
+#[allow(dead_code)]
+pub(crate) fn run_sign(
+    shares: Vec<crate::keygen::Keyshare<EdwardsPoint>>,
+    derivation_path: &str,
+) -> Signature {
     use std::sync::Arc;
 
+    use crate::{common::utils::support::run_round, sign::SignerParty};
+
+    let mut rng = rand::thread_rng();
+
+    let parties = shares
+        .into_iter()
+        .map(Arc::new)
+        .map(|keyshare| {
+            SignerParty::<_, EdwardsPoint>::new(
+                keyshare,
+                TEST_SIGN_MESSAGE.to_vec(),
+                derivation_path.parse().unwrap(),
+                &mut rng,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+    let ready_parties = run_round(parties, msgs);
+
+    let (parties, partial_sigs): (Vec<_>, Vec<_>) =
+        run_round(ready_parties, ()).into_iter().unzip();
+
+    let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
+        run_round(parties, partial_sigs).into_iter().unzip();
+
+    signatures[0]
+}
+
+#[cfg(test)]
+mod tests {
     use curve25519_dalek::EdwardsPoint;
     use rand::seq::SliceRandom;
 
     use super::*;
 
-    use crate::{
-        common::utils::support::{run_keygen, run_round},
-        keygen::Keyshare,
-        sign::SignerParty,
-    };
-
-    fn run_sign(shares: Vec<Keyshare<EdwardsPoint>>) -> Signature {
-        let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
-
-        let mut rng = rand::thread_rng();
-
-        let parties = shares
-            .into_iter()
-            .map(Arc::new)
-            .map(|keyshare| {
-                SignerParty::<_, EdwardsPoint>::new(
-                    keyshare,
-                    msg.into(),
-                    "m/0".parse().unwrap(),
-                    &mut rng,
-                )
-            })
-            .collect::<Vec<_>>();
-
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-        let ready_parties = run_round(parties, msgs);
-
-        let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-            run_round(ready_parties, ()).into_iter().unzip();
-
-        let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
-            run_round(parties, partial_sigs).into_iter().unzip();
-
-        signatures[0]
-    }
+    use crate::common::utils::support::run_keygen;
 
     #[test]
     fn sign_2_2() {
@@ -142,7 +147,7 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 2)
             .cloned()
             .collect();
-        run_sign(subset);
+        run_sign(subset, "m/0");
     }
 
     #[test]
@@ -152,7 +157,7 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 2)
             .cloned()
             .collect();
-        run_sign(subset);
+        run_sign(subset, "m/0");
     }
 
     #[test]
@@ -162,7 +167,7 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 3)
             .cloned()
             .collect();
-        run_sign(subset);
+        run_sign(subset, "m/0");
     }
 
     #[test]
@@ -172,7 +177,7 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 3)
             .cloned()
             .collect();
-        run_sign(subset);
+        run_sign(subset, "m/0");
     }
 
     #[test]
@@ -182,7 +187,7 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 3)
             .cloned()
             .collect();
-        run_sign(subset);
+        run_sign(subset, "m/0");
     }
 
     #[test]
@@ -192,6 +197,6 @@ mod tests {
             .choose_multiple(&mut rand::thread_rng(), 5)
             .cloned()
             .collect();
-        run_sign(subset);
+        run_sign(subset, "m/0");
     }
 }

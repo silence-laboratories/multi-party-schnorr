@@ -11,10 +11,18 @@ pub mod keygen;
 /// The `sign` module contains the signing protocol
 pub mod sign;
 
+/// Threshold MPC VRF (DKG keygen + multi-round evaluation)
+#[cfg(feature = "vrf")]
+pub mod vrf;
+
 /// Common utility functions and types
 pub mod common;
 pub mod derive;
+#[cfg(all(feature = "eddsa", feature = "vrf"))]
+mod ed25519_vrf_derive;
 pub mod quorum_change;
+#[cfg(feature = "eddsa")]
+mod soft_derive;
 
 pub const VERSION: u16 = 1;
 

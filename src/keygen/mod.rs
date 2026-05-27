@@ -2,6 +2,8 @@
 // This software is licensed under the Silence Laboratories License Agreement.
 
 mod dkg;
+#[cfg(feature = "vrf")]
+mod hard_derive_root;
 mod messages;
 mod refresh;
 mod types;

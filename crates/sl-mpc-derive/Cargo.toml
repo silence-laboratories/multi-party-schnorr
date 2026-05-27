@@ -1,0 +1,30 @@
+[package]
+name = "sl-mpc-derive"
+version = "0.1.0"
+edition = "2021"
+license-file = "../../LICENSE"
+description = "MPC signing derivation: hash-to-curve, hard derive tweak, Ristretto VRF curve types"
+repository = "https://github.com/silence-laboratories/multi-party-schnorr"
+rust-version = "1.88"
+
+[features]
+default = []
+eddsa = ["dep:curve25519-dalek", "dep:ed25519-dalek"]
+vrf = ["eddsa"]
+k256 = ["dep:k256"]
+
+[dependencies]
+crypto-bigint = "0.5"
+elliptic-curve = { version = "0.13" }
+ff = "0.13.0"
+hmac = "0.12.1"
+rand = "0.8"
+rand_chacha = "0.3.1"
+sha2 = "0.10.7"
+thiserror = "1"
+curve25519-dalek = { version = "~4.1.3", features = ["digest", "group"], optional = true }
+ed25519-dalek = { version = "2.1.0", features = ["zeroize", "rand_core", "digest"], optional = true }
+k256 = { version = "0.13.2", default-features = false, features = ["arithmetic"], optional = true }
+
+[dev-dependencies]
+rand = "0.8"
