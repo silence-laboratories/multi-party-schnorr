@@ -7,6 +7,7 @@
   - [Running Tests](#running-tests)
   - [Examples](#examples)
 - [Implementation Details](#implementation-details)
+  - [Threshold MPC VRF and hard derivation](#threshold-mpc-vrf-and-hard-derivation)
   - [Feature Flags](#feature-flags)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -23,6 +24,8 @@ This is a production-ready, audited implementation  and has undergone a comprehe
 - Distributed Signature Generation (DSG)
 - Key refresh
 - Quorum Change: dynamically change the participant set by adding or removing parties
+- **Threshold MPC VRF** (`vrf` feature): t-of-n verifiable random function evaluation on Ristretto, following the [MPC VRF spec](https://github.com/coinbase/cb-mpc/blob/master/docs/spec/vrf-spec.pdf)
+- **VRF-backed hard derivation**: derive child threshold signing keys from a root keyshare using a separate VRF DKG keyshare and a derivation path (Ed25519 and secp256k1 signing curves)
 
 
 
@@ -34,6 +37,12 @@ cargo build
 ### Running Tests
 ```bash
 cargo test
+```
+
+With VRF and hard derivation enabled:
+
+```bash
+cargo test --features "vrf test-support"
 ```
 
 
@@ -59,6 +68,17 @@ cargo run --example refresh --features "eddsa test-support"
 - This library contains only the cryptographic protocol and does not provide any networking functions.
 - The parties in the protocol do not authenticate themselves and do not establish e2e secure channels
 
+### Threshold MPC VRF and hard derivation
+
+Enable with the `vrf` Cargo feature (implies `eddsa` and the companion [`sl-mpc-derive`](./crates/sl-mpc-derive/) crate).
+
+**VRF evaluation** uses a dedicated threshold key on **Ristretto** (`VrfPoint`), produced by the same DKG as signing keys. With `vrf` enabled, each `Keyshare` also stores per-party additive public shares required by the protocol. Evaluation is a three-round MPC protocol exposed under [`crate::vrf`](./src/vrf/)
+
+**Hard derivation** combines a **root signing** `Keyshare` (Ed25519 or secp256k1) with a **Ristretto VRF** `Keyshare`. Parties run `HardDeriveParty` (same three rounds as VRF eval, then a local tweak) on a derivation path; the VRF output is split into a scalar tweak and chain code, and the root keyshare is updated symmetrically for the participating quorum. Entry points:
+
+- `MpcDeriveInit::with_ristretto_vrf(root_keyshare, vrf_keyshare)`
+- `HardDeriveParty` and `keyshare_after_hard_derive` in [`vrf::hard_derivation`](./src/vrf/hard_derivation.rs)
+- Ed25519 aliases: `MpcDeriveInitEd25519`, `HardDerivePartyEd25519` (with `eddsa` + `vrf`)
 
 
 ### Feature Flags
@@ -66,6 +86,7 @@ cargo run --example refresh --features "eddsa test-support"
 | Feature              | Default? | Description |
 | :---                 |  :---:   | :---        |
 | `eddsa`              |    ✓     | Enables signing over curve25519 with ed25519-dalek signing objects compatibility |
+| `vrf`                |          | Threshold MPC VRF on Ristretto, VRF DKG public shares, and VRF-backed hard derivation (requires `eddsa`) |
 | `taproot`            |          | Enables Bitcoin Taproot Schnorr signing over secp256k1 |
 | `redpallas`          |          | Enables RedDSA signing over Pallas (Zcash Orchard–compatible, verifiable with the `reddsa` crate) |
 | `session`            |    ✓     | Enables session support (serde + ciborium for encoding) |

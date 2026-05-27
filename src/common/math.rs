@@ -10,10 +10,60 @@ use rand::{CryptoRng, RngCore};
 
 use sl_mpc_mate::math::Polynomial;
 
+#[cfg(feature = "vrf")]
+use sl_mpc_mate::math::GroupPolynomial;
+
 use crate::{
     common::ser,
     keygen::{KeyRefreshData, KeygenError},
 };
+
+#[cfg(feature = "vrf")]
+use crate::common::traits::GroupElem;
+
+/// Additive public key shares
+#[cfg(feature = "vrf")]
+pub fn compute_additive_public_shares<G: GroupElem>(
+    big_poly: &GroupPolynomial<G>,
+    n: u8,
+) -> Vec<G> {
+    (0..n)
+        .map(|j| {
+            let public_d_j = big_poly.evaluate_at(&G::Scalar::from((j + 1) as u64));
+            let coeff = get_lagrange_coeff::<G>(&j, 0..n);
+            public_d_j * coeff
+        })
+        .collect()
+}
+
+/// Recover Shamir share d_i from additive share w_i
+pub fn shamir_share_from_additive_share<G: Group>(
+    additive_share: G::Scalar,
+    party_id: u8,
+    participating_party_ids: impl IntoIterator<Item = u8>,
+) -> G::Scalar
+where
+    G::Scalar: Field,
+{
+    let coeff = get_lagrange_coeff::<G>(&party_id, participating_party_ids);
+    additive_share * coeff.invert().unwrap()
+}
+
+/// Additive public share for party party_id over the active set, from a full-quorum share.
+pub fn participant_public_share<G: Group>(
+    full_quorum_share: &G,
+    party_id: u8,
+    total_parties: u8,
+    pid_list: impl IntoIterator<Item = u8>,
+) -> G
+where
+    G::Scalar: Field,
+{
+    let full_coeff = get_lagrange_coeff::<G>(&party_id, 0..total_parties);
+    let part_coeff = get_lagrange_coeff::<G>(&party_id, pid_list);
+    // SAFETY: full_coeff is a Lagrange coefficient and is never zero.
+    *full_quorum_share * (part_coeff * full_coeff.invert().unwrap())
+}
 
 pub fn get_lagrange_coeff<G: Group>(
     my_party_id: &u8,

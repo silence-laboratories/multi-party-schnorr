@@ -95,6 +95,9 @@ where
     /// Public key of the generated key.
     #[cfg_attr(feature = "serde", serde(with = "serde_point"))]
     pub public_key: G,
+    #[cfg(feature = "vrf")]
+    #[cfg_attr(feature = "serde", serde(with = "serde_vec_point"))]
+    pub(crate) party_public_shares: Vec<G>,
     /// Key ID
     pub key_id: [u8; 32],
     /// Extra data
@@ -129,6 +132,18 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
 
     pub fn party_id(&self) -> u8 {
         self.party_id
+    }
+
+    /// Additive public share K_i for this party (full quorum).
+    #[cfg(feature = "vrf")]
+    pub fn party_public_share(&self) -> Option<&G> {
+        self.party_public_shares.get(self.party_id as usize)
+    }
+
+    /// All parties additive public shares K_0, …, K_{n-1}.
+    #[cfg(feature = "vrf")]
+    pub fn party_public_shares(&self) -> &[G] {
+        &self.party_public_shares
     }
 
     pub fn extra_data(&self) -> &[u8] {

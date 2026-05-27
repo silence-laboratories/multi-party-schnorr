@@ -1,6 +1,6 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-mod derivation;
+//! secp256k1 (`k256`) signing hooks for MPC hard derivation.
 
-pub use derivation::DeriveParty;
+pub mod hard_derive_signing;
