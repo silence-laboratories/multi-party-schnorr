@@ -29,7 +29,7 @@ use crate::{
         get_lagrange_coeff,
         traits::{GroupElem, Round, ScalarReduce},
         utils::{calculate_final_session_id, HashBytes, SessionId},
-        DLogProof,
+        DLogProof, Legacy, SoftDeriveChildHmac,
     },
     keygen::Keyshare,
     sign::validate_input_messages,
@@ -158,15 +158,30 @@ pub struct PartialSign<G: Group> {
 
 #[cfg(feature = "eddsa")]
 impl SignerParty<R0, EdwardsPoint> {
-    /// Create a new signer party with the given keyshare
+    /// Create a new signer party ([`Legacy`] soft-derivation HMAC layout).
     pub fn new<R: CryptoRng + RngCore>(
         keyshare: Arc<Keyshare<EdwardsPoint>>,
         message: Vec<u8>,
         derivation_path: DerivationPath,
         rng: &mut R,
     ) -> Self {
-        let (additive_offset, derived_public_key) =
-            keyshare.derive_with_offset(&derivation_path).unwrap();
+        Self::new_with_format::<R, Legacy>(keyshare, message, derivation_path, rng)
+    }
+
+    /// Create a new signer party with an explicit soft-derivation HMAC format.
+    pub fn new_with_format<R, F>(
+        keyshare: Arc<Keyshare<EdwardsPoint>>,
+        message: Vec<u8>,
+        derivation_path: DerivationPath,
+        rng: &mut R,
+    ) -> Self
+    where
+        R: CryptoRng + RngCore,
+        F: SoftDeriveChildHmac<EdwardsPoint>,
+    {
+        let (additive_offset, derived_public_key) = keyshare
+            .derive_with_offset::<F>(&derivation_path)
+            .unwrap();
 
         Self {
             params: Params {
@@ -188,15 +203,30 @@ impl SignerParty<R0, EdwardsPoint> {
 
 #[cfg(feature = "taproot")]
 impl SignerParty<R0, k256::ProjectivePoint> {
-    /// Create a new signer party with the given keyshare
+    /// Create a new signer party ([`Legacy`] soft-derivation HMAC layout).
     pub fn new<R: CryptoRng + RngCore>(
         keyshare: Arc<Keyshare<k256::ProjectivePoint>>,
         message: [u8; 32],
         derivation_path: DerivationPath,
         rng: &mut R,
     ) -> Self {
-        let (additive_offset, derived_public_key) =
-            keyshare.derive_with_offset(&derivation_path).unwrap();
+        Self::new_with_format::<R, Legacy>(keyshare, message, derivation_path, rng)
+    }
+
+    /// Create a new signer party with an explicit soft-derivation HMAC format.
+    pub fn new_with_format<R, F>(
+        keyshare: Arc<Keyshare<k256::ProjectivePoint>>,
+        message: [u8; 32],
+        derivation_path: DerivationPath,
+        rng: &mut R,
+    ) -> Self
+    where
+        R: CryptoRng + RngCore,
+        F: SoftDeriveChildHmac<k256::ProjectivePoint>,
+    {
+        let (additive_offset, derived_public_key) = keyshare
+            .derive_with_offset::<F>(&derivation_path)
+            .unwrap();
 
         Self {
             params: Params {
@@ -218,15 +248,30 @@ impl SignerParty<R0, k256::ProjectivePoint> {
 
 #[cfg(feature = "redpallas")]
 impl SignerParty<R0, RedPallasPoint> {
-    /// Create a new signer party with the given keyshare (RedDSA / RedPallas)
+    /// Create a new signer party (RedDSA / RedPallas, [`Legacy`] soft-derivation HMAC layout).
     pub fn new<R: CryptoRng + RngCore>(
         keyshare: Arc<Keyshare<RedPallasPoint>>,
         message: Vec<u8>,
         derivation_path: DerivationPath,
         rng: &mut R,
     ) -> Self {
-        let (additive_offset, derived_public_key) =
-            keyshare.derive_with_offset(&derivation_path).unwrap();
+        Self::new_with_format::<R, Legacy>(keyshare, message, derivation_path, rng)
+    }
+
+    /// Create a new signer party with an explicit soft-derivation HMAC format.
+    pub fn new_with_format<R, F>(
+        keyshare: Arc<Keyshare<RedPallasPoint>>,
+        message: Vec<u8>,
+        derivation_path: DerivationPath,
+        rng: &mut R,
+    ) -> Self
+    where
+        R: CryptoRng + RngCore,
+        F: SoftDeriveChildHmac<RedPallasPoint>,
+    {
+        let (additive_offset, derived_public_key) = keyshare
+            .derive_with_offset::<F>(&derivation_path)
+            .unwrap();
 
         Self {
             params: Params {
