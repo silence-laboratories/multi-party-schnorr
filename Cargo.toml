@@ -30,6 +30,7 @@ default = ["eddsa", "session"]
 eddsa = ["curve25519-dalek", "ed25519-dalek", "dep:sl-mpc-derive", "sl-mpc-derive/eddsa"]
 vrf = ["eddsa", "sl-mpc-derive/vrf"]
 taproot = ["k256/schnorr"]
+ad = []
 redpallas = ["dep:pasta_curves", "dep:group", "dep:rand_core", "dep:blake2b_simd", "dep:reddsa"]
 keyshare-session-id = []
 serde = [

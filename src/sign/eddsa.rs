@@ -38,6 +38,8 @@ impl Round for SignReady<EdwardsPoint> {
             from_party: self.party_id,
             session_id: self.session_id,
             s_i,
+            #[cfg(feature = "ad")]
+            auth_proof: self.auth_proof,
         };
 
         let next = PartialSign {
@@ -134,11 +136,56 @@ pub(crate) fn run_sign(
 #[cfg(test)]
 mod tests {
     use curve25519_dalek::EdwardsPoint;
+    #[cfg(feature = "ad")]
+    use ed25519_dalek::VerifyingKey;
     use rand::seq::SliceRandom;
 
     use super::*;
 
     use crate::common::utils::support::run_keygen;
+
+    #[cfg(feature = "ad")]
+    fn run_sign_with_auth_data(shares: Vec<Keyshare<EdwardsPoint>>) -> Signature {
+        let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+        let auth_data = b"SL is securing the world".to_vec();
+
+        let mut rng = rand::thread_rng();
+
+        let parties = shares
+            .into_iter()
+            .map(Arc::new)
+            .map(|keyshare| {
+                SignerParty::<_, EdwardsPoint>::new_with_auth_data(
+                    keyshare,
+                    msg.into(),
+                    "m/0".parse().unwrap(),
+                    auth_data.clone(),
+                    &mut rng,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+        let ready_parties = run_round(parties, msgs);
+
+        let (parties, msg3s): (Vec<_>, Vec<_>) = run_round(ready_parties, ()).into_iter().unzip();
+
+        let auth_proof = msg3s[0].auth_proof;
+        let vk = VerifyingKey::from(parties[0].public_key);
+        let pk = parties[0].public_key;
+
+        let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
+            run_round(parties, msg3s).into_iter().unzip();
+
+        let sig = signatures[0];
+        assert!(
+            auth_proof.verify(&vk, msg, &sig, auth_data.as_slice(), &pk),
+            "AssociatedDataProof::verify failed"
+        );
+
+        sig
+    }
 
     #[test]
     fn sign_2_2() {
@@ -198,5 +245,16 @@ mod tests {
             .cloned()
             .collect();
         run_sign(subset, "m/0");
+    }
+
+    #[cfg(feature = "ad")]
+    #[test]
+    fn sign_2_3_with_auth_data() {
+        let shares = run_keygen::<2, 3, EdwardsPoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), 2)
+            .cloned()
+            .collect();
+        run_sign_with_auth_data(subset);
     }
 }

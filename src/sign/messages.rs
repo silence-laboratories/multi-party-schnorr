@@ -55,6 +55,10 @@ pub struct SignMsg3<G: Group> {
     pub session_id: SessionId,
     /// Partial signature
     pub s_i: G::Scalar,
+    /// Pre-AD-tweak R' for Ed25519 associated-data binding (`ad` feature; EdDSA only).
+    #[cfg(all(feature = "eddsa", feature = "ad"))]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub auth_proof: super::auth_data::AssociatedDataProof,
 }
 
 #[derive(Clone, Zeroize, ZeroizeOnDrop)]
