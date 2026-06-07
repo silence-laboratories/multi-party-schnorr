@@ -115,6 +115,7 @@ where
                 lost_keyshare_party_ids: vec![],
                 expected_public_key,
                 root_chain_code,
+                extra_data:None,
             }
         })
         .collect();
@@ -157,6 +158,7 @@ where
             lost_keyshare_party_ids: lost_ids.clone(),
             expected_public_key,
             root_chain_code,
+            extra_data:None,
         });
     }
 
