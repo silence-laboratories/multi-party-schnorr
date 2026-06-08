@@ -94,109 +94,121 @@ impl Round for PartialSign<EdwardsPoint> {
 pub(crate) const TEST_SIGN_MESSAGE: &[u8] = b"press the blue button";
 
 #[cfg(any(test, feature = "test-support"))]
+fn finish_sign_rounds(
+    parties: Vec<crate::sign::SignerParty<crate::sign::R0, EdwardsPoint>>,
+) -> Signature {
+    use crate::common::utils::support::run_round;
+
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+    let ready_parties = run_round(parties, msgs);
+    let (parties, partial_sigs): (Vec<_>, Vec<_>) =
+        run_round(ready_parties, ()).into_iter().unzip();
+    let (signatures, _): (Vec<_>, Vec<_>) = run_round(parties, partial_sigs).into_iter().unzip();
+    signatures[0]
+}
+
+#[cfg(any(test, feature = "test-support"))]
 #[allow(dead_code)]
-pub(crate) fn run_sign(
+pub(crate) fn run_sign<F>(
     shares: Vec<crate::keygen::Keyshare<EdwardsPoint>>,
     derivation_path: &str,
-) -> Signature {
+) -> Signature
+where
+    F: crate::common::SoftDeriveChildHmac<EdwardsPoint>,
+{
     use std::sync::Arc;
 
-    use crate::{common::utils::support::run_round, sign::SignerParty};
+    use crate::sign::SignerParty;
 
+    let path: derivation_path::DerivationPath = derivation_path.parse().unwrap();
     let mut rng = rand::thread_rng();
 
     let parties = shares
         .into_iter()
         .map(Arc::new)
         .map(|keyshare| {
-            SignerParty::<_, EdwardsPoint>::new(
+            SignerParty::<_, EdwardsPoint>::new_with_format::<_, F>(
                 keyshare,
                 TEST_SIGN_MESSAGE.to_vec(),
-                derivation_path.parse().unwrap(),
+                path.clone(),
                 &mut rng,
             )
         })
-        .collect::<Vec<_>>();
+        .collect();
 
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-    let ready_parties = run_round(parties, msgs);
-
-    let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-        run_round(ready_parties, ()).into_iter().unzip();
-
-    let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
-        run_round(parties, partial_sigs).into_iter().unzip();
-
-    signatures[0]
+    finish_sign_rounds(parties)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use curve25519_dalek::EdwardsPoint;
+    use derivation_path::DerivationPath;
     use rand::seq::SliceRandom;
 
     use super::*;
 
-    use crate::common::utils::support::run_keygen;
+    use crate::common::{utils::support::run_keygen, Bip32Public, Legacy};
+    use crate::sign::SignerParty;
+
+    fn run_sign_via_new(shares: Vec<crate::keygen::Keyshare<EdwardsPoint>>, derivation_path: &str) {
+        let mut rng = rand::thread_rng();
+        let path: DerivationPath = derivation_path.parse().unwrap();
+        let parties = shares
+            .into_iter()
+            .map(Arc::new)
+            .map(|keyshare| {
+                SignerParty::<_, EdwardsPoint>::new(
+                    keyshare,
+                    TEST_SIGN_MESSAGE.to_vec(),
+                    path.clone(),
+                    &mut rng,
+                )
+            })
+            .collect();
+        let _ = super::finish_sign_rounds(parties);
+    }
+
+    fn run_sign_both_formats<const T: usize, const N: usize, const K: usize>() {
+        let shares = run_keygen::<T, N, EdwardsPoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), K)
+            .cloned()
+            .collect();
+        run_sign_via_new(subset.clone(), "m/0");
+        run_sign::<Legacy>(subset.clone(), "m/0");
+        run_sign::<Bip32Public>(subset, "m/0");
+    }
 
     #[test]
     fn sign_2_2() {
-        let shares = run_keygen::<2, 2, EdwardsPoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 2)
-            .cloned()
-            .collect();
-        run_sign(subset, "m/0");
+        run_sign_both_formats::<2, 2, 2>();
     }
 
     #[test]
     fn sign_2_3() {
-        let shares = run_keygen::<2, 3, EdwardsPoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 2)
-            .cloned()
-            .collect();
-        run_sign(subset, "m/0");
+        run_sign_both_formats::<2, 3, 2>();
     }
 
     #[test]
     fn sign_2_3_3() {
-        let shares = run_keygen::<2, 3, EdwardsPoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 3)
-            .cloned()
-            .collect();
-        run_sign(subset, "m/0");
+        run_sign_both_formats::<2, 3, 3>();
     }
 
     #[test]
     fn sign_3_3() {
-        let shares = run_keygen::<3, 3, EdwardsPoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 3)
-            .cloned()
-            .collect();
-        run_sign(subset, "m/0");
+        run_sign_both_formats::<3, 3, 3>();
     }
 
     #[test]
     fn sign_3_5() {
-        let shares = run_keygen::<3, 5, EdwardsPoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 3)
-            .cloned()
-            .collect();
-        run_sign(subset, "m/0");
+        run_sign_both_formats::<3, 5, 3>();
     }
 
     #[test]
     fn sign_5_10() {
-        let shares = run_keygen::<5, 10, EdwardsPoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 5)
-            .cloned()
-            .collect();
-        run_sign(subset, "m/0");
+        run_sign_both_formats::<5, 10, 5>();
     }
 }

@@ -24,6 +24,8 @@ use crate::common::{
     DLogProof,
 };
 
+pub use crate::common::{Bip32Public, Legacy, SoftDeriveChildHmac};
+
 use super::KeyRefreshData;
 const KEY_SIZE: usize = 32;
 
@@ -157,66 +159,76 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         self.root_chain_code
     }
 
-    pub fn derive_with_offset(
+    /// Soft-derive along `chain_path`; every step uses HMAC layout `F` ([`Legacy`] or [`Bip32Public`]).
+    pub fn derive_with_offset<F>(
         &self,
         chain_path: &DerivationPath,
     ) -> Result<(G::Scalar, G), BIP32Error>
     where
-        <G as Group>::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
+        G: GroupElem,
+        G::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
+        F: SoftDeriveChildHmac<G>,
     {
         let mut pubkey = *self.public_key();
         let mut chain_code = self.root_chain_code();
         let mut additive_offset = G::Scalar::ZERO;
         for child_num in chain_path {
             let (il_int, child_pubkey, child_chain_code) =
-                self.derive_child_pubkey(&pubkey, chain_code, child_num)?;
+                self.derive_child_pubkey::<F>(&pubkey, chain_code, child_num)?;
             pubkey = child_pubkey;
             chain_code = child_chain_code;
             additive_offset += il_int;
         }
 
-        // Perform the mod q operation to get the additive offset
         Ok((additive_offset, pubkey))
     }
 
-    pub fn derive_child_pubkey(
+    pub fn derive_child_pubkey<F>(
         &self,
         parent_pubkey: &G,
         parent_chain_code: [u8; 32],
         child_number: &ChildIndex,
     ) -> Result<(G::Scalar, G, [u8; 32]), BIP32Error>
     where
+        G: GroupElem,
         G::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
+        F: SoftDeriveChildHmac<G>,
     {
-        let mut hmac_hasher = Hmac::<sha2::Sha512>::new_from_slice(&parent_chain_code)
-            .map_err(|_| BIP32Error::InvalidChainCode)?;
-
-        if child_number.is_normal() {
-            hmac_hasher.update(parent_pubkey.to_bytes().as_ref());
-        } else {
-            return Err(BIP32Error::HardenedChildNotSupported);
-        }
-        hmac_hasher.update(&child_number.to_bits().to_be_bytes());
-        let result = hmac_hasher.finalize().into_bytes();
-        let (il_int, child_chain_code) = result.split_at(KEY_SIZE);
-        let il_int: [u8; 32] = il_int[0..32].try_into().unwrap();
-
-        let offset_opt = G::Scalar::parse_offset(il_int);
-
-        if offset_opt.is_none().into() {
-            return Err(BIP32Error::InvalidChildScalar);
-        }
-
-        let offset = offset_opt.unwrap();
-        let child_pubkey = G::generator() * offset + parent_pubkey;
-
-        // Return error if child pubkey is the point at infinity
-        if child_pubkey == G::identity() {
-            return Err(BIP32Error::PubkeyPointAtInfinity);
-        }
-
-        Ok((offset, child_pubkey, child_chain_code.try_into().unwrap()))
+        let hmac_message = F::child_hmac_data(parent_pubkey, child_number)?;
+        finalize_soft_derive_child_hmac(parent_chain_code, &hmac_message, parent_pubkey)
     }
+}
+
+fn finalize_soft_derive_child_hmac<G>(
+    parent_chain_code: [u8; 32],
+    hmac_message: &[u8],
+    parent_pubkey: &G,
+) -> Result<(G::Scalar, G, [u8; 32]), BIP32Error>
+where
+    G: Group + GroupEncoding,
+    G::Scalar: BIP32Derive,
+{
+    let mut hmac_hasher = Hmac::<sha2::Sha512>::new_from_slice(&parent_chain_code)
+        .map_err(|_| BIP32Error::InvalidChainCode)?;
+    hmac_hasher.update(hmac_message);
+    let result = hmac_hasher.finalize().into_bytes();
+    let (il_int, child_chain_code) = result.split_at(KEY_SIZE);
+    let il_int: [u8; 32] = il_int[0..32].try_into().unwrap();
+
+    let offset_opt = G::Scalar::parse_offset(il_int);
+
+    if offset_opt.is_none().into() {
+        return Err(BIP32Error::InvalidChildScalar);
+    }
+
+    let offset = offset_opt.unwrap();
+    let child_pubkey = G::generator() * offset + parent_pubkey;
+
+    if child_pubkey == G::identity() {
+        return Err(BIP32Error::PubkeyPointAtInfinity);
+    }
+
+    Ok((offset, child_pubkey, child_chain_code.try_into().unwrap()))
 }
 
 impl<G> Keyshare<G>

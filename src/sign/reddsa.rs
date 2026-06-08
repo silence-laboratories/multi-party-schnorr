@@ -131,16 +131,63 @@ mod tests {
 
     use super::*;
     use crate::{
-        common::utils::support::{run_keygen, run_round},
+        common::{
+            utils::support::{run_keygen, run_round},
+            Bip32Public, Legacy, SoftDeriveChildHmac,
+        },
         keygen::Keyshare,
-        sign::SignerParty,
+        sign::{SignerParty, R0},
     };
 
-    fn run_sign(shares: Vec<Keyshare<RedPallasPoint>>) -> [u8; 64] {
-        let msg = b"BitGo rules them all";
+    fn finish_sign_rounds(parties: Vec<SignerParty<R0, RedPallasPoint>>) -> [u8; 64] {
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+        let ready_parties = run_round(parties, msgs);
+        let (parties, partial_sigs): (Vec<_>, Vec<_>) =
+            run_round(ready_parties, ()).into_iter().unzip();
+        let (signatures, _): (Vec<_>, Vec<_>) =
+            run_round(parties, partial_sigs).into_iter().unzip();
+        signatures[0]
+    }
 
+    fn run_sign<F>(shares: Vec<Keyshare<RedPallasPoint>>) -> [u8; 64]
+    where
+        F: SoftDeriveChildHmac<RedPallasPoint>,
+    {
+        let msg = b"BitGo rules them all";
+        let path: derivation_path::DerivationPath = "m/0".parse().unwrap();
         let mut rng = rand::thread_rng();
 
+        let parties = shares
+            .into_iter()
+            .map(Arc::new)
+            .map(|keyshare| {
+                SignerParty::<_, RedPallasPoint>::new_with_format::<_, F>(
+                    keyshare,
+                    msg.to_vec(),
+                    path.clone(),
+                    &mut rng,
+                )
+            })
+            .collect();
+
+        finish_sign_rounds(parties)
+    }
+
+    fn assert_bip32_public_derivation_unsupported(shares: &[Keyshare<RedPallasPoint>]) {
+        let path = "m/0".parse().unwrap();
+        for ks in shares {
+            assert!(
+                ks.derive_with_offset::<Bip32Public>(&path).is_err(),
+                "Bip32Public is not supported on RedPallas"
+            );
+        }
+    }
+
+    fn run_sign_via_new(shares: Vec<Keyshare<RedPallasPoint>>) {
+        let msg = b"BitGo rules them all";
+        let path: derivation_path::DerivationPath = "m/0".parse().unwrap();
+        let mut rng = rand::thread_rng();
         let parties = shares
             .into_iter()
             .map(Arc::new)
@@ -148,52 +195,37 @@ mod tests {
                 SignerParty::<_, RedPallasPoint>::new(
                     keyshare,
                     msg.to_vec(),
-                    "m/0".parse().unwrap(),
+                    path.clone(),
                     &mut rng,
                 )
             })
-            .collect::<Vec<_>>();
+            .collect();
+        finish_sign_rounds(parties);
+    }
 
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-        let ready_parties = run_round(parties, msgs);
-
-        let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-            run_round(ready_parties, ()).into_iter().unzip();
-
-        let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
-            run_round(parties, partial_sigs).into_iter().unzip();
-
-        signatures[0]
+    fn run_sign_both_formats<const T: usize, const N: usize, const K: usize>() {
+        let shares = run_keygen::<T, N, RedPallasPoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), K)
+            .cloned()
+            .collect();
+        run_sign_via_new(subset.clone());
+        run_sign::<Legacy>(subset.clone());
+        assert_bip32_public_derivation_unsupported(&subset);
     }
 
     #[test]
     fn sign_2_2() {
-        let shares = run_keygen::<2, 2, RedPallasPoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 2)
-            .cloned()
-            .collect();
-        run_sign(subset);
+        run_sign_both_formats::<2, 2, 2>();
     }
 
     #[test]
     fn sign_2_3() {
-        let shares = run_keygen::<2, 3, RedPallasPoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 2)
-            .cloned()
-            .collect();
-        run_sign(subset);
+        run_sign_both_formats::<2, 3, 2>();
     }
 
     #[test]
     fn sign_3_5() {
-        let shares = run_keygen::<3, 5, RedPallasPoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 3)
-            .cloned()
-            .collect();
-        run_sign(subset);
+        run_sign_both_formats::<3, 5, 3>();
     }
 }

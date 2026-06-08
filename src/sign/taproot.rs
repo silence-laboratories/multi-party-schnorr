@@ -186,14 +186,55 @@ mod tests {
 
     use super::*;
 
+    use derivation_path::DerivationPath;
     use k256::ProjectivePoint;
     use rand::seq::SliceRandom;
 
-    use crate::common::utils::support::{run_keygen, run_round};
+    use crate::common::{
+        utils::support::{run_keygen, run_round},
+        Bip32Public, Legacy, SoftDeriveChildHmac,
+    };
 
-    fn run_sign(shares: Vec<Keyshare<k256::ProjectivePoint>>) -> Signature {
+    fn finish_sign_rounds(parties: Vec<SignerParty<R0, k256::ProjectivePoint>>) -> Signature {
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+        let ready_parties = run_round(parties, msgs);
+        let (parties, partial_sigs): (Vec<_>, Vec<_>) =
+            run_round(ready_parties, ()).into_iter().unzip();
+        let (signatures, _): (Vec<_>, Vec<_>) =
+            run_round(parties, partial_sigs).into_iter().unzip();
+        signatures[0]
+    }
+
+    fn run_sign<F>(shares: Vec<Keyshare<k256::ProjectivePoint>>) -> Signature
+    where
+        F: SoftDeriveChildHmac<k256::ProjectivePoint>,
+    {
         let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
         let msg_hash: [u8; 32] = Sha256::digest(msg).into();
+        let path: DerivationPath = "m".parse().unwrap();
+
+        let mut rng = rand::thread_rng();
+        let parties = shares
+            .into_iter()
+            .map(Arc::new)
+            .map(|keyshare| {
+                SignerParty::<_, k256::ProjectivePoint>::new_with_format::<_, F>(
+                    keyshare,
+                    msg_hash,
+                    path.clone(),
+                    &mut rng,
+                )
+            })
+            .collect();
+
+        finish_sign_rounds(parties)
+    }
+
+    fn run_sign_via_new(shares: Vec<Keyshare<k256::ProjectivePoint>>) {
+        let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+        let msg_hash: [u8; 32] = Sha256::digest(msg).into();
+        let path: DerivationPath = "m".parse().unwrap();
 
         let mut rng = rand::thread_rng();
         let parties = shares
@@ -203,83 +244,52 @@ mod tests {
                 SignerParty::<_, k256::ProjectivePoint>::new(
                     keyshare,
                     msg_hash,
-                    "m".parse().unwrap(),
+                    path.clone(),
                     &mut rng,
                 )
             })
-            .collect::<Vec<_>>();
+            .collect();
+        finish_sign_rounds(parties);
+    }
 
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-        let ready_parties = run_round(parties, msgs);
-
-        // Signature phase
-        let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-            run_round(ready_parties, ()).into_iter().unzip();
-
-        let (signatures, _complete_msg): (Vec<_>, Vec<_>) =
-            run_round(parties, partial_sigs).into_iter().unzip();
-
-        signatures[0]
+    fn run_sign_both_formats<const T: usize, const N: usize, const K: usize>() {
+        let shares = run_keygen::<T, N, ProjectivePoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), K)
+            .cloned()
+            .collect();
+        run_sign_via_new(subset.clone());
+        run_sign::<Legacy>(subset.clone());
+        run_sign::<Bip32Public>(subset);
     }
 
     #[test]
     fn sign_2_2() {
-        let shares = run_keygen::<2, 2, ProjectivePoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 2)
-            .cloned()
-            .collect();
-        run_sign(subset);
+        run_sign_both_formats::<2, 2, 2>();
     }
 
     #[test]
     fn sign_2_3() {
-        let shares = run_keygen::<2, 3, ProjectivePoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 2)
-            .cloned()
-            .collect();
-        run_sign(subset);
+        run_sign_both_formats::<2, 3, 2>();
     }
 
     #[test]
     fn sign_2_3_3() {
-        let shares = run_keygen::<2, 3, ProjectivePoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 3)
-            .cloned()
-            .collect();
-        run_sign(subset);
+        run_sign_both_formats::<2, 3, 3>();
     }
 
     #[test]
     fn sign_3_3() {
-        let shares = run_keygen::<3, 3, ProjectivePoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 3)
-            .cloned()
-            .collect();
-        run_sign(subset);
+        run_sign_both_formats::<3, 3, 3>();
     }
 
     #[test]
     fn sign_3_5() {
-        let shares = run_keygen::<3, 5, ProjectivePoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 3)
-            .cloned()
-            .collect();
-        run_sign(subset);
+        run_sign_both_formats::<3, 5, 3>();
     }
 
     #[test]
     fn sign_5_10() {
-        let shares = run_keygen::<5, 10, ProjectivePoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 5)
-            .cloned()
-            .collect();
-        run_sign(subset);
+        run_sign_both_formats::<5, 10, 5>();
     }
 }

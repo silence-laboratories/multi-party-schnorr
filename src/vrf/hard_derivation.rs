@@ -300,7 +300,9 @@ mod tests {
         let soft_path = DerivationPath::from_str("m/0/1").unwrap();
         let mut expected_soft_pk = None;
         for ks in &derived_keyshares {
-            let (_additive_offset, soft_pk) = ks.derive_with_offset(&soft_path).unwrap();
+            let (_additive_offset, soft_pk) = ks
+                .derive_with_offset::<crate::common::Bip32Public>(&soft_path)
+                .unwrap();
             if let Some(expected) = expected_soft_pk {
                 assert_eq!(expected, soft_pk);
             } else {
@@ -309,7 +311,7 @@ mod tests {
         }
         let expected_soft_pk = expected_soft_pk.unwrap();
 
-        let sig = run_sign(derived_keyshares, "m/0/1");
+        let sig = run_sign::<crate::common::Bip32Public>(derived_keyshares, "m/0/1");
         VerifyingKey::from(expected_soft_pk)
             .verify(TEST_SIGN_MESSAGE, &sig)
             .expect("press the red button");
@@ -328,7 +330,7 @@ mod tests {
             .zip(outputs)
             .map(|(init, out)| keyshare_after_hard_derive(&init, &out, &participating))
             .collect();
-        let _sig = run_sign(derived_keyshares, "m/0");
+        let _sig = run_sign::<crate::common::Legacy>(derived_keyshares, "m/0");
     }
 
     #[test]

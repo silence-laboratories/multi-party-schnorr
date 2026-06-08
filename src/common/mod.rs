@@ -3,7 +3,10 @@
 
 mod dlog_proof;
 mod math;
+mod soft_derive;
 mod transcript;
+
+pub use soft_derive::{Bip32Public, Legacy, SoftDeriveChildHmac};
 
 /// Utility functions
 pub mod utils;
