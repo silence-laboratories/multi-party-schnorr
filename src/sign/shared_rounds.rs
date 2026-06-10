@@ -608,7 +608,9 @@ impl Round for SignerParty<R2<RedPallasPoint>, RedPallasPoint> {
     type InputMessage = SignMsg2<RedPallasPoint>;
     type Input = Vec<SignMsg2<RedPallasPoint>>;
     type Error = SignError;
-    type Output = SignReady<RedPallasPoint>;
+    /// Returns `(ready_state, alpha)` where `alpha` is the per-session randomization
+    /// scalar needed for Orchard proof generation.
+    type Output = (SignReady<RedPallasPoint>, pasta_curves::Fq);
 
     fn process(self, msgs: Self::Input) -> Result<Self::Output, Self::Error> {
         let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
@@ -692,20 +694,21 @@ impl Round for SignerParty<R2<RedPallasPoint>, RedPallasPoint> {
 
         let d_i = d_i + additive_offset + rand_offset_hashed;
 
+        let alpha = rand_offset_hashed * pasta_curves::Fq::from(participants as u64);
+
         let next = SignReady {
             big_r: big_r_i,
             d_i,
             pid_list: self.state.pid_list,
             public_key: self.params.derived_public_key
-                + (RedPallasPoint::generator()
-                    * (rand_offset_hashed * pasta_curves::Fq::from(participants as u64))),
+                + (RedPallasPoint::generator() * alpha),
             session_id: self.state.final_session_id,
             message: self.params.message,
             k_i: self.rand_params.k_i,
             party_id: self.params.party_id,
         };
 
-        Ok(next)
+        Ok((next, alpha))
     }
 }
 
