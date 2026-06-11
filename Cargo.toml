@@ -15,22 +15,33 @@ rust-version = "1.88"
 
 [[example]]
 name = "sign"
-required-features = [ "eddsa", "test-support" ]
+required-features = ["eddsa", "test-support"]
 
 [[example]]
 name = "keygen"
-required-features = [ "eddsa", "test-support" ]
+required-features = ["eddsa", "test-support"]
 
 [[example]]
 name = "refresh"
-required-features = [ "eddsa", "test-support" ]
+required-features = ["eddsa", "test-support"]
 
 [features]
 default = ["eddsa", "session"]
-eddsa = ["curve25519-dalek", "ed25519-dalek", "dep:sl-mpc-derive", "sl-mpc-derive/eddsa"]
+eddsa = [
+  "curve25519-dalek",
+  "ed25519-dalek",
+  "dep:sl-mpc-derive",
+  "sl-mpc-derive/eddsa",
+]
 vrf = ["eddsa", "sl-mpc-derive/vrf"]
 taproot = ["k256/schnorr"]
-redpallas = ["dep:pasta_curves", "dep:group", "dep:rand_core", "dep:blake2b_simd", "dep:reddsa"]
+redpallas = [
+  "dep:pasta_curves",
+  "dep:group",
+  "dep:rand_core",
+  "dep:blake2b_simd",
+  "dep:reddsa",
+]
 keyshare-session-id = []
 serde = [
   "dep:serde",
@@ -91,3 +102,6 @@ k256 = { version = "0.13.2" }
 bs58 = "0.5.0"
 ciborium = "0.2"
 tokio = { version = "1.48", features = ["macros", "rt-multi-thread"] }
+
+[profile.release]
+strip = true
