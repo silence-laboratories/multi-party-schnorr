@@ -605,8 +605,7 @@ impl Round for SignerParty<R2<RedPallasPoint>, RedPallasPoint> {
     type InputMessage = SignMsg2<RedPallasPoint>;
     type Input = Vec<SignMsg2<RedPallasPoint>>;
     type Error = SignError;
-    type Output = SignReady<RedPallasPoint>;
-
+    type Output = (SignReady<RedPallasPoint>, pasta_curves::Fq);
     fn process(self, msgs: Self::Input) -> Result<Self::Output, Self::Error> {
         let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
 
@@ -688,21 +687,20 @@ impl Round for SignerParty<R2<RedPallasPoint>, RedPallasPoint> {
         let rand_offset_hashed = RedPallasPoint::hash_randomizer(rand_offset.to_repr().as_ref());
 
         let d_i = d_i + additive_offset + rand_offset_hashed;
-
+        // `alpha` is the aggregate public-key tweak corresponding to the per-party `rand_offset_hashed`.
+        let alpha = rand_offset_hashed * scalar;
         let next = SignReady {
             big_r: big_r_i,
             d_i,
             pid_list: self.state.pid_list,
-            public_key: self.params.derived_public_key
-                + (RedPallasPoint::generator()
-                    * (rand_offset_hashed * pasta_curves::Fq::from(participants as u64))),
+            public_key: self.params.derived_public_key + (RedPallasPoint::generator() * alpha),
             session_id: self.state.final_session_id,
             message: self.params.message,
             k_i: self.rand_params.k_i,
             party_id: self.params.party_id,
         };
 
-        Ok(next)
+        Ok((next, alpha))
     }
 }
 
