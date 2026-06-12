@@ -1,7 +1,6 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-//! SHA-256 transcript
 use sha2::{Digest, Sha256};
 use sl_transcript::TranscriptProtocol;
 

@@ -1,7 +1,7 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-//! RoHMAC-SHA256 random oracle + encoding 
+//! RoHMAC-SHA256 random oracle + encoding
 use hmac::{Hmac, Mac};
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;

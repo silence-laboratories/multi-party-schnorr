@@ -142,8 +142,7 @@ mod tests {
     fn finish_sign_rounds(parties: Vec<SignerParty<R0, RedPallasPoint>>) -> [u8; 64] {
         let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
         let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-        let (ready_parties, _alphas): (Vec<_>, Vec<_>) =
-            run_round(parties, msgs).into_iter().unzip();
+        let ready_parties = run_round(parties, msgs);
         let (parties, partial_sigs): (Vec<_>, Vec<_>) =
             run_round(ready_parties, ()).into_iter().unzip();
         let (signatures, _): (Vec<_>, Vec<_>) =
@@ -214,31 +213,7 @@ mod tests {
         run_sign::<Legacy>(subset.clone());
         assert_bip32_public_derivation_unsupported(&subset);
     }
-    #[test]
-    fn alpha_consistent_across_parties() {
-        let shares = run_keygen::<2, 3, RedPallasPoint>();
-        let subset: Vec<_> = shares
-            .choose_multiple(&mut rand::thread_rng(), 2)
-            .cloned()
-            .collect();
-        let msg = b"test alpha consistency";
-        let path: derivation_path::DerivationPath = "m/0".parse().unwrap();
-        let mut rng = rand::thread_rng();
-        let parties: Vec<SignerParty<_, RedPallasPoint>> = subset
-            .into_iter()
-            .map(Arc::new)
-            .map(|ks| {
-                SignerParty::<_, RedPallasPoint>::new(ks, msg.to_vec(), path.clone(), &mut rng)
-            })
-            .collect();
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-        let (_, alphas): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-        // All parties must compute the same alpha.
-        assert_eq!(alphas[0], alphas[1]);
-        // Alpha must be non-zero (randomization is applied).
-        assert_ne!(alphas[0], pasta_curves::Fq::from(0u64));
-    }
+
     #[test]
     fn sign_2_2() {
         run_sign_both_formats::<2, 2, 2>();

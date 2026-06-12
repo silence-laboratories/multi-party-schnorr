@@ -1,10 +1,10 @@
 [workspace]
-members = ["."]
+members = [".", "crates/sl-mpc-derive", "crates/sl-mpc-vrf"]
 resolver = "2"
 
 [package]
 name = "multi-party-schnorr"
-version = "1.3.0-pre.3"
+version = "1.3.0-pre.4"
 edition = "2021"
 license-file = "LICENSE"
 description = "Multi party Schnorr protocol"
@@ -28,7 +28,7 @@ required-features = [ "eddsa", "test-support" ]
 [features]
 default = ["eddsa", "session"]
 eddsa = ["curve25519-dalek", "ed25519-dalek", "dep:sl-mpc-derive", "sl-mpc-derive/eddsa"]
-vrf = ["eddsa", "sl-mpc-derive/vrf"]
+vrf = ["eddsa", "sl-mpc-derive/vrf", "dep:sl-mpc-vrf", "sl-mpc-vrf/serde"]
 taproot = ["k256/schnorr"]
 redpallas = ["dep:pasta_curves", "dep:group", "dep:rand_core", "dep:blake2b_simd", "dep:reddsa"]
 keyshare-session-id = []
@@ -48,6 +48,7 @@ test-support = []
 
 [dependencies]
 sl-mpc-derive = { version = "0.1.0", optional = true, default-features = false }
+sl-mpc-vrf = { version = "0.1.0-pre.2", optional = true, default-features = false }
 zeroize = { version = "1.6.1", features = ["zeroize_derive"] }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_bytes = { version = "0.11.15", optional = true }
@@ -75,7 +76,6 @@ crypto_box = { version = "0.9.1" }
 ff = "0.13.0"
 rand_chacha = "0.3.1"
 sl-mpc-mate = "1.1.0"
-sl-transcript = { version = "0.1.0-pre.2", default-features = false }
 thiserror = "1"
 derivation-path = "0.2.0"
 hmac = { version = "0.12.1" }
