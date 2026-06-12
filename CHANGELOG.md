@@ -4,6 +4,31 @@
 
 ## [Unreleased]
 
+## [1.3.0-pre.3] - 2026-06-11
+
+### Added
+
+- Workspace crate [`sl-mpc-vrf`](crates/sl-mpc-vrf/) (`0.1.0-pre.2`): shared threshold VRF **DKG** and **eval** wire protocols on Ristretto.
+- [`vrf::dkg`](src/vrf/dkg.rs): Shamir VRF DKG (Protocol 12) via [`VrfDkgParty`](src/vrf/dkg.rs), [`VrfDkgR0`](src/vrf/dkg.rs) / [`VrfDkgR1`](src/vrf/dkg.rs) / [`VrfDkgR2`](src/vrf/dkg.rs), [`VrfKeygenMsg1`](src/vrf/dkg.rs) / [`VrfKeygenMsg2`](src/vrf/dkg.rs), and [`setup_vrf_keygen`](src/vrf/dkg.rs).
+- [`run_vrf_keygen`](src/vrf/dkg.rs) test helper (`test-support`) for local VRF DKG runs.
+- VRF eval integration tests (2-of-3 / 3-of-3 quorums, malformed keyshare rejection).
+
+### Changed
+
+- **`vrf` feature** now depends on [`sl-mpc-vrf`](crates/sl-mpc-vrf/) `0.1.0-pre.2` (with `serde`); VRF DKG and eval in this crate are thin [`Round`] adapters over `sl_mpc_vrf`.
+- **VRF DKG protocol**: dedicated Shamir VRF DKG replaces EdDSA-style [`KeygenParty`](src/keygen/dkg.rs) on [`VrfPoint`](src/derive/impls/ristretto.rs); P2P shares are **plaintext** (no `crypto_box` / PKI for VRF keygen).
+- [`setup_vrf_keygen`](src/vrf/dkg.rs) returns `Result<Vec<VrfDkgParty<VrfDkgR0>>, VrfKeygenError>` instead of panicking on invalid `(t, n)`.
+- [`VrfOutput`](src/vrf/eval.rs) is re-exported from `sl_mpc_vrf`; VRF eval logic moved out of this crate.
+- DH-tuple proof helpers used by VRF eval moved to `sl_mpc-vrf`; `sl-transcript` is no longer a direct dependency of `multi-party-schnorr`.
+- Hard-derivation tests obtain VRF keyshares from [`run_vrf_keygen`](src/vrf/dkg.rs) rather than [`run_keygen`](src/common/utils.rs) on `VrfPoint`.
+
+### Breaking
+
+- **VRF DKG wire format and session API changed** (`VrfKeygenMsg1` / `VrfKeygenMsg2`, no encryption keys). WASM and host integrations must use the new VRF DKG path before hard derivation.
+- VRF key material from the old `KeygenParty<VrfPoint>` DKG is **not** compatible with the new Shamir VRF DKG output.
+
+[1.3.0-pre.3]: https://github.com/silence-laboratories/multi-party-schnorr/compare/multi-party-schnorr/v1.3.0-pre.2...multi-party-schnorr/v1.3.0-pre.3
+
 ## [1.3.0-pre.2] - 2026-06-04
 
 ### Added

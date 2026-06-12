@@ -4,7 +4,6 @@
 mod dlog_proof;
 mod math;
 mod soft_derive;
-mod transcript;
 
 pub use soft_derive::{Bip32Public, Legacy, SoftDeriveChildHmac};
 
@@ -15,6 +14,15 @@ pub mod utils;
 pub mod redpallas;
 
 pub use dlog_proof::*;
+
+#[cfg(feature = "vrf")]
+pub use sl_mpc_vrf::{
+    dh_tuple::{
+        dh_tuple_transcript, DhTuplePoints, DhTupleProof, DH_TUPLE_CHALLENGE_LABEL,
+        DH_TUPLE_TRANSCRIPT_LABEL,
+    },
+    transcript::Sha256Transcript,
+};
 
 pub use math::*;
 

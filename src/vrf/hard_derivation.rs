@@ -1,9 +1,7 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-//! VRF protocol orchestration for MPC hard derivation (Ristretto VRF + generic signing root).
-//!
-//! Cryptographic tweak: [`crate::derive::hard_derive`]. Pair keyshares via [`MpcDeriveInit::with_ristretto_vrf`].
+//! MPC hard derivation (Ristretto VRF + generic signing root).
 
 use std::sync::Arc;
 
@@ -27,7 +25,7 @@ pub use crate::derive::hard_derive::HardDeriveOutput;
 pub use crate::vrf::messages::VrfMsg0 as HardDeriveMsg0;
 
 /// VRF round-1 message for hard derivation (Ristretto).
-pub type HardDeriveMsg1 = crate::vrf::messages::VrfMsg1<VrfPoint>;
+pub type HardDeriveMsg1 = crate::vrf::messages::VrfMsg1;
 
 /// Inputs: root signing DKG keyshare + Ristretto VRF DKG keyshare.
 #[cfg_attr(
@@ -220,10 +218,11 @@ mod tests {
             MpcDeriveInitEd25519, HARD_DERIVE_DELTA_BYTES,
         },
         sign::eddsa::{run_sign, TEST_SIGN_MESSAGE},
+        vrf::run_vrf_keygen,
     };
 
     fn mpc_derive_init<const T: usize, const N: usize>() -> [MpcDeriveInitEd25519; N] {
-        let vrf_shares = run_keygen::<T, N, VrfPoint>();
+        let vrf_shares = run_vrf_keygen::<T, N>();
         let root_shares = run_keygen::<T, N, EdwardsPoint>();
         vrf_shares
             .into_iter()

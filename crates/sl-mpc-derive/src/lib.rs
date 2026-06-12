@@ -28,7 +28,7 @@ pub use protocol::{
 
 #[cfg(feature = "eddsa")]
 pub use hash_to_curve::{
-    ro_hash_string, EdwardsRo, HashToCurve, HashToCurveError, try_hash_bytes_to_point,
+    ro_hash_string, try_hash_bytes_to_point, EdwardsRo, HashToCurve, HashToCurveError,
 };
 
 #[cfg(feature = "eddsa")]
