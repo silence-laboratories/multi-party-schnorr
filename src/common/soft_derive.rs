@@ -14,7 +14,7 @@ use super::traits::GroupElem;
 #[derive(Clone, Copy)]
 pub struct Legacy;
 
-/// HMAC body: 0x02 || pk (32 bytes) || child index LE.
+/// HMAC body: 0x03 || pk (32 bytes) || child index LE.
 #[derive(Clone, Copy)]
 pub struct Bip32Public;
 
@@ -53,7 +53,7 @@ impl SoftDeriveChildHmac<curve25519_dalek::EdwardsPoint> for Bip32Public {
     ) -> Result<Vec<u8>, BIP32Error> {
         require_normal_child(child_number)?;
         let mut data = Vec::with_capacity(37);
-        data.push(0x02);
+        data.push(0x03);
         data.extend_from_slice(parent_pubkey.compress().as_bytes());
         data.extend_from_slice(&child_number.to_bits().to_le_bytes());
         Ok(data)
@@ -73,7 +73,7 @@ impl SoftDeriveChildHmac<k256::ProjectivePoint> for Bip32Public {
             return Err(BIP32Error::InvalidChainCode);
         }
         let mut data = Vec::with_capacity(37);
-        data.push(0x02);
+        data.push(0x03);
         data.extend_from_slice(&bytes[1..33]);
         data.extend_from_slice(&child_number.to_bits().to_le_bytes());
         Ok(data)

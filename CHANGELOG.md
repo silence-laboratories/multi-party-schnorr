@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- [`Bip32Public`](src/common/soft_derive.rs) soft-derivation HMAC body now uses the `0x03 || pk (32 bytes) || child index LE` layout (prefix byte changed from `0x02` to `0x03`) on Ed25519 / Taproot.
+
 ## [1.3.0-pre.3] - 2026-06-11
 
 ### Added
