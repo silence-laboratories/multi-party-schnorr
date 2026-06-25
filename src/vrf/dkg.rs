@@ -131,10 +131,7 @@ fn keyshare_from_vrf(share: VrfKeyshare) -> Keyshare<VrfPoint> {
 }
 
 /// Initialize VRF DKG parties for a full quorum (`n` parties, threshold `t`).
-pub fn setup_vrf_keygen(
-    t: u8,
-    n: u8,
-) -> Result<Vec<VrfDkgParty<VrfDkgR0>>, VrfKeygenError> {
+pub fn setup_vrf_keygen(t: u8, n: u8) -> Result<Vec<VrfDkgParty<VrfDkgR0>>, VrfKeygenError> {
     let mut rng = rand::thread_rng();
 
     (0..n)

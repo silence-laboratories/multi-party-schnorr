@@ -5,7 +5,7 @@ mod dlog_proof;
 mod math;
 mod soft_derive;
 
-pub use soft_derive::{Bip32Public, Legacy, SoftDeriveChildHmac};
+pub use soft_derive::{Bip32Public, ChildHmacData, Legacy, SoftDeriveChildHmac};
 
 /// Utility functions
 pub mod utils;
