@@ -60,10 +60,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new<R: RngCore + CryptoRng>(
-        party: Party,
-        rng: &mut R,
-    ) -> Result<Self, VrfKeygenError> {
+    pub fn new<R: RngCore + CryptoRng>(party: Party, rng: &mut R) -> Result<Self, VrfKeygenError> {
         if party.party_id >= party.total_parties {
             return Err(VrfKeygenError::InvalidPid);
         }
@@ -322,9 +319,7 @@ pub(crate) mod test_support {
     pub fn init_states(n: u8, t: u8) -> Vec<Context> {
         let mut rng = rand::thread_rng();
         (0..n)
-            .map(|party_id| {
-                Context::new(Party::new(n, t, party_id), &mut rng).unwrap()
-            })
+            .map(|party_id| Context::new(Party::new(n, t, party_id), &mut rng).unwrap())
             .collect()
     }
 

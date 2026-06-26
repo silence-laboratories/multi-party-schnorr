@@ -4,9 +4,22 @@
 
 ## [Unreleased]
 
+## [1.3.0-pre.6] - 2026-06-26
+
 ### Changed
 
-- [`Bip32Public`](src/common/soft_derive.rs) soft-derivation HMAC body now uses the `0x03 || pk (32 bytes) || child index LE` layout (prefix byte changed from `0x02` to `0x03`) on Ed25519 / Taproot.
+- [`Bip32Public`](src/common/soft_derive.rs) soft derivation now follows the Cardano BIP32-Ed25519 scheme using **two** HMAC-SHA512 evaluations keyed by the parent chain code (instead of a single HMAC): child key = `HMAC(chain_code, 0x02 || pk (32 bytes) || child index LE)[0..32]` and child chain code = `HMAC(chain_code, 0x03 || pk (32 bytes) || child index LE)[32..64]` (Ed25519 / Taproot).
+- New [`ChildHmacData`](src/common/soft_derive.rs) enum (`Joint` / `Separate`) lets each [`SoftDeriveChildHmac`](src/common/soft_derive.rs) format choose the single- or two-HMAC layout; [`Legacy`](src/common/soft_derive.rs) stays single-HMAC.
+
+### Added
+
+- Soft-derivation format unit tests for `Joint` vs `Separate` bodies (prefix bytes, hardened-child rejection, RedPallas unsupported) and a BIP32-Ed25519 (Cardano) `m/0/1/2` derivation test vector.
+
+### Breaking
+
+- `Bip32Public` derived keys and chain codes change versus the previous single-HMAC `0x03` layout; child keys derived with the old scheme are not compatible.
+
+[1.3.0-pre.6]: https://github.com/silence-laboratories/multi-party-schnorr/compare/multi-party-schnorr/v1.3.0-pre.3...multi-party-schnorr/v1.3.0-pre.6
 
 ## [1.3.0-pre.3] - 2026-06-11
 

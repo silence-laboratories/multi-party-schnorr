@@ -19,7 +19,7 @@ pub use dh_tuple::{
     DH_TUPLE_TRANSCRIPT_LABEL,
 };
 pub use dkg::{
-    Context as VrfDkgContext, Party as VrfDkgParty, P2pShare, VrfKeygenError, VrfKeygenMsg1,
+    Context as VrfDkgContext, P2pShare, Party as VrfDkgParty, VrfKeygenError, VrfKeygenMsg1,
     VrfKeygenMsg2, VrfKeyshare,
 };
 pub use eval::{Context as VrfEvalContext, VrfOutput};

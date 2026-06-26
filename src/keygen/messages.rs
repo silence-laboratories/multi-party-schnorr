@@ -24,7 +24,7 @@ use crate::common::{
     DLogProof,
 };
 
-pub use crate::common::{Bip32Public, Legacy, SoftDeriveChildHmac};
+pub use crate::common::{Bip32Public, ChildHmacData, Legacy, SoftDeriveChildHmac};
 
 use super::KeyRefreshData;
 const KEY_SIZE: usize = 32;
@@ -159,7 +159,7 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         self.root_chain_code
     }
 
-    /// Soft-derive along `chain_path`; every step uses HMAC layout `F` ([`Legacy`] or [`Bip32Public`]).
+    /// Soft-derive along chain_path
     pub fn derive_with_offset<F>(
         &self,
         chain_path: &DerivationPath,
@@ -194,26 +194,46 @@ impl<G: Group + GroupEncoding> Keyshare<G> {
         G::Scalar: ScalarReduce<[u8; 32]> + BIP32Derive,
         F: SoftDeriveChildHmac<G>,
     {
-        let hmac_message = F::child_hmac_data(parent_pubkey, child_number)?;
-        finalize_soft_derive_child_hmac(parent_chain_code, &hmac_message, parent_pubkey)
+        let hmac_data = F::child_hmac_data(parent_pubkey, child_number)?;
+        finalize_soft_derive_child_hmac(parent_chain_code, hmac_data, parent_pubkey)
     }
+}
+
+fn hmac_sha512(key: &[u8; 32], message: &[u8]) -> Result<[u8; 64], BIP32Error> {
+    let mut hmac_hasher =
+        Hmac::<sha2::Sha512>::new_from_slice(key).map_err(|_| BIP32Error::InvalidChainCode)?;
+    hmac_hasher.update(message);
+    Ok(hmac_hasher.finalize().into_bytes().into())
 }
 
 fn finalize_soft_derive_child_hmac<G>(
     parent_chain_code: [u8; 32],
-    hmac_message: &[u8],
+    hmac_data: ChildHmacData,
     parent_pubkey: &G,
 ) -> Result<(G::Scalar, G, [u8; 32]), BIP32Error>
 where
     G: Group + GroupEncoding,
     G::Scalar: BIP32Derive,
 {
-    let mut hmac_hasher = Hmac::<sha2::Sha512>::new_from_slice(&parent_chain_code)
-        .map_err(|_| BIP32Error::InvalidChainCode)?;
-    hmac_hasher.update(hmac_message);
-    let result = hmac_hasher.finalize().into_bytes();
-    let (il_int, child_chain_code) = result.split_at(KEY_SIZE);
-    let il_int: [u8; 32] = il_int[0..32].try_into().unwrap();
+    // Joint: one HMAC keyed by parent_chain_code
+    // Separate: two HMACs keyed by parent_chain_code (Cardano style);
+    let (il_int, child_chain_code): ([u8; 32], [u8; 32]) = match hmac_data {
+        ChildHmacData::Joint(message) => {
+            let result = hmac_sha512(&parent_chain_code, &message)?;
+            (
+                result[..KEY_SIZE].try_into().unwrap(),
+                result[KEY_SIZE..].try_into().unwrap(),
+            )
+        }
+        ChildHmacData::Separate { key, chain_code } => {
+            let key_result = hmac_sha512(&parent_chain_code, &key)?;
+            let chain_code_result = hmac_sha512(&parent_chain_code, &chain_code)?;
+            (
+                key_result[..KEY_SIZE].try_into().unwrap(),
+                chain_code_result[KEY_SIZE..].try_into().unwrap(),
+            )
+        }
+    };
 
     let offset_opt = G::Scalar::parse_offset(il_int);
 
@@ -228,7 +248,7 @@ where
         return Err(BIP32Error::PubkeyPointAtInfinity);
     }
 
-    Ok((offset, child_pubkey, child_chain_code.try_into().unwrap()))
+    Ok((offset, child_pubkey, child_chain_code))
 }
 
 impl<G> Keyshare<G>
@@ -267,6 +287,60 @@ where
             expected_public_key: self.public_key,
             root_chain_code: self.root_chain_code,
         }
+    }
+}
+
+#[cfg(all(test, feature = "eddsa"))]
+mod bip32_ed25519_vectors {
+    use super::*;
+    use curve25519_dalek::edwards::CompressedEdwardsY;
+    use derivation_path::DerivationPath;
+    use std::str::FromStr;
+
+    fn unhex(s: &str) -> Vec<u8> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+            .collect()
+    }
+
+    /// BIP32-Ed25519 (Cardano-style) soft derivation, using the Bip32Public two-HMAC scheme.
+    #[test]
+    fn cardano_soft_derive_vector() {
+        let root_pk = unhex("424287c9a39d727126cab0289dc9f55f5f54b34b2554fe45f0c2546d0a8f0e3c");
+        let root_cc = unhex("15a62c12ff0bde064aa29d0006adec047a1aceb5dc37506e333e1e44b78a9abd");
+        let expected_child_pk =
+            unhex("c5fc1d93e7d2e21e3c785417919622510173fb0afdfb22d5e1549ecfb94fc509");
+        let expected_child_cc =
+            unhex("7ee4600c3c4b86e69304d48556265f232ddfe8a7812141d6054b39f8636262c9");
+
+        let mut pubkey = CompressedEdwardsY(root_pk.as_slice().try_into().unwrap())
+            .decompress()
+            .expect("valid root public key");
+        let mut chain_code: [u8; 32] = root_cc.as_slice().try_into().unwrap();
+
+        let path = DerivationPath::from_str("m/0/1/2").unwrap();
+        for child in &path {
+            let hmac_data = <Bip32Public as SoftDeriveChildHmac<
+                curve25519_dalek::EdwardsPoint,
+            >>::child_hmac_data(&pubkey, child)
+            .unwrap();
+            let (_offset, child_pubkey, child_chain_code) =
+                finalize_soft_derive_child_hmac(chain_code, hmac_data, &pubkey).unwrap();
+            pubkey = child_pubkey;
+            chain_code = child_chain_code;
+        }
+
+        assert_eq!(
+            pubkey.compress().as_bytes().as_slice(),
+            expected_child_pk.as_slice(),
+            "derived child public key mismatch"
+        );
+        assert_eq!(
+            chain_code.as_slice(),
+            expected_child_cc.as_slice(),
+            "derived child chain code mismatch"
+        );
     }
 }
 
