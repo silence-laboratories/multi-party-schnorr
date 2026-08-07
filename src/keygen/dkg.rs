@@ -592,30 +592,28 @@ where
             }
         }
 
+        #[cfg(feature = "taproot")]
+        let (public_key, d_i_share) = {
+            use core::ops::Neg;
+            use elliptic_curve::point::AffineCoordinates;
+
+            if (&public_key as &dyn core::any::Any)
+                .downcast_ref::<k256::ProjectivePoint>()
+                .is_some_and(|taproot_pubkey| bool::from(taproot_pubkey.to_affine().y_is_odd()))
+            {
+                // If the type is ProjectivePoint with an odd y-coordinate, then we are using
+                // Taproot and return the tweaked public key.
+                (public_key.neg(), d_i_share.neg())
+            } else {
+                // Otherwise, we return the compressed public key.
+                (public_key, d_i_share)
+            }
+        };
+
         let key_id = self
             .params
             .key_id
             .unwrap_or_else(|| sha2::Sha256::digest(public_key.to_bytes()).into());
-
-        #[cfg(feature = "taproot")]
-        let (public_key, d_i_share) = match std::any::type_name::<G>() {
-            // If the type is ProjectivePoint, then we are using Taproot
-            // We return the tweaked public key
-            "k256::arithmetic::projective::ProjectivePoint" => {
-                use elliptic_curve::point::AffineCoordinates;
-                use std::{any::Any, ops::Neg};
-                let taproot_pubkey = (&public_key as &dyn Any)
-                    .downcast_ref::<k256::ProjectivePoint>()
-                    .unwrap();
-                if taproot_pubkey.to_affine().y_is_odd().unwrap_u8() == 1 {
-                    (public_key.neg(), d_i_share.neg())
-                } else {
-                    (public_key, d_i_share)
-                }
-            }
-            // Otherwise, we return the compressed public key
-            _ => (public_key, d_i_share),
-        };
 
         let keyshare = Keyshare {
             threshold: self.params.t,
