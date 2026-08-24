@@ -601,11 +601,11 @@ where
                 .downcast_ref::<k256::ProjectivePoint>()
                 .is_some_and(|taproot_pubkey| bool::from(taproot_pubkey.to_affine().y_is_odd()))
             {
-                // If the type is ProjectivePoint with an odd y-coordinate, then we are using
-                // Taproot and return the tweaked public key.
+                // For Taproot (k256::ProjectivePoint), ensure the internal key has even Y per BIP-340.
+                // If Y is odd, negate both the public key and this party's secret share.
                 (public_key.neg(), d_i_share.neg())
             } else {
-                // Otherwise, we return the compressed public key.
+                // For non-Taproot groups, or when Y is already even, return values unchanged.
                 (public_key, d_i_share)
             }
         };
