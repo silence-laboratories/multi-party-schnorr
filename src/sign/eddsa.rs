@@ -141,9 +141,25 @@ mod tests {
 
     #[cfg(feature = "ad")]
     fn run_sign_with_auth_data(shares: Vec<Keyshare<EdwardsPoint>>) -> Signature {
-        let msg = b"Update your infra to PQ secures systems";
-        let auth_data = b"SL is securing the world".to_vec();
+        run_sign_with_auth_data_inner(
+            shares,
+            b"Update your infra to PQ secures systems",
+            b"SL is securing the world",
+        )
+        .0
+    }
 
+    #[cfg(feature = "ad")]
+    fn run_sign_with_auth_data_inner(
+        shares: Vec<Keyshare<EdwardsPoint>>,
+        msg: &[u8],
+        auth_data: &[u8],
+    ) -> (
+        Signature,
+        crate::sign::auth_data::AssociatedDataProof,
+        VerifyingKey,
+        EdwardsPoint,
+    ) {
         let mut rng = rand::thread_rng();
 
         let parties = shares
@@ -154,7 +170,7 @@ mod tests {
                     keyshare,
                     msg.into(),
                     "m/0".parse().unwrap(),
-                    auth_data.clone(),
+                    auth_data.to_vec(),
                     &mut rng,
                 )
             })
@@ -176,11 +192,11 @@ mod tests {
 
         let sig = signatures[0];
         assert!(
-            auth_proof.verify(&vk, msg, &sig, auth_data.as_slice(), &pk),
+            auth_proof.verify(&vk, msg, &sig, auth_data, &pk),
             "AssociatedDataProof::verify failed"
         );
 
-        sig
+        (sig, auth_proof, vk, pk)
     }
 
     #[test]
@@ -252,5 +268,171 @@ mod tests {
             .cloned()
             .collect();
         run_sign_with_auth_data(subset);
+    }
+
+    /// Micro-benchmark extra proving and verification for associated-data EdDSA.
+    ///
+    /// Run with:
+    /// `cargo test --release --features "eddsa,ad,test-support" bench_associated_data_1000 -- --ignored --nocapture`
+    #[cfg(feature = "ad")]
+    #[test]
+    #[ignore]
+    fn bench_associated_data_1000() {
+        use std::hint::black_box;
+        use std::time::{Duration, Instant};
+
+        use crate::sign::auth_data::AssociatedDataProof;
+        use elliptic_curve::group::GroupEncoding;
+
+        const N: usize = 1000;
+        const MICRO_ITERS: usize = 10_000;
+
+        fn stats_ns(samples: &[u128]) -> (u128, f64, f64, u128, u128, u128) {
+            let n = samples.len() as f64;
+            let sum: u128 = samples.iter().sum();
+            let mean = sum as f64 / n;
+            let var = samples
+                .iter()
+                .map(|&x| {
+                    let d = x as f64 - mean;
+                    d * d
+                })
+                .sum::<f64>()
+                / n;
+            let mut sorted = samples.to_vec();
+            sorted.sort_unstable();
+            let median = sorted[sorted.len() / 2];
+            (
+                sum,
+                mean,
+                var.sqrt(),
+                median,
+                sorted[0],
+                *sorted.last().unwrap(),
+            )
+        }
+
+        let msg = b"Update your infra to PQ secures systems";
+        let auth_data = b"SL is securing the world";
+        let shares = run_keygen::<2, 3, EdwardsPoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), 2)
+            .cloned()
+            .collect();
+
+        let mut prove_extra_ns = Vec::with_capacity(N);
+        let mut verify_ns = Vec::with_capacity(N);
+        let mut proof_sizes = Vec::with_capacity(N);
+        let mut last_proof = None;
+        let mut last_sig = None;
+        let mut last_vk = None;
+        let mut last_pk = None;
+
+        let protocol_start = Instant::now();
+        for i in 0..N {
+            let (sig, proof, vk, pk) =
+                run_sign_with_auth_data_inner(subset.clone(), msg, auth_data);
+
+            let t0 = Instant::now();
+            let tweak = AssociatedDataProof::ro(auth_data, &pk, &proof.big_r_prime);
+            let _tweaked = black_box(proof.big_r_prime * tweak);
+            let _k = black_box(tweak * tweak);
+            prove_extra_ns.push(t0.elapsed().as_nanos());
+
+            let t1 = Instant::now();
+            let ok = proof.verify(&vk, msg, &sig, auth_data, &pk);
+            verify_ns.push(t1.elapsed().as_nanos());
+            assert!(ok, "verification failed at iteration {i}");
+
+            proof_sizes.push(proof.big_r_prime.to_bytes().len());
+            last_proof = Some(proof);
+            last_sig = Some(sig);
+            last_vk = Some(vk);
+            last_pk = Some(pk);
+        }
+        let protocol_wall = protocol_start.elapsed();
+
+        let proof = last_proof.unwrap();
+        let sig = last_sig.unwrap();
+        let vk = last_vk.unwrap();
+        let pk = last_pk.unwrap();
+        let proof_size = proof.big_r_prime.to_bytes().len();
+
+        for _ in 0..1_000 {
+            let tweak = AssociatedDataProof::ro(auth_data, &pk, &proof.big_r_prime);
+            let _ = black_box(proof.big_r_prime * tweak);
+            let _ = black_box(tweak * tweak);
+        }
+        let t_prove = Instant::now();
+        for _ in 0..MICRO_ITERS {
+            let tweak = AssociatedDataProof::ro(
+                black_box(auth_data),
+                black_box(&pk),
+                black_box(&proof.big_r_prime),
+            );
+            let _ = black_box(proof.big_r_prime * black_box(tweak));
+            let _ = black_box(black_box(tweak) * black_box(tweak));
+        }
+        let prove_micro_total = t_prove.elapsed();
+
+        for _ in 0..100 {
+            assert!(proof.verify(&vk, msg, &sig, auth_data, &pk));
+        }
+        let t_verify = Instant::now();
+        for _ in 0..MICRO_ITERS {
+            let ok = proof.verify(
+                black_box(&vk),
+                black_box(msg),
+                black_box(&sig),
+                black_box(auth_data),
+                black_box(&pk),
+            );
+            assert!(black_box(ok));
+        }
+        let verify_micro_total = t_verify.elapsed();
+
+        let (prove_sum, prove_mean, prove_std, prove_med, prove_min, prove_max) =
+            stats_ns(&prove_extra_ns);
+        let (ver_sum, ver_mean, ver_std, ver_med, ver_min, ver_max) = stats_ns(&verify_ns);
+
+        println!("=== associated-data EdDSA evaluation (N={N}) ===");
+        println!("curve: ed25519 (curve25519-dalek)");
+        println!("threshold: 2-of-3");
+        println!("associated_data_len_bytes: {}", auth_data.len());
+        println!("proof_size_bytes: {proof_size}");
+        println!(
+            "proof_size_min_max: {:?} {:?}",
+            proof_sizes.iter().min(),
+            proof_sizes.iter().max()
+        );
+        println!("protocol_wall_1000: {protocol_wall:?}");
+        println!(
+            "extra_prove_per_run_ns: sum={prove_sum} mean={prove_mean:.2} std={prove_std:.2} median={prove_med} min={prove_min} max={prove_max}"
+        );
+        println!(
+            "verify_per_run_ns: sum={ver_sum} mean={ver_mean:.2} std={ver_std:.2} median={ver_med} min={ver_min} max={ver_max}"
+        );
+        println!(
+            "verify_cumulative_1000_protocol: {:?}",
+            Duration::from_nanos(ver_sum as u64)
+        );
+        println!(
+            "extra_prove_micro_{MICRO_ITERS}: total={prove_micro_total:?} mean_ns={}",
+            prove_micro_total.as_nanos() as f64 / MICRO_ITERS as f64
+        );
+        println!(
+            "verify_micro_{MICRO_ITERS}: total={verify_micro_total:?} mean_ns={}",
+            verify_micro_total.as_nanos() as f64 / MICRO_ITERS as f64
+        );
+        println!("verify_cumulative_micro_{MICRO_ITERS}: {verify_micro_total:?}");
+        println!(
+            "BENCH_JSON {{\"n\":{N},\"micro_iters\":{MICRO_ITERS},\"ad_len\":{},\"proof_size\":{proof_size},\"protocol_wall_ms\":{},\"extra_prove_sum_ns\":{prove_sum},\"extra_prove_mean_ns\":{prove_mean},\"extra_prove_std_ns\":{prove_std},\"extra_prove_median_ns\":{prove_med},\"extra_prove_min_ns\":{prove_min},\"extra_prove_max_ns\":{prove_max},\"verify_sum_ns\":{ver_sum},\"verify_mean_ns\":{ver_mean},\"verify_std_ns\":{ver_std},\"verify_median_ns\":{ver_med},\"verify_min_ns\":{ver_min},\"verify_max_ns\":{ver_max},\"prove_micro_total_ns\":{},\"prove_micro_mean_ns\":{},\"verify_micro_total_ns\":{},\"verify_micro_mean_ns\":{}}}",
+            auth_data.len(),
+            protocol_wall.as_millis(),
+            prove_micro_total.as_nanos(),
+            prove_micro_total.as_nanos() as f64 / MICRO_ITERS as f64,
+            verify_micro_total.as_nanos(),
+            verify_micro_total.as_nanos() as f64 / MICRO_ITERS as f64
+        );
     }
 }

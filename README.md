@@ -1,100 +1,79 @@
-**Table of Contents**
+# Artifact Evaluation Guide
 
-- [Introduction](#introduction)
-- [Features](#features)
-- [Installing, Testing, Benchmarks](#installing-testing-benchmarks)
-  - [Building](#building)
-  - [Running Tests](#running-tests)
-  - [Examples](#examples)
-- [Implementation Details](#implementation-details)
-  - [Feature Flags](#feature-flags)
+This repository contains a Rust implementation of a multiparty Schnorr / EdDSA signing protocol, including an **Associated Data** binding for Ed25519 signatures.
 
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+You do **not** need prior Rust experience. Follow the two steps below in order.
 
-## Introduction
-This is a high-performance threshold EdDSA/Schnorr signing protocol based on the paper [Simple Three-Round Multiparty Schnorr Signing with Full Simulatability](https://eprint.iacr.org/2022/374.pdf).
+## Requirements
 
+- A computer with **macOS** or **Linux**
+- Internet access (to download the Rust toolchain and crate dependencies)
+- About **10–20 minutes** for the first build (later runs are much faster)
 
-This is a production-ready, audited implementation  and has undergone a comprehensive [security audit](./docs/Hashcloak-SilenceLaboratories_2025_04_09.pdf) by HashCloak.
+## Step 1 — Install Rust (one command)
 
-## Features
+Open a terminal in this repository directory and run:
 
-- Distributed Key Generation (DKG)
-- Distributed Signature Generation (DSG)
-- Key refresh
-- Quorum Change: dynamically change the participant set by adding or removing parties
-
-
-
-## Installing, Testing, Benchmarks
-### Building
 ```bash
-cargo build
-```
-### Running Tests
-```bash
-cargo test
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.88 && . "$HOME/.cargo/env"
 ```
 
+What this does:
 
-### Examples
-Under [`examples/`](./examples/) directory there are examples on how to perform keygen, sign and refresh.
+1. Installs the Rust toolchain manager (`rustup`)
+2. Installs Rust **1.88** (the version required by this project)
+3. Loads the toolchain into your current terminal session
 
-Running the examples:
+If you open a **new** terminal later, run `. "$HOME/.cargo/env"` once (or restart the terminal) so `cargo` is found.
+
+Optional check:
+
 ```bash
-cargo run --example keygen --features "eddsa test-support"
-cargo run --example sign --features "eddsa test-support"
-cargo run --example refresh --features "eddsa test-support"
+rustc --version
+cargo --version
 ```
 
+## Step 2 — Run the Associated Data protocol test (one command)
 
+From the repository root, run:
 
+```bash
+cargo test --release --features "eddsa,ad,test-support" sign_2_3_with_auth_data -- --nocapture
+```
 
-## Implementation Details
+What this does:
 
-- This library provides Distributed Key Generation generic over any elliptic curve group that implements the `Group` trait from the `elliptic-curve` crate.
-- We currently support threshold Schnorr signing with random nonce over curve25519 and Bitcoin Taproot Schnorr over the secp256k1 curve.
+1. Compiles the library with EdDSA signing and the Associated Data (`ad`) feature
+2. Runs the automated test `sign_2_3_with_auth_data`
+3. That test performs a **2-of-3** threshold key generation, then a threshold EdDSA signing session that binds **associated data**, and finally checks that the associated-data proof verifies
 
-**Not in scope**:
-- This library contains only the cryptographic protocol and does not provide any networking functions.
-- The parties in the protocol do not authenticate themselves and do not establish e2e secure channels
+A successful run ends with output similar to:
 
+```text
+test sign::eddsa::tests::sign_2_3_with_auth_data ... ok
+```
 
+The first run downloads dependencies and compiles; this can take several minutes. Later runs reuse the build cache.
 
-### Feature Flags
+## Optional: micro-benchmark
 
-| Feature              | Default? | Description |
-| :---                 |  :---:   | :---        |
-| `eddsa`              |    ✓     | Enables signing over curve25519 with ed25519-dalek signing objects compatibility |
-| `taproot`            |          | Enables Bitcoin Taproot Schnorr signing over secp256k1 |
-| `redpallas`          |          | Enables RedDSA signing over Pallas (Zcash Orchard–compatible, verifiable with the `reddsa` crate) |
-| `session`            |    ✓     | Enables session support (serde + ciborium for encoding) |
-| `serde`              |          | Make messages, state and session structures serializable |
-| `keyshare-session-id`|          | Enable field `final_session_id` in `Keyshare` structure and use it to calculate session-id for DSG |
-| `test-support`       |          | Enable internal helpers and fixtures required by the bundled examples |
+To measure associated-data prove/verify overhead (ignored by default):
 
+```bash
+cargo test --release --features "eddsa,ad,test-support" bench_associated_data_1000 -- --ignored --nocapture
+```
 
-## Security
+## Troubleshooting
 
-If you discover a vulnerability, please follow the instructions in [SECURITY](SECURITY.md).
+| Problem | What to try |
+| :--- | :--- |
+| `cargo: command not found` | Run `. "$HOME/.cargo/env"`, then retry Step 2 |
+| Build fails on Linux with linker / `cc` errors | Install a C toolchain, e.g. `sudo apt-get update && sudo apt-get install -y build-essential`, then retry Step 2 |
+| Slow first build | Expected; wait for compilation to finish |
+| Wrong Rust version | Re-run Step 1, or `rustup default 1.88` |
 
-## Security Audit
+## Notes for reviewers
 
-HashCloak has performed a security audit in April, 2025 on the following commit:
-- `146d4a57a82c62cf8d24fbd6b713d9bfc7cd534c`
-
-and the report is available here: [security audit](./docs/Hashcloak-SilenceLaboratories_2025_04_09.pdf)
-
-
-## Contributing
-
-Please refer to [CONTRIBUTING](CONTRIBUTING.md).
-
-## Reach out to us
-Don't hesitate to contact us if you need any assistance.
-
-info@silencelaboratories.com
-
-security@silencelaboratories.com
-
-**Happy signing!**
+- This package provides the **cryptographic protocol only** (no networking).
+- The Associated Data path is enabled with the Cargo feature `ad` and is exercised by the test named above.
+- No special configuration files are required beyond the commands in this guide.
