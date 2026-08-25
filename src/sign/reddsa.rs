@@ -1,6 +1,3 @@
-// Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
-// This software is licensed under the Silence Laboratories License Agreement.
-
 //! RedDSA signing for RedPallas, compatible with Zcash reddsa verification.
 //! Challenge: BLAKE2b-512 with personalization "Zcash_RedPallasH", then R || vk || message, reduced to scalar.
 //! See: https://github.com/ZcashFoundation/reddsa

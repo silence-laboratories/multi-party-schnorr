@@ -1,6 +1,3 @@
-// Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
-// This software is licensed under the Silence Laboratories License Agreement.
-
 use curve25519_dalek::{EdwardsPoint, Scalar};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use elliptic_curve::group::GroupEncoding;
@@ -144,7 +141,7 @@ mod tests {
         run_sign_with_auth_data_inner(
             shares,
             b"Update your infra to PQ secures systems",
-            b"SL is securing the world",
+            b"associated-data binding example",
         )
         .0
     }
@@ -313,7 +310,7 @@ mod tests {
         }
 
         let msg = b"Update your infra to PQ secures systems";
-        let auth_data = b"SL is securing the world";
+        let auth_data = b"associated-data binding example";
         let shares = run_keygen::<2, 3, EdwardsPoint>();
         let subset: Vec<_> = shares
             .choose_multiple(&mut rand::thread_rng(), 2)

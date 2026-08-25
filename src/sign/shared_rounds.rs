@@ -1,6 +1,3 @@
-// Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
-// This software is licensed under the Silence Laboratories License Agreement.
-
 //! This module contains the shared round logic (first 2 rounds) for all signing protocols.
 //! The logic is generic over the elliptic curve group.
 //! Since the final signing is done differently for different schemes, that part is not generic and

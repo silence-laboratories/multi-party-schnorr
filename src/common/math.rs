@@ -1,6 +1,3 @@
-// Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
-// This software is licensed under the Silence Laboratories License Agreement.
-
 use crypto_bigint::subtle::ConstantTimeEq;
 use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::Group;

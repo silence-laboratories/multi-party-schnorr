@@ -1,6 +1,3 @@
-// Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
-// This software is licensed under the Silence Laboratories License Agreement.
-
 #[cfg(all(feature = "ad", any(feature = "taproot", feature = "redpallas")))]
 compile_error!(
     "feature `ad` (Ed25519 associated-data binding) is only supported for EdDSA-only builds; \

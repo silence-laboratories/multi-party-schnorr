@@ -1,6 +1,3 @@
-// Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
-// This software is licensed under the Silence Laboratories License Agreement.
-
 use std::sync::Arc;
 
 use crypto_bigint::subtle::ConstantTimeEq;
@@ -30,7 +27,7 @@ use super::{
 };
 
 /// LABEL for the keygen protocol
-pub const DKG_LABEL: &[u8] = b"SilenceLaboratories-Schnorr-DKG";
+pub const DKG_LABEL: &[u8] = b"Anonymous-Schnorr-DKG";
 
 /// Keygen party
 /// The keygen party is a state machine that implements the keygen protocol.
