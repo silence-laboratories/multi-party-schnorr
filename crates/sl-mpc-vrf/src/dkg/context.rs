@@ -117,6 +117,7 @@ impl Context {
             self.party.party_id,
             &big_a_i.coeffs,
             &self.r_i,
+            &self.chain_code_id,
         );
 
         self.big_a_i = big_a_i;
@@ -194,6 +195,7 @@ impl Context {
                 to_party,
                 session_id: final_sid,
                 r_i: self.r_i,
+                chain_code_id: self.chain_code_id,
                 big_a_i_poly: self.big_a_i.coeffs.clone(),
                 share: self.c_i_j[to_party as usize],
                 dlog_proofs_i: dlog_proofs.clone(),
@@ -222,8 +224,13 @@ impl Context {
             let party_id = msg.from_party;
             let sid = self.sid_i_list[party_id as usize];
             let commitment = self.commitment_list[party_id as usize];
-            let commit_hash =
-                hash_commitment(&sid, party_id, &msg.big_a_i_poly, &msg.r_i);
+            let commit_hash = hash_commitment(
+                &sid,
+                party_id,
+                &msg.big_a_i_poly,
+                &msg.r_i,
+                &msg.chain_code_id,
+            );
             if commit_hash != commitment {
                 return Err(VrfKeygenError::ProofError);
             }
@@ -256,6 +263,9 @@ impl Context {
             }
 
             let plaintext = share.data;
+            if plaintext[32..] != msg.chain_code_id {
+                return Err(VrfKeygenError::ProofError);
+            }
             let mut scalar_bytes = [0u8; 32];
             scalar_bytes.copy_from_slice(&plaintext[..32]);
             let d_i = Option::from(Scalar::from_canonical_bytes(scalar_bytes))
@@ -448,6 +458,32 @@ mod tests {
         assert_eq!(
             parties[0].round2_in(foreign),
             Err(super::VrfKeygenError::InvalidParticipantSet)
+        );
+    }
+
+    #[test]
+    fn vrf_dkg_round2_rejects_tampered_chain_code() {
+        let mut rng = rand::thread_rng();
+        let mut parties = init_states(3, 2);
+        let msg1: Vec<_> = parties
+            .iter_mut()
+            .map(|p| p.round1_out(&mut rng).unwrap())
+            .collect();
+        let all_msg2: Vec<_> = parties
+            .iter_mut()
+            .flat_map(|party| party.round1_in(&mut rng, msg1.clone()).unwrap())
+            .collect();
+
+        let pid = parties[0].party_id();
+        let mut batch: Vec<_> = all_msg2
+            .iter()
+            .filter(|msg| msg.to_party == pid)
+            .cloned()
+            .collect();
+        batch[0].share.data[32] ^= 1;
+        assert_eq!(
+            parties[0].round2_in(batch),
+            Err(super::VrfKeygenError::ProofError)
         );
     }
 }

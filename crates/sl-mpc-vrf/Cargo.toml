@@ -1,6 +1,6 @@
     [package]
 name = "sl-mpc-vrf"
-version = "0.1.0-pre.3"
+version = "0.1.0-pre.4"
 edition = "2021"
 license-file = "../../LICENSE"
 description = "Threshold MPC VRF wire protocols on Ristretto (DKG + eval)"

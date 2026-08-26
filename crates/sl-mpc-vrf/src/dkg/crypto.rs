@@ -90,13 +90,14 @@ impl DLogProof {
     }
 }
 
-/// Round-1 commitment over the public opening only (polynomial + `r_i`).
+/// Round-1 commitment over the public opening (polynomial + `r_i` + `chain_code_id`).
 /// Shamir shares are not included: they are delivered P2P and checked with Feldman.
 pub fn hash_commitment(
     session_id: &SessionId,
     party_id: u8,
     big_a_i_poly: &[RistrettoPoint],
     r_i: &[u8; 32],
+    chain_code_id: &[u8; 32],
 ) -> HashBytes {
     let mut hasher = Sha256::new()
         .chain_update(b"SL-Keygen-Commitment")
@@ -106,6 +107,7 @@ pub fn hash_commitment(
         hasher.update(point.compress().as_bytes());
     }
     hasher.update(r_i);
+    hasher.update(chain_code_id);
     hasher.finalize().into()
 }
 
