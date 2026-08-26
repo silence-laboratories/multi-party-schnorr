@@ -69,23 +69,29 @@ impl Round for VrfDkgParty<VrfDkgR0> {
     }
 }
 
+impl<T> VrfDkgParty<T> {
+    pub fn party_id(&self) -> u8 {
+        self.ctx.party_id()
+    }
+}
+
 impl Round for VrfDkgParty<VrfDkgR1> {
     type InputMessage = VrfKeygenMsg1;
     type Input = Vec<VrfKeygenMsg1>;
     type Error = VrfKeygenError;
-    type Output = (VrfDkgParty<VrfDkgR2>, VrfKeygenMsg2);
+    type Output = (VrfDkgParty<VrfDkgR2>, Vec<VrfKeygenMsg2>);
 
     fn process(self, messages: Self::Input) -> Result<Self::Output, Self::Error> {
         let mut ctx = self.ctx;
         let mut rng = ChaCha20Rng::from_seed(self.seed);
-        let msg = ctx.round1_in(&mut rng, messages)?;
+        let msgs = ctx.round1_in(&mut rng, messages)?;
         Ok((
             VrfDkgParty {
                 ctx,
                 seed: rng.gen(),
                 _phase: PhantomData,
             },
-            msg,
+            msgs,
         ))
     }
 }
@@ -144,10 +150,23 @@ pub fn setup_vrf_keygen(t: u8, n: u8) -> Result<Vec<VrfDkgParty<VrfDkgR0>>, VrfK
 pub fn run_vrf_keygen<const T: usize, const N: usize>() -> [Keyshare<VrfPoint>; N] {
     let actors = setup_vrf_keygen(T as u8, N as u8).expect("valid test parameters");
 
-    let (actors, msgs): (Vec<_>, Vec<_>) = run_round_local(actors, ()).into_iter().unzip();
-    let (actors, msgs): (Vec<_>, Vec<_>) = run_round_local(actors, msgs).into_iter().unzip();
+    let (actors, msg1): (Vec<_>, Vec<_>) = run_round_local(actors, ()).into_iter().unzip();
+    let (actors, msg2_batches): (Vec<_>, Vec<Vec<VrfKeygenMsg2>>) =
+        run_round_local(actors, msg1).into_iter().unzip();
+    let msg2: Vec<VrfKeygenMsg2> = msg2_batches.into_iter().flatten().collect();
 
-    run_round_local(actors, msgs)
+    actors
+        .into_iter()
+        .map(|actor| {
+            let party_id = actor.party_id();
+            let batch: Vec<VrfKeygenMsg2> = msg2
+                .iter()
+                .filter(|msg| msg.to_party == party_id)
+                .cloned()
+                .collect();
+            actor.process(batch).unwrap()
+        })
+        .collect::<Vec<_>>()
         .try_into()
         .map_err(|_| panic!("Failed to convert VRF keyshares"))
         .unwrap()

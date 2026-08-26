@@ -1,4 +1,4 @@
-[package]
+    [package]
 name = "sl-mpc-vrf"
 version = "0.1.0-pre.3"
 edition = "2021"
