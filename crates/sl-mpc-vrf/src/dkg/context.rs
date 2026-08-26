@@ -376,8 +376,7 @@ pub(crate) mod test_support {
                     .cloned()
                     .collect();
                 assert!(batch.iter().all(|msg| {
-                    msg.to_party == party.party_id()
-                        && msg.share.receiver_pid == party.party_id()
+                    msg.to_party == party.party_id() && msg.share.receiver_pid == party.party_id()
                 }));
                 party.round2_in(batch).unwrap()
             })
@@ -452,9 +451,7 @@ mod tests {
             })
             .collect();
         assert_eq!(foreign.len(), 3);
-        assert!(foreign
-            .iter()
-            .all(|m| m.to_party != parties[0].party_id()));
+        assert!(foreign.iter().all(|m| m.to_party != parties[0].party_id()));
         assert_eq!(
             parties[0].round2_in(foreign),
             Err(super::VrfKeygenError::InvalidParticipantSet)
