@@ -116,7 +116,6 @@ impl Context {
             &self.session_id,
             self.party.party_id,
             &big_a_i.coeffs,
-            &c_i_j,
             &self.r_i,
         );
 
@@ -133,11 +132,14 @@ impl Context {
     }
 
     /// Round 1 inbound: `messages` must include this party's round-1 message.
+    ///
+    /// Returns one P2P opening per party (including self). Each message contains
+    /// only that recipient's Shamir share.
     pub fn round1_in<R: RngCore + CryptoRng>(
         &mut self,
         rng: &mut R,
         messages: Vec<VrfKeygenMsg1>,
-    ) -> Result<VrfKeygenMsg2, VrfKeygenError> {
+    ) -> Result<Vec<VrfKeygenMsg2>, VrfKeygenError> {
         if !self.msg1_generated {
             return Err(VrfKeygenError::InvalidState);
         }
@@ -175,7 +177,7 @@ impl Context {
             .finalize()
             .into();
 
-        let dlog_proofs = self
+        let dlog_proofs: Vec<DLogProof> = self
             .polynomial
             .iter()
             .map(|coeff| DLogProof::prove(&dlog_sid, coeff, rng))
@@ -186,17 +188,20 @@ impl Context {
         self.sid_i_list = sid_i_list;
         self.round1_complete = true;
 
-        Ok(VrfKeygenMsg2 {
-            from_party: self.party.party_id,
-            session_id: final_sid,
-            r_i: self.r_i,
-            big_a_i_poly: self.big_a_i.coeffs.clone(),
-            c_i_list: self.c_i_j.clone(),
-            dlog_proofs_i: dlog_proofs,
-        })
+        Ok((0..self.party.total_parties)
+            .map(|to_party| VrfKeygenMsg2 {
+                from_party: self.party.party_id,
+                to_party,
+                session_id: final_sid,
+                r_i: self.r_i,
+                big_a_i_poly: self.big_a_i.coeffs.clone(),
+                share: self.c_i_j[to_party as usize],
+                dlog_proofs_i: dlog_proofs.clone(),
+            })
+            .collect())
     }
 
-    /// Round 2 inbound: verify openings and derive the VRF key share.
+    /// Round 2 inbound: one opening from each party, all addressed to this party.
     pub fn round2_in(
         &mut self,
         messages: Vec<VrfKeygenMsg2>,
@@ -207,6 +212,9 @@ impl Context {
         let messages = validate_input_messages(messages, self.party.total_parties)?;
 
         for msg in &messages {
+            if msg.to_party != self.party.party_id {
+                return Err(VrfKeygenError::InvalidParticipantSet);
+            }
             if msg.session_id != self.final_session_id {
                 return Err(VrfKeygenError::InvalidParticipantSet);
             }
@@ -215,7 +223,7 @@ impl Context {
             let sid = self.sid_i_list[party_id as usize];
             let commitment = self.commitment_list[party_id as usize];
             let commit_hash =
-                hash_commitment(&sid, party_id, &msg.big_a_i_poly, &msg.c_i_list, &msg.r_i);
+                hash_commitment(&sid, party_id, &msg.big_a_i_poly, &msg.r_i);
             if commit_hash != commitment {
                 return Err(VrfKeygenError::ProofError);
             }
@@ -242,7 +250,7 @@ impl Context {
         let mut chain_code_sids: Vec<[u8; 32]> = Vec::with_capacity(messages.len());
 
         for msg in &messages {
-            let share = &msg.c_i_list[self.party.party_id as usize];
+            let share = &msg.share;
             if share.sender_pid != msg.from_party || share.receiver_pid != self.party.party_id {
                 return Err(VrfKeygenError::InvalidParticipantSet);
             }
@@ -333,7 +341,7 @@ pub(crate) mod test_support {
 
         let msg2: Vec<VrfKeygenMsg2> = parties
             .iter_mut()
-            .map(|party| {
+            .flat_map(|party| {
                 let mut messages: Vec<VrfKeygenMsg1> = msg1
                     .iter()
                     .filter(|msg| msg.from_party != party.party_id())
@@ -351,7 +359,18 @@ pub(crate) mod test_support {
 
         parties
             .iter_mut()
-            .map(|party| party.round2_in(msg2.clone()).unwrap())
+            .map(|party| {
+                let batch: Vec<VrfKeygenMsg2> = msg2
+                    .iter()
+                    .filter(|msg| msg.to_party == party.party_id())
+                    .cloned()
+                    .collect();
+                assert!(batch.iter().all(|msg| {
+                    msg.to_party == party.party_id()
+                        && msg.share.receiver_pid == party.party_id()
+                }));
+                party.round2_in(batch).unwrap()
+            })
             .collect()
     }
 }
@@ -395,5 +414,40 @@ mod tests {
         let shares = vrf_dkg_inner(init_states(3, 2));
         assert_eq!(shares.len(), 3);
         assert_shared_vrf_state(&shares);
+    }
+
+    #[test]
+    fn vrf_dkg_round2_rejects_foreign_shares() {
+        let mut rng = rand::thread_rng();
+        let mut parties = init_states(3, 2);
+        let msg1: Vec<_> = parties
+            .iter_mut()
+            .map(|p| p.round1_out(&mut rng).unwrap())
+            .collect();
+        let all_msg2: Vec<_> = parties
+            .iter_mut()
+            .flat_map(|party| {
+                let messages = msg1.clone();
+                party.round1_in(&mut rng, messages).unwrap()
+            })
+            .collect();
+
+        let foreign: Vec<_> = (0..3)
+            .map(|from| {
+                all_msg2
+                    .iter()
+                    .find(|m| m.from_party == from && m.to_party != parties[0].party_id())
+                    .unwrap()
+                    .clone()
+            })
+            .collect();
+        assert_eq!(foreign.len(), 3);
+        assert!(foreign
+            .iter()
+            .all(|m| m.to_party != parties[0].party_id()));
+        assert_eq!(
+            parties[0].round2_in(foreign),
+            Err(super::VrfKeygenError::InvalidParticipantSet)
+        );
     }
 }

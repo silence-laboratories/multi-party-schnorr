@@ -90,16 +90,12 @@ impl DLogProof {
     }
 }
 
-pub fn append_p2p_share_for_commitment(hasher: &mut Sha256, share: &P2pShare) {
-    hasher.update([share.sender_pid, share.receiver_pid]);
-    hasher.update(share.data);
-}
-
+/// Round-1 commitment over the public opening only (polynomial + `r_i`).
+/// Shamir shares are not included: they are delivered P2P and checked with Feldman.
 pub fn hash_commitment(
     session_id: &SessionId,
     party_id: u8,
     big_a_i_poly: &[RistrettoPoint],
-    shares: &[P2pShare],
     r_i: &[u8; 32],
 ) -> HashBytes {
     let mut hasher = Sha256::new()
@@ -108,9 +104,6 @@ pub fn hash_commitment(
         .chain_update(party_id.to_be_bytes());
     for point in big_a_i_poly {
         hasher.update(point.compress().as_bytes());
-    }
-    for share in shares {
-        append_p2p_share_for_commitment(&mut hasher, share);
     }
     hasher.update(r_i);
     hasher.finalize().into()
