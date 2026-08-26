@@ -665,7 +665,7 @@ dependencies = [
  "signature",
  "sl-mpc-derive 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sl-mpc-mate",
- "sl-mpc-vrf 0.1.0-pre.3",
+ "sl-mpc-vrf 0.1.0-pre.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 1.0.69",
  "tokio",
  "zeroize",
@@ -1013,9 +1013,7 @@ dependencies = [
 
 [[package]]
 name = "sl-mpc-vrf"
-version = "0.1.0-pre.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35cac2c6de390d8707044a459adaf55a707140deb542c1c364813959fe47deef"
+version = "0.1.0-pre.4"
 dependencies = [
  "crypto-bigint",
  "curve25519-dalek",
@@ -1036,6 +1034,8 @@ dependencies = [
 [[package]]
 name = "sl-mpc-vrf"
 version = "0.1.0-pre.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34d050756bcb8653d2cda2a083a8d23e75814ecd1ff7c225b64a97856e2348cb"
 dependencies = [
  "crypto-bigint",
  "curve25519-dalek",
