@@ -4,6 +4,14 @@ All notable changes to `sl-mpc-vrf` are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- `VrfKeygenMsg2` is a per-recipient P2P opening (`to_party` + single `share`) instead of a broadcast `c_i_list`. Hosts must encrypt each message to `to_party`.
+- Round-1 `hash_commitment` covers the public polynomial, `r_i`, and `chain_code_id` (Shamir shares are checked with Feldman).
+- [`VrfKeygenMsg2`](src/dkg/messages.rs) carries public `chain_code_id`; round 2 requires it to match `share.data[32..]`.
+- [`Context::round1_in`](src/dkg/context.rs) returns `Vec<VrfKeygenMsg2>` (one message per party).
+- [`Context::round2_in`](src/dkg/context.rs) requires every inbound message to be addressed to this party.
+
 ## [0.1.0-pre.2] - 2026-05-27
 
 ### Changed

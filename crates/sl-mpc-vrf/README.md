@@ -33,7 +33,9 @@ use sl_mpc_vrf::{VrfDkgContext, VrfDkgParty};
 // Build a per-party Context and run round 1 → round 2.
 let party = VrfDkgParty::new(total_parties, threshold, party_id);
 let mut ctx = VrfDkgContext::new(party, &mut rng)?;
-// ... ctx.round1_out(..), ctx.round1_in(..) → VrfKeygenMsg2, then ctx.round2_in(..) → VrfKeyshare
+// ... ctx.round1_out(..) → VrfKeygenMsg1 (broadcast)
+// ... ctx.round1_in(..) → Vec<VrfKeygenMsg2> (P2P, one per recipient; encrypt to to_party)
+// ... ctx.round2_in(msgs_addressed_to_self) → VrfKeyshare
 ```
 
 VRF evaluation is three rounds over a quorum of keyshares:

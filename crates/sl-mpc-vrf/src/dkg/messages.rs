@@ -16,15 +16,21 @@ pub struct VrfKeygenMsg1 {
     pub commitment: HashBytes,
 }
 
-/// Broadcast: round-2 opening.
+/// Round-2 opening for a single recipient.
+///
+/// Public fields (`r_i`, `chain_code_id`, polynomial, dlog proofs) may be duplicated per recipient.
+/// `share` is plaintext Shamir material for `to_party` only; the host must encrypt
+/// this message to that party (do not broadcast one blob containing every share).
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VrfKeygenMsg2 {
     pub from_party: u8,
+    pub to_party: u8,
     pub session_id: SessionId,
     pub r_i: [u8; 32],
+    pub chain_code_id: [u8; 32],
     pub big_a_i_poly: Vec<RistrettoPoint>,
-    pub c_i_list: Vec<P2pShare>,
+    pub share: P2pShare,
     pub dlog_proofs_i: Vec<DLogProof>,
 }
 
