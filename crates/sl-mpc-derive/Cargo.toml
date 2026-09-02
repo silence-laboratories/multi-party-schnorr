@@ -16,7 +16,7 @@ k256 = ["dep:k256"]
 [dependencies]
 crypto-bigint = "0.5"
 elliptic-curve = { version = "0.13" }
-ff = "0.13.0"
+ff = "0.14.0"
 hmac = "0.12.1"
 rand = "0.8"
 rand_chacha = "0.3.1"
