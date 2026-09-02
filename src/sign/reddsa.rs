@@ -5,6 +5,8 @@
 //! Challenge: BLAKE2b-512 with personalization "Zcash_RedPallasH", then R || vk || message, reduced to scalar.
 //! See: https://github.com/ZcashFoundation/reddsa
 
+use alloc::vec::Vec;
+
 use blake2b_simd::Params;
 use ff::{FromUniformBytes, PrimeField};
 use group::GroupEncoding;

@@ -3,9 +3,9 @@
 
 //! BIP32 soft derivation party (stays in the main crate: needs [`crate::keygen::Keyshare`]).
 
-use std::marker::PhantomData;
-use std::str::FromStr;
-use std::sync::Arc;
+use alloc::sync::Arc;
+use core::marker::PhantomData;
+use core::str::FromStr;
 
 use crypto_bigint::subtle::ConstantTimeEq;
 use derivation_path::DerivationPath;
@@ -71,6 +71,8 @@ where
 
 #[cfg(test)]
 mod test {
+    use alloc::vec::Vec;
+
     use super::*;
 
     use crate::common::{utils::support::run_keygen, Legacy};
@@ -81,7 +83,7 @@ mod test {
     where
         R: Round<Input = I, Output = O, Error = E>,
         I: Clone,
-        E: std::fmt::Debug,
+        E: core::fmt::Debug,
     {
         actors
             .into_iter()
@@ -117,21 +119,19 @@ mod test {
             .cloned()
             .collect();
         let s = run_derivation::<EdwardsPoint, Legacy>(&subset, "m/0");
-        println!("{:?}", s[0].compress().to_bytes());
+        std::println!("{:?}", s[0].compress().to_bytes());
     }
 
     #[cfg(feature = "taproot")]
     #[test]
     fn taproot_derive_2_2() {
         use crate::common::Legacy;
-        use elliptic_curve::group::GroupEncoding;
 
         let shares = run_keygen::<2, 2, k256::ProjectivePoint>();
         let subset: Vec<_> = shares
             .choose_multiple(&mut rand::thread_rng(), 2)
             .cloned()
             .collect();
-        let s = run_derivation::<k256::ProjectivePoint, Legacy>(&subset, "m/0");
-        println!("{:?}", s[0].to_bytes());
+        let _ = run_derivation::<k256::ProjectivePoint, Legacy>(&subset, "m/0");
     }
 }

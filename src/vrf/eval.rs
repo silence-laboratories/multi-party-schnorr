@@ -3,7 +3,9 @@
 
 //! MPC-friendly VRF evaluation — thin [`Round`] adapter over [`sl_mpc_vrf`].
 
-use std::{marker::PhantomData, sync::Arc};
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 use curve25519_dalek::Scalar as RScalar;
 use rand::{CryptoRng, RngCore};

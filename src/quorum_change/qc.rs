@@ -5,6 +5,8 @@
 //! Based on dkls23-rs/docs/quorum_change_protocol.txt and
 //! Protocol 7.1. Relaxed DLog Keygen https://eprint.iacr.org/2023/765.pdf
 
+use alloc::vec::Vec;
+
 use crypto_bigint::subtle::ConstantTimeEq;
 use elliptic_curve::{group::GroupEncoding, Group};
 use ff::PrimeField;

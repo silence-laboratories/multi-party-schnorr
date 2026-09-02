@@ -2,6 +2,9 @@
 // This software is licensed under the Silence Laboratories License Agreement.
 
 //! RoHMAC-SHA256 random oracle + encoding
+
+use alloc::{vec, vec::Vec};
+
 use hmac::{Hmac, Mac};
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;

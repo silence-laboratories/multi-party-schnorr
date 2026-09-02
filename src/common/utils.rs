@@ -19,7 +19,7 @@ pub const SCALAR_CIPHERTEXT_SIZE: usize = 64 + <SalsaBox as AeadCore>::TagSize::
 // Custom serde serializer
 #[cfg(feature = "serde")]
 pub mod serde_point {
-    use std::marker::PhantomData;
+    use core::marker::PhantomData;
 
     use elliptic_curve::group::GroupEncoding;
     use serde::de::Visitor;
@@ -71,6 +71,8 @@ pub mod serde_point {
 
 #[cfg(feature = "serde")]
 pub mod serde_vec_point {
+    use alloc::vec::Vec;
+
     use elliptic_curve::group::GroupEncoding;
 
     pub fn serialize<S, G: GroupEncoding>(points: &[G], serializer: S) -> Result<S::Ok, S::Error>
@@ -110,7 +112,7 @@ pub mod serde_vec_point {
 
 #[cfg(feature = "serde")]
 pub mod serde_arc {
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     use serde::{Deserialize, Serialize};
 
@@ -228,6 +230,8 @@ pub fn decrypt_message(
 #[cfg(any(test, feature = "test-support"))]
 pub mod support {
 
+    use alloc::vec::Vec;
+
     use crate::keygen::{utils::setup_keygen, Keyshare};
 
     use crate::common::{
@@ -242,7 +246,7 @@ pub mod support {
     where
         R: Round<Input = I, Output = O, Error = E> + Serializable + Send,
         I: Clone + Sync,
-        E: std::fmt::Debug,
+        E: core::fmt::Debug,
         O: Send,
     {
         actors
