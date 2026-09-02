@@ -1,6 +1,8 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
+use alloc::vec::Vec;
+
 use crypto_bigint::subtle::ConstantTimeEq;
 use elliptic_curve::group::GroupEncoding;
 use elliptic_curve::Group;
@@ -194,6 +196,8 @@ pub fn combine_shares<G: Group>(
 #[cfg(feature = "eddsa")]
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+
     use curve25519_dalek::EdwardsPoint;
     use rand::seq::SliceRandom;
 

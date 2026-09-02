@@ -3,7 +3,8 @@
 
 //! MPC hard derivation (Ristretto VRF + generic signing root).
 
-use std::sync::Arc;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 #[cfg(feature = "serde")]
 use crate::common::ser::Serializable;

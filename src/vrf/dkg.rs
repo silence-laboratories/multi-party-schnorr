@@ -3,7 +3,8 @@
 
 //! Shamir VRF DKG — thin [`Round`] adapter over [`sl_mpc_vrf::dkg::Context`].
 
-use std::marker::PhantomData;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
@@ -112,7 +113,7 @@ fn run_round_local<I, R, O, E>(actors: impl IntoIterator<Item = R>, msgs: I) -> 
 where
     R: Round<Input = I, Output = O, Error = E>,
     I: Clone,
-    E: std::fmt::Debug,
+    E: core::fmt::Debug,
 {
     actors
         .into_iter()

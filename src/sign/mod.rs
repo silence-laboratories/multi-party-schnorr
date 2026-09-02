@@ -1,7 +1,7 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-use std::collections::HashSet;
+use alloc::vec::Vec;
 
 mod types;
 
@@ -39,10 +39,9 @@ pub(crate) fn validate_input_messages<M: BaseMessage>(
         return Err(SignError::InvalidMsgCount);
     }
 
-    let party_ids = msgs
-        .iter()
-        .map(|msg| msg.party_id())
-        .collect::<HashSet<u8>>();
+    let mut party_ids = msgs.iter().map(|msg| msg.party_id()).collect::<Vec<_>>();
+    party_ids.sort_unstable();
+    party_ids.dedup();
 
     if party_ids.len() != party_id_list.len() {
         return Err(SignError::DuplicatePartyId);

@@ -1,8 +1,8 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-use std::iter::Sum;
-use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::iter::Sum;
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use blake2b_simd::Params as Blake2bParams;
 use crypto_bigint::subtle::ConstantTimeEq;
@@ -224,6 +224,8 @@ impl ScalarReduce<[u8; 32]> for Fq {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+
     use group::Group;
 
     use super::{RedPallasPoint, RedPallasPointBytes};
