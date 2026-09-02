@@ -6,7 +6,8 @@
 //! Since the final signing is done differently for different schemes, that part is not generic and
 //! is implemented as specific modules. (e.g `taproot.rs` and `eddsa.rs`)
 //!
-use std::sync::Arc;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 use crypto_bigint::subtle::ConstantTimeEq;
 use derivation_path::DerivationPath;
