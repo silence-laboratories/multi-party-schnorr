@@ -617,15 +617,12 @@ where
         let (public_key, d_i_share) = {
             use core::ops::Neg;
 
-            use crate::common::redpallas::{
-                orchard_ak_sign_normalize_enabled, RedPallasPoint,
-            };
+            use crate::common::redpallas::{orchard_ak_sign_normalize_enabled, RedPallasPoint};
 
-            let enabled =
-                orchard_ak_sign_normalize_enabled(self.params.extra_data.as_deref());
+            let enabled = orchard_ak_sign_normalize_enabled(self.params.extra_data.as_deref());
             if enabled {
-                if let Some(pk) = (&public_key as &dyn core::any::Any)
-                    .downcast_ref::<RedPallasPoint>()
+                if let Some(pk) =
+                    (&public_key as &dyn core::any::Any).downcast_ref::<RedPallasPoint>()
                 {
                     if pk.y_coord_sign_bit_set() {
                         (public_key.neg(), d_i_share.neg())
@@ -990,10 +987,8 @@ mod test {
             })
             .collect();
 
-        let (parties, msgs): (Vec<_>, Vec<_>) =
-            run_round(sign_parties, ()).into_iter().unzip();
-        let (parties, msgs): (Vec<_>, Vec<_>) =
-            run_round(parties, msgs).into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(sign_parties, ()).into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
         let (ready_parties, alphas): (Vec<_>, Vec<_>) =
             run_round(parties, msgs).into_iter().unzip();
 
