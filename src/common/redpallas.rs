@@ -14,6 +14,20 @@ use rand_core::RngCore;
 
 use crate::common::traits::ScalarReduce;
 
+/// When present as the first byte of [`crate::keygen::Keyshare::extra_data`], enables
+/// Orchard SpendAuthorizingKey / ak sign normalization after RedPallas DKG
+/// (Zcash Protocol Spec §4.2.3 / orchard `SpendAuthorizingKey`).
+///
+/// All parties must pass the same `extra_data` so they all apply (or skip) the
+/// same negation: if the high bit of `repr(pk)` is 1, each party sets
+/// `d_i := -d_i` and `pk := -pk`.
+pub const ORCHARD_AK_SIGN_NORMALIZE: u8 = 1;
+
+/// Returns true when RedPallas DKG should enforce y = 0 on the resulting ak.
+pub fn orchard_ak_sign_normalize_enabled(extra_data: Option<&[u8]>) -> bool {
+    matches!(extra_data, Some([ORCHARD_AK_SIGN_NORMALIZE, ..]))
+}
+
 /// Orchard SpendAuth basepoint for RedDSA (Pallas).
 /// Same as reddsa orchard::SpendAuth: pallas::Point::hash_to_curve("z.cash:Orchard")(b"G").
 const ORCHARD_SPENDAUTHSIG_BASEPOINT_BYTES: [u8; 32] = [
@@ -62,6 +76,12 @@ impl RedPallasPoint {
             .update(m)
             .finalize();
         <Fq as FromUniformBytes<64>>::from_uniform_bytes(hash.as_array())
+    }
+
+    /// True when the compressed encoding has y = 1 (high bit of the last byte).
+    pub fn y_coord_sign_bit_set(&self) -> bool {
+        let bytes = self.to_bytes();
+        (bytes.as_ref()[31] >> 7) == 1
     }
 }
 
