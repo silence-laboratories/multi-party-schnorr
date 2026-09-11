@@ -911,7 +911,7 @@ mod test {
         use crate::sign::{SignerParty, R0};
         use elliptic_curve::Group;
         use group::GroupEncoding;
-        use rand::Rng;
+        use rand::{Rng, SeedableRng};
         use reddsa::orchard::SpendAuth;
         use reddsa::{Signature, VerificationKey};
 
@@ -923,8 +923,7 @@ mod test {
 
         let t = 2u8;
         let n = 3u8;
-        let mut rng = rand::thread_rng();
-        let (party_key_list, party_pubkey_list) = generate_pki(n.into(), &mut rng);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0);
         let extra = Some(vec![ORCHARD_AK_SIGN_NORMALIZE]);
 
         let parties: Vec<_> = (0..n)
