@@ -23,7 +23,8 @@ use crate::common::traits::ScalarReduce;
 /// `d_i := -d_i` and `pk := -pk`.
 pub const ORCHARD_AK_SIGN_NORMALIZE: u8 = 1;
 
-/// Returns true when RedPallas DKG should enforce y = 0 on the resulting ak.
+/// Returns true when RedPallas DKG should enforce the Orchard ak encoding sign bit
+/// (high bit of the last byte of the compressed encoding) to be 0 on the resulting ak.
 pub fn orchard_ak_sign_normalize_enabled(extra_data: Option<&[u8]>) -> bool {
     matches!(extra_data, Some([ORCHARD_AK_SIGN_NORMALIZE, ..]))
 }
