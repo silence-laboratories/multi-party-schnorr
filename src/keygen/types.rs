@@ -36,6 +36,10 @@ pub(crate) struct KeygenParams {
 
     /// Extra data
     pub extra_data: Option<Vec<u8>>,
+
+    /// When true, after RedPallas DKG enforce Orchard ak ỹ = 0 by optionally
+    /// negating the public key and each party's secret share.
+    pub orchard_ak_sign_normalize: bool,
 }
 
 /// All random params needed for keygen

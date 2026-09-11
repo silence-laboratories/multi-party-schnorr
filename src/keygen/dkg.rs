@@ -230,12 +230,26 @@ where
                 party_enc_keys,
                 key_id,
                 extra_data,
+                orchard_ak_sign_normalize: false,
             },
             rand_params,
             seed,
             key_refresh_data,
             state: R0,
         })
+    }
+
+    /// Enable Orchard ak sign normalization after DKG (RedPallas only).
+    ///
+    /// When enabled, if the compressed public key has ỹ = 1 (high bit of the last
+    /// encoding byte), every party sets `d_i := -d_i` and `pk := -pk` so that
+    /// `sum{-shares} = -pk` and the resulting ak satisfies Orchard's ỹ = 0 check.
+    ///
+    /// All parties must call this (or none). No-op for non-RedPallas groups at
+    /// the DKG finish step. Builder-style: consumes `self` and returns `Self`.
+    pub fn with_orchard_ak_sign_normalize(mut self) -> Self {
+        self.params.orchard_ak_sign_normalize = true;
+        self
     }
 
     pub fn encryption_key(&self) -> crypto_box::PublicKey {
@@ -611,16 +625,16 @@ where
         };
 
         // Orchard ak sign normalization (Zcash Protocol Spec §4.2.3): when enabled via
-        // extra_data, ensure ỹ = 0 on the group public key. If the high bit of repr(pk)
-        // is 1, all parties negate their share and the public key so sum{-d_i} = -pk.
+        // KeygenParty::with_orchard_ak_sign_normalize(), ensure ỹ = 0 on the group public
+        // key. If the high bit of repr(pk) is 1, all parties negate their share and the
+        // public key so sum{-d_i} = -pk.
         #[cfg(feature = "redpallas")]
         let (public_key, d_i_share) = {
             use core::ops::Neg;
 
-            use crate::common::redpallas::{orchard_ak_sign_normalize_enabled, RedPallasPoint};
+            use crate::common::redpallas::RedPallasPoint;
 
-            let enabled = orchard_ak_sign_normalize_enabled(self.params.extra_data.as_deref());
-            if enabled {
+            if self.params.orchard_ak_sign_normalize {
                 if let Some(pk) =
                     (&public_key as &dyn core::any::Any).downcast_ref::<RedPallasPoint>()
                 {
@@ -892,7 +906,7 @@ mod test {
         run_dkg_session::<9, 20, RedPallasPoint>();
     }
 
-    /// Orchard ak sign normalization: with `extra_data = [ORCHARD_AK_SIGN_NORMALIZE]`,
+    /// Orchard ak sign normalization: with `with_orchard_ak_sign_normalize()`,
     /// every party's resulting public key must have ỹ = 0 (high bit of last encoding byte cleared),
     /// and all parties must agree on the same (possibly negated) public key / share relation.
     /// Then a threshold RedDSA signature over those shares must verify against the
@@ -903,9 +917,7 @@ mod test {
         use core::ops::Neg;
         use std::sync::Arc;
 
-        use crate::common::redpallas::{
-            orchard_ak_sign_normalize_enabled, RedPallasPoint, ORCHARD_AK_SIGN_NORMALIZE,
-        };
+        use crate::common::redpallas::RedPallasPoint;
         use crate::common::utils::support::run_round;
         use crate::keygen::utils::generate_pki;
         use crate::sign::{SignerParty, R0};
@@ -915,17 +927,10 @@ mod test {
         use reddsa::orchard::SpendAuth;
         use reddsa::{Signature, VerificationKey};
 
-        assert!(orchard_ak_sign_normalize_enabled(Some(&[
-            ORCHARD_AK_SIGN_NORMALIZE
-        ])));
-        assert!(!orchard_ak_sign_normalize_enabled(None));
-        assert!(!orchard_ak_sign_normalize_enabled(Some(&[0])));
-
         let t = 2u8;
         let n = 3u8;
         let mut rng = rand::rngs::StdRng::seed_from_u64(0);
         let (party_key_list, party_pubkey_list) = generate_pki(n.into(), &mut rng);
-        let extra = Some(vec![ORCHARD_AK_SIGN_NORMALIZE]);
 
         let parties: Vec<_> = (0..n)
             .map(|idx| {
@@ -938,9 +943,10 @@ mod test {
                     None,
                     None,
                     rng.gen(),
-                    extra.clone(),
+                    None,
                 )
                 .unwrap()
+                .with_orchard_ak_sign_normalize()
             })
             .collect();
 
@@ -958,10 +964,6 @@ mod test {
 
         for share in &shares {
             assert_eq!(share.public_key, pk0);
-            assert_eq!(
-                share.extra_data.as_deref(),
-                Some([ORCHARD_AK_SIGN_NORMALIZE].as_slice())
-            );
             let flipped = share.public_key.neg();
             assert!(
                 flipped.y_coord_sign_bit_set() || pk0 == RedPallasPoint::identity(),
