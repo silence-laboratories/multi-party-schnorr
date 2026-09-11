@@ -924,6 +924,7 @@ mod test {
         let t = 2u8;
         let n = 3u8;
         let mut rng = rand::rngs::StdRng::seed_from_u64(0);
+        let (party_key_list, party_pubkey_list) = generate_pki(n.into(), &mut rng);
         let extra = Some(vec![ORCHARD_AK_SIGN_NORMALIZE]);
 
         let parties: Vec<_> = (0..n)
