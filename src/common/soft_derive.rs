@@ -3,6 +3,8 @@
 
 //! Soft-derivation HMAC message formats.
 
+use alloc::vec::Vec;
+
 use derivation_path::ChildIndex;
 #[cfg(feature = "taproot")]
 use elliptic_curve::sec1::ToEncodedPoint;

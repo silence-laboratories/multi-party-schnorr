@@ -1,7 +1,8 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-use std::sync::Arc;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 
 use elliptic_curve::Group;
 use rand::{CryptoRng, Rng, RngCore};

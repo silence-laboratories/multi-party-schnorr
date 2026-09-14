@@ -2,6 +2,9 @@
 // This software is licensed under the Silence Laboratories License Agreement.
 
 //! Signing-side derivation: traits, hash-to-curve, hard-derive tweak, Ristretto VRF curve types.
+#![no_std]
+
+extern crate alloc;
 
 pub mod math;
 pub mod protocol;

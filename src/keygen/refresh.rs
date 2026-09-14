@@ -1,6 +1,8 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
+use alloc::vec::Vec;
+
 use elliptic_curve::{group::GroupEncoding, Group};
 use ff::Field;
 

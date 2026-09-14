@@ -3,6 +3,8 @@
 
 //! MPC hard derivation tweak (VRF bytes → Δ, update signing root). No VRF protocol rounds.
 
+use alloc::{vec, vec::Vec};
+
 use ff::Field;
 use thiserror::Error;
 
