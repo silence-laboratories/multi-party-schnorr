@@ -356,7 +356,7 @@ dependencies = [
  "elliptic-curve",
  "rfc6979",
  "serdect",
- "signature",
+ "signature 2.2.0",
  "spki",
 ]
 
@@ -368,7 +368,7 @@ checksum = "115531babc129696a58c64a4fef0a8bf9e9698629fb97e9e40767d235cfbcd53"
 dependencies = [
  "pkcs8",
  "serde",
- "signature",
+ "signature 2.2.0",
 ]
 
 [[package]]
@@ -382,7 +382,7 @@ dependencies = [
  "rand_core",
  "serde",
  "sha2",
- "signature",
+ "signature 2.2.0",
  "subtle",
  "zeroize",
 ]
@@ -612,7 +612,7 @@ dependencies = [
  "once_cell",
  "serdect",
  "sha2",
- "signature",
+ "signature 2.2.0",
 ]
 
 [[package]]
@@ -662,7 +662,7 @@ dependencies = [
  "serde",
  "serde_bytes",
  "sha2",
- "signature",
+ "signature 3.0.0",
  "sl-mpc-derive 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sl-mpc-mate",
  "sl-mpc-vrf 0.1.0-pre.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -954,6 +954,12 @@ dependencies = [
  "digest",
  "rand_core",
 ]
+
+[[package]]
+name = "signature"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28d567dcbaf0049cb8ac2608a76cd95ff9e4412e1899d389ee400918ca7537f5"
 
 [[package]]
 name = "sl-mpc-derive"
