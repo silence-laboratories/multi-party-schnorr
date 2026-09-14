@@ -14,7 +14,7 @@ vrf = ["eddsa"]
 k256 = ["dep:k256"]
 
 [dependencies]
-crypto-bigint = "0.5"
+crypto-bigint = "0.7"
 elliptic-curve = { version = "0.13" }
 ff = "0.13.0"
 hmac = "0.12.1"
