@@ -22,6 +22,14 @@ use super::{
 
 const REDPALLAS_H_STAR_PERSONALIZATION: [u8; 16] = *b"Zcash_RedPallasH";
 
+/// Message body hashed/verified for RedPallas DSG: original message || randomized verifying key.
+fn reddsa_signed_message(message: &[u8], randomized_pk: &RedPallasPoint) -> Vec<u8> {
+    let mut out = Vec::with_capacity(message.len() + 32);
+    out.extend_from_slice(message);
+    out.extend_from_slice(randomized_pk.to_bytes().as_ref());
+    out
+}
+
 fn reddsa_challenge(r_bytes: &[u8], vk_bytes: &[u8], message: &[u8]) -> Fq {
     let hash = Params::new()
         .hash_length(64)
@@ -55,8 +63,10 @@ impl Round for SignReady<RedPallasPoint> {
     fn process(self, _: Self::Input) -> Result<Self::Output, Self::Error> {
         let r_bytes = self.big_r.to_bytes();
         let vk_bytes = self.public_key.to_bytes();
-
-        let c = reddsa_challenge(r_bytes.as_ref(), vk_bytes.as_ref(), &self.message);
+        // Challenge over R || vk || (msg || randomized_pk), binding the signature to the
+        // alpha-tweaked verifying key computed in round 2.
+        let signed_message = reddsa_signed_message(&self.message, &self.public_key);
+        let c = reddsa_challenge(r_bytes.as_ref(), vk_bytes.as_ref(), &signed_message);
 
         let s_i = self.k_i + self.d_i * c;
 
@@ -111,7 +121,8 @@ impl Round for PartialSign<RedPallasPoint> {
             .try_into()
             .map_err(|_| SignError::InvalidSignature)?;
 
-        reddsa_verify(&vk_arr, &self.msg_to_sign, &sig_bytes)?;
+        let signed_message = reddsa_signed_message(&self.msg_to_sign, &self.public_key);
+        reddsa_verify(&vk_arr, &signed_message, &sig_bytes)?;
 
         let sign_complete = SignComplete {
             from_party: self.party_id,

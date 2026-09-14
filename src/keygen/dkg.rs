@@ -1017,7 +1017,10 @@ mod test {
         let sig_bytes: [u8; 64] = signatures[0];
         let vk = VerificationKey::<SpendAuth>::try_from(vk_bytes).expect("valid SpendAuth vk");
         let sig = Signature::<SpendAuth>::from(sig_bytes);
-        vk.verify(msg, &sig)
+        // RedPallas DSG binds msg || randomized_pk (see sign::reddsa).
+        let mut signed_message = msg.to_vec();
+        signed_message.extend_from_slice(&vk_bytes);
+        vk.verify(&signed_message, &sig)
             .expect("signature must verify against vk derived from normalized DKG public key");
     }
 
