@@ -230,12 +230,26 @@ where
                 party_enc_keys,
                 key_id,
                 extra_data,
+                orchard_ak_sign_normalize: false,
             },
             rand_params,
             seed,
             key_refresh_data,
             state: R0,
         })
+    }
+
+    /// Enable Orchard ak sign normalization after DKG (RedPallas only).
+    ///
+    /// When enabled, if the compressed public key has ỹ = 1 (high bit of the last
+    /// encoding byte), every party sets `d_i := -d_i` and `pk := -pk` so that
+    /// `sum{-shares} = -pk` and the resulting ak satisfies Orchard's ỹ = 0 check.
+    ///
+    /// All parties must call this (or none). No-op for non-RedPallas groups at
+    /// the DKG finish step. Builder-style: consumes `self` and returns `Self`.
+    pub fn with_orchard_ak_sign_normalize(mut self) -> Self {
+        self.params.orchard_ak_sign_normalize = true;
+        self
     }
 
     pub fn encryption_key(&self) -> crypto_box::PublicKey {
@@ -610,6 +624,33 @@ where
             }
         };
 
+        // Orchard ak sign normalization (Zcash Protocol Spec §4.2.3): when enabled via
+        // KeygenParty::with_orchard_ak_sign_normalize(), ensure ỹ = 0 on the group public
+        // key. If the high bit of repr(pk) is 1, all parties negate their share and the
+        // public key so sum{-d_i} = -pk.
+        #[cfg(feature = "redpallas")]
+        let (public_key, d_i_share) = {
+            use core::ops::Neg;
+
+            use crate::common::redpallas::RedPallasPoint;
+
+            if self.params.orchard_ak_sign_normalize {
+                if let Some(pk) =
+                    (&public_key as &dyn core::any::Any).downcast_ref::<RedPallasPoint>()
+                {
+                    if pk.y_coord_sign_bit_set() {
+                        (public_key.neg(), d_i_share.neg())
+                    } else {
+                        (public_key, d_i_share)
+                    }
+                } else {
+                    (public_key, d_i_share)
+                }
+            } else {
+                (public_key, d_i_share)
+            }
+        };
+
         let key_id = self
             .params
             .key_id
@@ -863,6 +904,121 @@ mod test {
         run_dkg_session::<5, 10, RedPallasPoint>();
         run_dkg_session::<10, 10, RedPallasPoint>();
         run_dkg_session::<9, 20, RedPallasPoint>();
+    }
+
+    /// Orchard ak sign normalization: with `with_orchard_ak_sign_normalize()`,
+    /// every party's resulting public key must have ỹ = 0 (high bit of last encoding byte cleared),
+    /// and all parties must agree on the same (possibly negated) public key / share relation.
+    /// Then a threshold RedDSA signature over those shares must verify against the
+    /// randomized verifying key derived from that normalized public key.
+    #[cfg(feature = "redpallas")]
+    #[test]
+    fn keygen_redpallas_orchard_ak_sign_normalize() {
+        use core::ops::Neg;
+        use std::sync::Arc;
+
+        use crate::common::redpallas::RedPallasPoint;
+        use crate::common::utils::support::run_round;
+        use crate::keygen::utils::generate_pki;
+        use crate::sign::{SignerParty, R0};
+        use elliptic_curve::Group;
+        use group::GroupEncoding;
+        use rand::{Rng, SeedableRng};
+        use reddsa::orchard::SpendAuth;
+        use reddsa::{Signature, VerificationKey};
+
+        let t = 2u8;
+        let n = 3u8;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0);
+        let (party_key_list, party_pubkey_list) = generate_pki(n.into(), &mut rng);
+
+        let parties: Vec<_> = (0..n)
+            .map(|idx| {
+                KeygenParty::new(
+                    t,
+                    n,
+                    idx,
+                    party_key_list[idx as usize].clone(),
+                    party_pubkey_list.clone(),
+                    None,
+                    None,
+                    rng.gen(),
+                    None,
+                )
+                .unwrap()
+                .with_orchard_ak_sign_normalize()
+            })
+            .collect();
+
+        let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+        let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
+        let shares: Vec<Keyshare<RedPallasPoint>> = run_round(actors, msgs);
+
+        let pk0 = shares[0].public_key;
+        assert!(
+            !pk0.y_coord_sign_bit_set(),
+            "Orchard ak must have ỹ = 0 after normalization"
+        );
+        let bytes = pk0.to_bytes();
+        assert_eq!(bytes.as_ref()[31] & 0x80, 0);
+
+        for share in &shares {
+            assert_eq!(share.public_key, pk0);
+            let flipped = share.public_key.neg();
+            assert!(
+                flipped.y_coord_sign_bit_set() || pk0 == RedPallasPoint::identity(),
+                "negating a ỹ=0 point must yield ỹ=1 (except identity)"
+            );
+        }
+
+        // Threshold sign with a 2-of-3 quorum; path "m" keeps soft-derive offset at zero
+        // so the session starts from the normalized DKG public key.
+        let msg = b"orchard ak sign-normalize verify";
+        let path: derivation_path::DerivationPath = "m".parse().unwrap();
+        let subset: Vec<_> = shares.into_iter().take(2).collect();
+        let sign_parties: Vec<SignerParty<R0, RedPallasPoint>> = subset
+            .into_iter()
+            .map(Arc::new)
+            .map(|keyshare| {
+                SignerParty::<_, RedPallasPoint>::new(
+                    keyshare,
+                    msg.to_vec(),
+                    path.clone(),
+                    &mut rng,
+                )
+            })
+            .collect();
+
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(sign_parties, ()).into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+        let (ready_parties, alphas): (Vec<_>, Vec<_>) =
+            run_round(parties, msgs).into_iter().unzip();
+
+        assert_eq!(alphas[0], alphas[1], "parties must agree on alpha");
+        let expected_vk = pk0 + RedPallasPoint::generator() * alphas[0];
+        assert_eq!(
+            ready_parties[0].public_key, expected_vk,
+            "signing vk must be normalized DKG pk plus RedPallas alpha tweak"
+        );
+        assert_eq!(ready_parties[1].public_key, expected_vk);
+
+        let vk_bytes: [u8; 32] = ready_parties[0]
+            .public_key
+            .to_bytes()
+            .as_ref()
+            .try_into()
+            .unwrap();
+
+        let (parties, partial_sigs): (Vec<_>, Vec<_>) =
+            run_round(ready_parties, ()).into_iter().unzip();
+        let (signatures, _): (Vec<_>, Vec<_>) =
+            run_round(parties, partial_sigs).into_iter().unzip();
+
+        let sig_bytes: [u8; 64] = signatures[0];
+        let vk = VerificationKey::<SpendAuth>::try_from(vk_bytes).expect("valid SpendAuth vk");
+        let sig = Signature::<SpendAuth>::from(sig_bytes);
+        vk.verify(msg, &sig)
+            .expect("signature must verify against vk derived from normalized DKG public key");
     }
 
     #[cfg(feature = "taproot")]

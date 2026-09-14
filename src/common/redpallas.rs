@@ -63,6 +63,12 @@ impl RedPallasPoint {
             .finalize();
         <Fq as FromUniformBytes<64>>::from_uniform_bytes(hash.as_array())
     }
+
+    /// True when the compressed encoding has y = 1 (high bit of the last byte).
+    pub fn y_coord_sign_bit_set(&self) -> bool {
+        let bytes = self.to_bytes();
+        (bytes.as_ref()[31] >> 7) == 1
+    }
 }
 
 impl Mul<&Fq> for RedPallasPoint {
