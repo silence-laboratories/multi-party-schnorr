@@ -23,7 +23,7 @@ use curve25519_dalek::EdwardsPoint;
 #[cfg(feature = "redpallas")]
 use crate::common::redpallas::RedPallasPoint;
 #[cfg(feature = "redpallas")]
-use ff::{Field, PrimeField};
+use ff::Field;
 
 use crate::{
     common::{
@@ -606,21 +606,13 @@ impl Round for SignerParty<R2<RedPallasPoint>, RedPallasPoint> {
     type InputMessage = SignMsg2<RedPallasPoint>;
     type Input = Vec<SignMsg2<RedPallasPoint>>;
     type Error = SignError;
-    type Output = (SignReady<RedPallasPoint>, pasta_curves::Fq);
+    type Output = SignReady<RedPallasPoint>;
+
     fn process(self, msgs: Self::Input) -> Result<Self::Output, Self::Error> {
         let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
 
         let mut big_r_i = self.state.big_r_i;
         let participants = msgs.len();
-        // Use commitment hashes as randomizer source (each party's commitment is bound in round 1)
-        let commitment_r_i = hash_commitment_r_i(
-            &self.rand_params.session_id,
-            self.params.party_id,
-            &big_r_i,
-            &self.rand_params.blind_factor,
-        );
-        let mut randomizer_i =
-            <pasta_curves::Fq as ScalarReduce<[u8; 32]>>::reduce_from_bytes(&commitment_r_i);
 
         for (idx, msg) in msgs.iter().enumerate() {
             if msg.from_party == self.params.party_id {
@@ -664,10 +656,6 @@ impl Round for SignerParty<R2<RedPallasPoint>, RedPallasPoint> {
                 .ok_or(SignError::InvalidDLogProof(msg.from_party))?;
 
             big_r_i += msg_big_r_i;
-            //add randomness from commitment_r_i to the randomizer
-            randomizer_i += <pasta_curves::Fq as ScalarReduce<[u8; 32]>>::reduce_from_bytes(
-                &self.state.commitment_list[idx],
-            );
         }
 
         let coeff = get_lagrange_coeff::<RedPallasPoint>(
@@ -682,26 +670,20 @@ impl Round for SignerParty<R2<RedPallasPoint>, RedPallasPoint> {
             Option::from(scalar.invert()).ok_or(SignError::InvalidThreshold)?;
 
         let additive_offset = self.params.additive_offset * threshold_inv;
+        let d_i = d_i + additive_offset;
 
-        let rand_offset = randomizer_i;
-        //hash the randomizer to get a scalar
-        let rand_offset_hashed = RedPallasPoint::hash_randomizer(rand_offset.to_repr().as_ref());
-
-        let d_i = d_i + additive_offset + rand_offset_hashed;
-        // `alpha` is the aggregate public-key tweak corresponding to the per-party `rand_offset_hashed`.
-        let alpha = rand_offset_hashed * scalar;
         let next = SignReady {
             big_r: big_r_i,
             d_i,
             pid_list: self.state.pid_list,
-            public_key: self.params.derived_public_key + (RedPallasPoint::generator() * alpha),
+            public_key: self.params.derived_public_key,
             session_id: self.state.final_session_id,
             message: self.params.message,
             k_i: self.rand_params.k_i,
             party_id: self.params.party_id,
         };
 
-        Ok((next, alpha))
+        Ok(next)
     }
 }
 
