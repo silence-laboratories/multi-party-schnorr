@@ -1,6 +1,8 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
+use alloc::vec::Vec;
+
 use curve25519_dalek::{EdwardsPoint, Scalar};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use elliptic_curve::group::GroupEncoding;
@@ -117,7 +119,7 @@ pub(crate) fn run_sign<F>(
 where
     F: crate::common::SoftDeriveChildHmac<EdwardsPoint>,
 {
-    use std::sync::Arc;
+    use alloc::sync::Arc;
 
     use crate::sign::SignerParty;
 

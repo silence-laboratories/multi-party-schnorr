@@ -2,8 +2,15 @@
 // This software is licensed under the Silence Laboratories License Agreement.
 
 //! Threshold Signing Scheme for EdDSA in Rust.
+#![no_std]
 #![deny(unsafe_code)]
 #![doc = include_str!("../README.md")]
+
+#[macro_use]
+extern crate alloc;
+
+#[cfg(any(test, feature = "test-support"))]
+extern crate std;
 
 /// The `keygen` module contains the key generation protocol
 pub mod keygen;

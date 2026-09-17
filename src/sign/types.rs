@@ -7,6 +7,8 @@ use elliptic_curve::Group;
 #[cfg(any(feature = "taproot", feature = "eddsa", feature = "redpallas"))]
 use rand::{CryptoRng, Rng, RngCore};
 
+use alloc::string::String;
+
 use thiserror::Error;
 
 #[cfg(any(feature = "taproot", feature = "eddsa", feature = "redpallas"))]
