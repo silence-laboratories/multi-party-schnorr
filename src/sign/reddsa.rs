@@ -142,14 +142,17 @@ mod tests {
     };
 
     fn finish_sign_rounds(parties: Vec<SignerParty<R0, RedPallasPoint>>) -> [u8; 64] {
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).unwrap().into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) =
+            run_round(parties, msgs).unwrap().into_iter().unzip();
         let (ready_parties, _alphas): (Vec<_>, Vec<_>) =
-            run_round(parties, msgs).into_iter().unzip();
+            run_round(parties, msgs).unwrap().into_iter().unzip();
         let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-            run_round(ready_parties, ()).into_iter().unzip();
-        let (signatures, _): (Vec<_>, Vec<_>) =
-            run_round(parties, partial_sigs).into_iter().unzip();
+            run_round(ready_parties, ()).unwrap().into_iter().unzip();
+        let (signatures, _): (Vec<_>, Vec<_>) = run_round(parties, partial_sigs)
+            .unwrap()
+            .into_iter()
+            .unzip();
         signatures[0]
     }
 
@@ -233,9 +236,10 @@ mod tests {
                 SignerParty::<_, RedPallasPoint>::new(ks, msg.to_vec(), path.clone(), &mut rng)
             })
             .collect();
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-        let (_, alphas): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).unwrap().into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) =
+            run_round(parties, msgs).unwrap().into_iter().unzip();
+        let (_, alphas): (Vec<_>, Vec<_>) = run_round(parties, msgs).unwrap().into_iter().unzip();
         // All parties must compute the same alpha.
         assert_eq!(alphas[0], alphas[1]);
         // Alpha must be non-zero (randomization is applied).

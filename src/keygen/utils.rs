@@ -80,11 +80,11 @@ where
 
     let parties0 = setup_refresh(refresh_data, &mut rng)?;
 
-    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties0, ()).into_iter().unzip();
+    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties0, ())?.into_iter().unzip();
 
-    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
+    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs)?.into_iter().unzip();
 
-    let new_shares = run_round(actors, msgs);
+    let new_shares = run_round(actors, msgs)?;
 
     Ok(new_shares
         .try_into()
@@ -172,9 +172,9 @@ where
         )?);
     }
 
-    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties0, ()).into_iter().unzip();
-    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
-    run_round(actors, msgs);
+    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties0, ())?.into_iter().unzip();
+    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs)?.into_iter().unzip();
+    run_round(actors, msgs)?;
 
     Ok(())
 }
@@ -191,8 +191,8 @@ where
 
     let parties = setup_refresh(shares.unwrap(), &mut rng).unwrap();
 
-    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
-    run_round(actors, msgs);
+    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties, ())?.into_iter().unzip();
+    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs)?.into_iter().unzip();
+    run_round(actors, msgs)?;
     Ok(())
 }
