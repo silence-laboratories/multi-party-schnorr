@@ -21,13 +21,13 @@ fn main() {
 
     // Locally run the keygen protocol
     // Run Round 1
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).unwrap().into_iter().unzip();
 
     // Run Round 2
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).unwrap().into_iter().unzip();
 
     // Run Round 3
-    let keyshares: Vec<Keyshare<EdwardsPoint>> = run_round(parties, msgs);
+    let keyshares: Vec<Keyshare<EdwardsPoint>> = run_round(parties, msgs).unwrap();
 
     println!("Time elapsed: {:?}", start.elapsed());
 

@@ -32,13 +32,13 @@ fn main() {
 
     // Locally running keygen refresh protocol
     // Run Round 1
-    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties0, ()).into_iter().unzip();
+    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties0, ()).unwrap().into_iter().unzip();
 
     // Run Round 2
-    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
+    let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).unwrap().into_iter().unzip();
 
     // Run Round 3
-    let new_shares = run_round(actors, msgs);
+    let new_shares = run_round(actors, msgs).unwrap();
 
     println!("Time elapsed: {:?}", start.elapsed());
 

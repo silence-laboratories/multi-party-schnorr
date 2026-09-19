@@ -241,12 +241,13 @@ pub mod support {
 
     /// Execute one round of DKG protocol locally, execute parties in parallel
     /// Used for testing purposes.
+    /// A round failure is returned so callers see which error aborted the
+    /// round instead of panicking inside the helper.
     #[allow(clippy::map_identity)]
-    pub fn run_round<I, R, O, E>(actors: impl IntoIterator<Item = R>, msgs: I) -> Vec<O>
+    pub fn run_round<I, R, O, E>(actors: impl IntoIterator<Item = R>, msgs: I) -> Result<Vec<O>, E>
     where
         R: Round<Input = I, Output = O, Error = E> + Serializable + Send,
         I: Clone + Sync,
-        E: core::fmt::Debug,
         O: Send,
     {
         actors
@@ -261,7 +262,7 @@ pub mod support {
 
                 actor
             })
-            .map(|actor| actor.process(msgs.clone()).unwrap())
+            .map(|actor| actor.process(msgs.clone()))
             .collect()
     }
 
@@ -273,12 +274,42 @@ pub mod support {
     {
         let actors = setup_keygen(T as u8, N as u8);
 
-        let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, ()).into_iter().unzip();
-        let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
+        let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, ()).unwrap().into_iter().unzip();
+        let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).unwrap().into_iter().unzip();
 
         run_round(actors, msgs)
+            .unwrap()
             .try_into()
             .map_err(|_| panic!("Failed to convert keyshares"))
             .unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::support::run_round;
+    use crate::common::traits::Round;
+
+    #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+    struct FailingRound;
+
+    #[derive(Debug, PartialEq)]
+    struct RoundFailed;
+
+    impl Round for FailingRound {
+        type Output = ();
+        type InputMessage = ();
+        type Input = ();
+        type Error = RoundFailed;
+
+        fn process(self, _: ()) -> Result<(), RoundFailed> {
+            Err(RoundFailed)
+        }
+    }
+
+    #[test]
+    fn run_round_returns_round_error_instead_of_panicking() {
+        let result: Result<alloc::vec::Vec<()>, RoundFailed> = run_round([FailingRound], ());
+        assert_eq!(result, Err(RoundFailed));
     }
 }
