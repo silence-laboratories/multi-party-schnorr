@@ -1,0 +1,135 @@
+name: Crates SBOM Release
+
+# Per-crate signed CycloneDX SBOMs for the customer-facing crates published to
+# crates.io from this repo (DevOps_instructions#58, silent-shard-issues#1939 /
+# CDA-5). crates.io carries no SBOM/signing story, so releases are cut as
+# GitHub tags: multi-party-schnorr/v*, sl-mpc-derive/v*, sl-mpc-vrf/v* - one
+# release tag per crate version, mirroring duo-mldsa/v* (2p-dilithium) and
+# luna-hsm/v* (dkls23-rs). Sign/verify/attach via shared
+# silence-laboratories/sl-sbom attach.
+
+on:
+  push:
+    tags:
+      - 'multi-party-schnorr/v*'
+      - 'sl-mpc-derive/v*'
+      - 'sl-mpc-vrf/v*'
+  # Dry-run (generate + keyless sign + verify, no upload) on PRs touching the
+  # workspace or this workflow.
+  pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/**'
+      - '.github/workflows/crates-sbom.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sbom:
+    name: ${{ matrix.crate.name }} SBOM (CycloneDX + cosign)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - name: multi-party-schnorr
+            manifest: Cargo.toml
+          - name: sl-mpc-derive
+            manifest: crates/sl-mpc-derive/Cargo.toml
+          - name: sl-mpc-vrf
+            manifest: crates/sl-mpc-vrf/Cargo.toml
+    permissions:
+      contents: write   # create the GitHub Release + upload assets (tag runs only)
+      id-token: write   # keyless sigstore signing via ambient OIDC
+    steps:
+      - uses: actions/checkout@v5
+
+      # A tag releases only the matching crate; non-tag runs dry-run all three.
+      - name: Evaluate run target
+        id: target
+        env:
+          CRATE: ${{ matrix.crate.name }}
+        run: |
+          set -euo pipefail
+          active=true
+          if [[ "${GITHUB_REF}" == refs/tags/* && "${GITHUB_REF_NAME}" != "${CRATE}/v"* ]]; then
+            active=false
+          fi
+          echo "active=$active" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Rust
+        if: steps.target.outputs.active == 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-cyclonedx
+        if: steps.target.outputs.active == 'true'
+        uses: baptiste0928/cargo-install@v3.4.0
+        with:
+          crate: cargo-cyclonedx
+          version: "0.5.9"
+
+      - name: Resolve version
+        if: steps.target.outputs.active == 'true'
+        id: version
+        env:
+          CRATE: ${{ matrix.crate.name }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "value=${GITHUB_REF_NAME#*/}" >> "$GITHUB_OUTPUT"
+          else
+            cargo metadata --no-deps --format-version 1 \
+              | jq -r --arg c "$CRATE" '.packages[] | select(.name == $c) | .version' \
+              | sed 's/^/value=/' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate SBOM
+        if: steps.target.outputs.active == 'true'
+        env:
+          CRATE: ${{ matrix.crate.name }}
+          MANIFEST: ${{ matrix.crate.manifest }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          mkdir -p sbom
+          # --override-filename appends .json and writes next to the manifest.
+          cargo cyclonedx \
+            --manifest-path "${MANIFEST}" \
+            -f json --spec-version 1.5 \
+            --override-filename "sbom-${CRATE}-${VERSION}.cdx"
+          mv "$(dirname "${MANIFEST}")/sbom-${CRATE}-${VERSION}.cdx.json" sbom/
+          jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' \
+            "sbom/sbom-${CRATE}-${VERSION}.cdx.json" >/dev/null
+
+      - name: Ensure GitHub Release
+        if: ${{ startsWith(github.ref, 'refs/tags/') && steps.target.outputs.active == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CRATE: ${{ matrix.crate.name }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 && exit 0
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${CRATE} ${VERSION}" \
+            --notes "Release ${CRATE} ${VERSION} (also on crates.io). Signed \
+          CycloneDX SBOM assets (sbom-*.cdx.json + sigstore .bundle); verify via \
+          https://github.com/silence-laboratories/sl-sbom."
+
+      - name: Sign, verify and attach SBOM
+        if: steps.target.outputs.active == 'true'
+        uses: silence-laboratories/sl-sbom/attach@v1.1.0
+        with:
+          sboms: sbom/*.cdx.json
+          release-tag: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+
+      - name: Upload SBOM artifacts (PR / dispatch runs)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && steps.target.outputs.active == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.crate.name }}
+          path: sbom
+          if-no-files-found: error
