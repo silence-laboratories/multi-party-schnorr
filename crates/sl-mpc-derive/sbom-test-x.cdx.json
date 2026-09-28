@@ -1,0 +1,2153 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "version": 1,
+  "serialNumber": "urn:uuid:22fffa29-8420-4a16-bdf8-98ce81bfbcea",
+  "metadata": {
+    "timestamp": "2026-09-21T14:22:07.229249942Z",
+    "tools": [
+      {
+        "vendor": "CycloneDX",
+        "name": "cargo-cyclonedx",
+        "version": "0.5.9"
+      }
+    ],
+    "component": {
+      "type": "library",
+      "bom-ref": "path+file:///home/rhonstin/projects/multi-party-schnorr/crates/sl-mpc-derive#0.1.1",
+      "name": "sl-mpc-derive",
+      "version": "0.1.1",
+      "description": "MPC signing derivation: hash-to-curve, hard derive tweak, Ristretto VRF curve types",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "name": "Unknown",
+            "text": {
+              "encoding": "base64",
+              "content": "U0lMRU5DRSBMQUJPUkFUT1JJRVPigJkgTk9OLUNPTU1FUkNJQUwgVVNFIExJQ0VOU0UgQUdSRUVNRU5UIChTTEwpCgpUaGlzIGlzIGFuIGFncmVlbWVudCAoTGljZW5zZSkgYmV0d2VlbiBZb3UgYW5kIFNpbGVuY2UgTGFib3JhdG9yaWVzIFB0ZS4gTHRkLiwgYSBjb21wYW55IGluY29ycG9yYXRlZCB1bmRlciB0aGUgbGF3cyBvZiBTaW5nYXBvcmUgaGF2aW5nIHRoZSByZWdpc3RyYXRpb24gbnVtYmVyIFVFTiAyMDE5Mzg3MDBEIChTaWxlbmNlIExhYm9yYXRvcmllcykuIEJ5IHVzaW5nIG9yIGFjY2Vzc2luZyB0aGlzIHJlcG9zaXRvcnkoaWVzKS9zb2Z0d2FyZSBtYWRlIGF2YWlsYWJsZSBieSBTaWxlbmNlIExhYm9yYXRvcmllcyAoZWFjaCwgYSBTb2Z0d2FyZSkgaW4gYW55IG1hbm5lciwgeW91IGFncmVlIHRvIHRoZSB0ZXJtcyBvZiB0aGlzIExpY2Vuc2UuIAoKWW91IGFja25vd2xlZGdlIGFuZCBhY2NlcHQgdGhhdCBTaWxlbmNlIExhYm9yYXRvcmllcyBhbmQgaXRzIGxpY2Vuc29ycywgYXMgYXBwbGljYWJsZSwgb3duIGFsbCBsZWdhbCByaWdodCwgdGl0bGUgYW5kIGludGVyZXN0IGluIGFuZCB0byB0aGUgd29yaywgc29mdHdhcmUsIGFwcGxpY2F0aW9uLCBzb3VyY2UgY29kZSwgb2JqZWN0IGNvZGUsIGRvY3VtZW50YXRpb24gYW5kIGFueSBvdGhlciBkb2N1bWVudHMgaW4gdGhlIFNvZnR3YXJlLiBGdXJ0aGVyLCB5b3UgYWNrbm93bGVkZ2UgYW5kIGFncmVlIHRoYXQgU2lsZW5jZSBMYWJvcmF0b3JpZXMgYW5kIGl0cyBsaWNlbnNvcnMsIGFzIGFwcGxpY2FibGUsIG93biBhbGwgcmVnaXN0ZXJlZCBhbmQgdW5yZWdpc3RlcmVkIGludGVsbGVjdHVhbCBwcm9wZXJ0eSByaWdodHMgc3Vic2lzdGluZyBpbiB0aGUgU29mdHdhcmUgYW55d2hlcmUgaW4gdGhlIHdvcmxkLCB3aGV0aGVyIGluIHNvdXJjZSBjb2RlIGZvcm0gb3IgYW55IG90aGVyIGZvcm0uIAoKVGhlIGxpbWl0ZWQgcmlnaHRzIGdyYW50ZWQgYmVsb3cgaW4gcmVsYXRpb24gdG8gdGhlIFNvZnR3YXJlIGFyZSB0aGUgb25seSByaWdodHMgZ3JhbnRlZCB1bmRlciB0aGlzIExpY2Vuc2UuIE5vIGFkZGl0aW9uYWwgcmlnaHRzIGFyZSBncmFudGVkIGJ5IFNpbGVuY2UgTGFib3JhdG9yaWVzIHVuZGVyIHRoaXMgTGljZW5zZS4gCgpUaGlzIExpY2Vuc2UgaXMgYXBwbGljYWJsZSB0byBhbGwgY29waWVzIG9mIHRoZSBvcmlnaW5hbCBhbmQgYW55IG1vZGlmaWVkIHZlcnNpb25zIG9mIHRoZSBTb2Z0d2FyZSwgYW5kIGRlcml2YXRpdmUgd29ya3Mgb2YgdGhlIFNvZnR3YXJlLiBUaGlzIExpY2Vuc2UgaXMgYXBwbGljYWJsZSB0byBhbGwgcGFzdCBhbmQgZnV0dXJlIHZlcnNpb25zIG9mIHRoZSBTb2Z0d2FyZSwgdW5sZXNzIGRlY2lkZWQgb3RoZXJ3aXNlIGJ5IFNpbGVuY2UgTGFib3JhdG9yaWVzIGluIGl0cyBzb2xlIGRpc2NyZXRpb24uCgoxLiBHcmFudCBvZiBMaWNlbnNlCgoxLjEuIFlvdSBhcmUgZ3JhbnRlZCBhIHBlcnBldHVhbCwgbGltaXRlZCwgcmV2b2NhYmxlLCB3b3JsZHdpZGUsIHJveWFsdHktZnJlZSwgbm9uLWV4Y2x1c2l2ZSwgbm9uLXRyYW5zZmVyYWJsZSwgbm9uLXN1YmxpY2Vuc2FibGUgTGljZW5zZSB0byB1c2UsIHJlcHJvZHVjZSwgbWFrZSBhdmFpbGFibGUsIGRpc3RyaWJ1dGUsIHB1Ymxpc2gsIGNvcHksIG1vZGlmeSwgbWVyZ2UsIGNvbWJpbmUgd2l0aCBhbm90aGVyIHByb2dyYW0gb3IgY3JlYXRlIGRlcml2YXRpdmUgd29ya3Mgb2YgdGhlIFNvZnR3YXJlIGluIHNvdXJjZSBjb2RlIG9yIGFueSBvdGhlciBmb3JtIChSZXN1bHRpbmcgUHJvZ3JhbShzKSkgc29sZWx5IGZvciBOb24tQ29tbWVyY2lhbCBVc2UgKGFzIGRlZmluZWQgYmVsb3cpLCBhbmQgYXMgbG9uZyBhcyB5b3U6IAoKYS4gZG8gbm90IHVzZSwgcmVwcm9kdWNlLCBtYWtlIGF2YWlsYWJsZSwgZGlzdHJpYnV0ZSwgcHVibGlzaCwgY29weSwgbW9kaWZ5LCBtZXJnZSBhbmQgY29tYmluZSB0aGUgU29mdHdhcmUgb3IgUmVzdWx0aW5nIFByb2dyYW0gKGEpIGluIGFueSBtYW5uZXIgdGhhdCBpbmZyaW5nZXMsIG1pc2FwcHJvcHJpYXRlcywgb3Igb3RoZXJ3aXNlIHZpb2xhdGVzIGFueSB0aGlyZC1wYXJ0eSByaWdodHMsIG9yIChiKSBpbiBhbnkgbWFubmVyIHRoYXQgdmlvbGF0ZXMgYW55IGFwcGxpY2FibGUgbGF3LiAKCmIuIGdpdmUgYW55IG90aGVyIHJlY2lwaWVudHMgb3IgdXNlcnMgb2YgdGhlIFNvZnR3YXJlIG9yIHRoZSBSZXN1bHRpbmcgUHJvZ3JhbSBhIGNvcHkgb2YgdGhpcyBMaWNlbnNlOyAKCmMuIHByb21pbmVudGx5IHB1Ymxpc2ggb3IgZ2l2ZSBub3RpY2Ugd2l0aCBlYWNoIGNvcHkgb2YgdGhlIFJlc3VsdGluZyBQcm9ncmFtIHRoYXQsIAoKaS4gdGhlIFNvZnR3YXJlIGlzIHVzZWQgaW4gdGhlIFJlc3VsdGluZyBQcm9ncmFtLCAKCmlpLiAoaWYgYXBwbGljYWJsZSkgeW91IGNoYW5nZWQgb3IgbW9kaWZpZWQgdGhlIGZpbGVzIGFuZCBhbnkgb3RoZXIgZG9jdW1lbnRzIGluIHRoZSBTb2Z0d2FyZSAoaW5jbHVkaW5nIHN0YXRpbmcgdGhlIGNoYW5nZXMgb3IgbW9kaWZpY2F0aW9ucyBtYWRlKSwgYW5kIGdpdmUgdGhlIHJlbGV2YW50IGRhdGU7IGFuZCAKCmlpaS4gU2lsZW5jZSBMYWJvcmF0b3JpZXMgaXMgdGhlIG93bmVyIG9mIHRoZSBjb3B5cmlnaHQgYW5kIGFsbCBvdGhlciBpbnRlbGxlY3R1YWwgcHJvcGVydHkgcmlnaHRzIGluIHRoZSBTb2Z0d2FyZSBieTogKEEpIGluY2x1ZGluZyB0aGUgZm9sbG93aW5nIGNvcHlyaWdodCBub3RpY2U6IOKAnFxbVGhpcyByZXBvc2l0b3J5L3NvZnR3YXJlXSBpcyBsaWNlbnNlZCB1bmRlciB0aGUgU2lsZW5jZSBMYWJvcmF0b3JpZXMgTGljZW5zZSBBZ3JlZW1lbnQsIENvcHlyaWdodCDCqSBTaWxlbmNlIExhYm9yYXRvcmllcyBQdGUuIEx0ZC4gQWxsIFJpZ2h0cyBSZXNlcnZlZC7igJ0sIChCKSwgdGhpcyBsaXN0IG9mIGNvbmRpdGlvbnMsIGFuZCAoQykgdGhlIGRpc2NsYWltZXIgYmVsb3cgKE5PVElDRSkgYXMgYSB0ZXh0IGZpbGU7IGFuZCAKCmQuIHJlcXVpcmUgdGhlIFJlc3VsdGluZyBQcm9ncmFtIGFuZCBhbnkgcmVwcm9kdWN0aW9uLCBkaXN0cmlidXRpb24sIHB1YmxpY2F0aW9uLCBjb3B5LCBtb2RpZmljYXRpb24sIG1lcmdlciB0aGVyZXdpdGgsIGNvbWJpbmF0aW9uIHdpdGggYW5vdGhlciBwcm9ncmFtIG9yIGRlcml2YXRpdmUgd29ya3MgdGhlcmVvZiB0byB0aGUgc2FtZSBOT1RJQ0UgcmVxdWlyZW1lbnQgYW5kIE5vbi1Db21tZXJjaWFsIFVzZSByZXN0cmljdGlvbnMgc2V0IG91dCBiZWxvdzsgYW5kIAoKZS4gbWFrZSB0aGUgc291cmNlIGNvZGUgZm9ybSBvZiB0aGUgUmVzdWx0aW5nIFByb2dyYW0gcHVibGljbHkgYXZhaWxhYmxlIG9yIG1ha2UgaXQgYXZhaWxhYmxlIHVwb24gcmVxdWVzdCAoc3ViamVjdCB0byB0aGUgdGVybXMgb2YgdGhpcyBMaWNlbnNlLCB0aGlyZCBwYXJ0eSByaWdodHMsIGFuZCBhcHBsaWNhYmxlIGxhdyk7IGFuZAoKZi4gcmV0YWluLCBpbiB0aGUgc291cmNlIGZvcm0gb2YgYW55IFJlc3VsdGluZyBQcm9ncmFtIHRoYXQgeW91IGRpc3RyaWJ1dGUsIGFsbCBjb3B5cmlnaHQsIHBhdGVudCwgdHJhZGVtYXJrLCBhbmQgYXR0cmlidXRpb24gbm90aWNlcyBmcm9tIHRoZSBzb3VyY2UgZm9ybSBvZiB0aGUgU29mdHdhcmUsIGV4Y2x1ZGluZyB0aG9zZSBub3RpY2VzIHRoYXQgZG8gbm90IHBlcnRhaW4gdG8gYW55IHBhcnQgb2YgdGhlIFJlc3VsdGluZyBQcm9ncmFtOyBhbmQKCmcuIElmIHRoZSBTb2Z0d2FyZSBpbmNsdWRlcyBhIE5PVElDRSB0ZXh0IGZpbGUgYXMgcGFydCBvZiBpdHMgZGlzdHJpYnV0aW9uLCB0aGVuIGFueSBSZXN1bHRpbmcgUHJvZ3JhbSB0aGF0IHlvdSBkaXN0cmlidXRlIG11c3QgaW5jbHVkZSBhIHJlYWRhYmxlIGNvcHkgb2YgdGhlIGF0dHJpYnV0aW9uIG5vdGljZXMgY29udGFpbmVkIHdpdGhpbiBzdWNoIE5PVElDRSBmaWxlLCBleGNsdWRpbmcgdGhvc2Ugbm90aWNlcyB0aGF0IGRvIG5vdCBwZXJ0YWluIHRvIGFueSBwYXJ0IG9mIHRoZSBSZXN1bHRpbmcgUHJvZ3JhbSwgaW4gYXQgbGVhc3Qgb25lIG9mIHRoZSBmb2xsb3dpbmcgcGxhY2VzOiB3aXRoaW4gYSBOT1RJQ0UgdGV4dCBmaWxlIGRpc3RyaWJ1dGVkIGFzIHBhcnQgb2YgdGhlIFJlc3VsdGluZyBQcm9ncmFtOyB3aXRoaW4gdGhlIHNvdXJjZSBmb3JtIG9yIGRvY3VtZW50YXRpb24sIGlmIHByb3ZpZGVkIGFsb25nIHdpdGggdGhlIFJlc3VsdGluZyBQcm9ncmFtOyBvciwgd2l0aGluIGEgZGlzcGxheSBnZW5lcmF0ZWQgYnkgdGhlIFJlc3VsdGluZyBQcm9ncmFtLCBpZiBhbmQgd2hlcmV2ZXIgc3VjaCB0aGlyZC1wYXJ0eSBub3RpY2VzIG5vcm1hbGx5IGFwcGVhci4gVGhlIGNvbnRlbnRzIG9mIHRoZSBOT1RJQ0UgZmlsZSBhcmUgZm9yIGluZm9ybWF0aW9uYWwgcHVycG9zZXMgb25seSBhbmQgZG8gbm90IG1vZGlmeSB0aGUgTGljZW5zZS4gWW91IG1heSBhZGQgeW91ciBvd24gYXR0cmlidXRpb24gbm90aWNlcyB3aXRoaW4gUmVzdWx0aW5nIFByb2dyYW1zIHRoYXQgeW91IGRpc3RyaWJ1dGUsIGFsb25nc2lkZSBhcyBhbiBhZGRlbmR1bSB0byB0aGUgTk9USUNFIHRleHQgZnJvbSB0aGUgU29mdHdhcmUsIHByb3ZpZGVkIHRoYXQgc3VjaCBhZGRpdGlvbmFsIGF0dHJpYnV0aW9uIG5vdGljZXMgY2Fubm90IGJlIGNvbnN0cnVlZCBhcyBtb2RpZnlpbmcgdGhlIExpY2Vuc2UuIAoKMS4yLiBZb3UgbWF5IGFkZCB5b3VyIG93biBjb3B5cmlnaHQgc3RhdGVtZW50IHRvIHlvdXIgbW9kaWZpY2F0aW9ucyBhbmQgcHJvdmlkZSBhZGRpdGlvbmFsIG9yIGRpZmZlcmVudCBsaWNlbnNlIHRlcm1zIGFuZCBjb25kaXRpb25zIGZvciB1c2UsIHJlcHJvZHVjdGlvbiwgb3IgZGlzdHJpYnV0aW9uIG9mIHlvdXIgbW9kaWZpY2F0aW9ucywgb3IgZm9yIGFueSBzdWNoIFJlc3VsdGluZyBQcm9ncmFtIGFzIGEgd2hvbGUsIHByb3ZpZGVkIHlvdXIgdXNlLCByZXByb2R1Y3Rpb24sIG9yIGRpc3RyaWJ1dGlvbiBvZiB0aGUgU29mdHdhcmUgb3RoZXJ3aXNlIGNvbXBsaWVzIHdpdGggdGhlIGNvbmRpdGlvbnMgc3RhdGVkIGluIHRoaXMgTGljZW5zZS4KCjIpIFZpb2xhdGlvbiBvZiB0ZXJtcyBvZiBMaWNlbnNlCgoyLjEuIElmIHlvdXIgdXNlIG9mIHRoZSBTb2Z0d2FyZSBvciB0aGUgUmVzdWx0aW5nIFByb2dyYW0gZG9lcyBub3QgY29tcGx5IHdpdGggdGhlIGNvbmRpdGlvbnMgc2V0IG91dCBpbiB0aGlzIExpY2Vuc2Ugb3IgaGFzIGFueSBpbnRlbmRlZCBvciB1bmludGVuZGVkIGNvbW1lcmNpYWwgYXBwbGljYXRpb24gYW55d2hlcmUgaW4gdGhlIHdvcmxkIGFuZCBhdCBhbnkgZ2l2ZW4gcG9pbnQgb2YgdGltZSwgeW91IHNoYWxsIG9idGFpbiBhIENvbW1lcmNpYWwgVXNlIExpY2Vuc2UgZnJvbSBTaWxlbmNlIExhYm9yYXRvcmllcywgb3IgeW91IG11c3QgcmVmcmFpbiBmcm9tIHVzaW5nIHRoZSBTb2Z0d2FyZSBpbW1lZGlhdGVseS4gVG8gb2J0YWluIGEgY29weSBvZiB0aGUgQ29tbWVyY2lhbCBVc2UgTGljZW5zZSwgcmVhY2ggb3V0IHRvIGluZm9Ac2lsZW5jZWxhYm9yYXRvcmllcy5jb20uCgoyLjIgVXBvbiBTaWxlbmNlIExhYm9yYXRvcmllcyBjb21pbmcgdG8ga25vdyBvZiB5b3VyIHBvdGVudGlhbCB2aW9sYXRpb24gb2YgYW55IG9mIHRoZSB0ZXJtcyBvZiB0aGlzIExpY2Vuc2UsIHlvdSB3aWxsIGJlIG5vdGlmaWVkIGluIHdyaXRpbmcgKFNpbGVuY2UgTGFib3JhdG9yaWVzIE5vdGljZSkgdG8gcHVyY2hhc2UgYSBDb21tZXJjaWFsIFVzZSBMaWNlbnNlIHdpdGhpbiAzMCBkYXlzIG9mIHJlY2VpdmluZyB0aGUgU2lsZW5jZSBMYWJvcmF0b3JpZXMgTm90aWNlIG9yIHJlZnJhaW4gZnJvbSB1c2luZyB0aGUgU29mdHdhcmUgaW1tZWRpYXRlbHkuIAoKMi4zLiBBbnkgY29udGludWVkIHVzZSBvZiB0aGUgU29mdHdhcmUgaW4gdmlvbGF0aW9uIG9mIHRoaXMgTGljZW5zZSB3aWxsIGF1dG9tYXRpY2FsbHkgcmVzdWx0IGluIHRlcm1pbmF0aW9uIG9mIHlvdXIgcmlnaHRzIHVuZGVyIHRoaXMgTGljZW5zZSBmb3IgdGhlIGN1cnJlbnQgYW5kIGFueSBmdXR1cmUgb3IgcGFzdCB2ZXJzaW9ucyBvZiB0aGUgU29mdHdhcmUuIAoKMy4gSW50ZWxsZWN0dWFsIFByb3BlcnR5CgozLjEuIFRoaXMgTGljZW5zZSBkb2VzIG5vdCBncmFudCB5b3UgYW55IHJpZ2h0IHRvIHVzZSB0aGUgbmFtZSwgdHJhZGUgbWFya3MsIHNlcnZpY2UgbWFya3MsIHRyYWRlIG5hbWVzLCBsb2dvcyBvciBhbnkgb3RoZXIgaW50ZWxsZWN0dWFsIHByb3BlcnR5IG9mIFNpbGVuY2UgTGFib3JhdG9yaWVzIGZvciBlbmRvcnNpbmcsIHByb21vdGluZyB0aGUgUmVzdWx0aW5nIFByb2dyYW0gb3Igb3RoZXIgd29ya3MgZGVyaXZlZCB1c2luZyB0aGUgU29mdHdhcmUgd2l0aG91dCBvYnRhaW5pbmcgc3BlY2lmaWMgd3JpdHRlbiBwZXJtaXNzaW9uIGZyb20gU2lsZW5jZSBMYWJvcmF0b3JpZXMgKGV4Y2VwdCBhcyByZXF1aXJlZCBmb3IgcmVhc29uYWJsZSBhbmQgY3VzdG9tYXJ5IHVzZSBpbiBhdHRyaWJ1dGluZyB0aGUgdXNhZ2Ugb2YgdGhlIFNvZnR3YXJlIHRvIFNpbGVuY2UgTGFib3JhdG9yaWVzIGFzIGV4cHJlc3NseSByZXF1aXJlZCB1bmRlciB0aGlzIExpY2Vuc2UpLiAKCjMuMi4gWW91IG11c3QgY2F1c2UgYW55IFJlc3VsdGluZyBQcm9ncmFtIHRvIGNhcnJ5IHByb21pbmVudCBub3RpY2VzIHN0YXRpbmcgdGhhdCB5b3UgaGF2ZSBtYWRlIGNoYW5nZXMgdG8gb3IgbW9kaWZpZWQgdGhlIFNvZnR3YXJlIGluZGVwZW5kZW50bHkgYW5kIHdpdGhvdXQgYW55IGludm9sdmVtZW50IGZyb20gU2lsZW5jZSBMYWJvcmF0b3JpZXMgaW4gZGV2ZWxvcGluZyB0aGUgUmVzdWx0aW5nIFByb2dyYW0uIAoKNC4gVGhpcmQgUGFydHkgTWF0ZXJpYWwKClRoZSBTb2Z0d2FyZSBtYXkgY29udGFpbiB0aGlyZC1wYXJ0eSBzb2Z0d2FyZSBvciBvdGhlciBjb21wb25lbnRzIChpbmNsdWRpbmcgZnJlZSBhbmQgb3BlbiBzb3VyY2Ugc29mdHdhcmUpIGFzIG1heSBiZSBtYWRlIGF2YWlsYWJsZSBieSBTaWxlbmNlIExhYm9yYXRvcmllcyBvbiBpdHMgd2Vic2l0ZSBodHRwczovL3NpbGVuY2VsYWJvcmF0b3JpZXMuY29tIChPUyBDb21wb25lbnRzKSwgd2hpY2ggYXJlIHN1YmplY3QgdG8gdGhlIGxpY2Vuc2UgdGVybXMgb2YgdGhlIHJlc3BlY3RpdmUgdGhpcmQtcGFydHkgbGljZW5zb3JzLiBZb3VyIGRlYWxpbmdzIG9yIGNvcnJlc3BvbmRlbmNlIHdpdGggdGhpcmQgcGFydGllcyBhbmQgeW91ciB1c2Ugb2Ygb3IgaW50ZXJhY3Rpb24gd2l0aCBhbnkgT1MgQ29tcG9uZW50cyBhcmUgc29sZWx5IGJldHdlZW4geW91IGFuZCB0aGUgdGhpcmQgcGFydHkuIFNpbGVuY2UgTGFib3JhdG9yaWVzIGRvZXMgbm90IGNvbnRyb2wgb3IgZW5kb3JzZSwgYW5kIG1ha2VzIG5vIHJlcHJlc2VudGF0aW9ucyBvciB3YXJyYW50aWVzIHJlZ2FyZGluZywgYW55IE9TIENvbXBvbmVudHMsIGFuZCB5b3VyIGFjY2VzcyB0byBhbmQgdXNlIG9mIHN1Y2ggT1MgQ29tcG9uZW50cyBhcmUgYXQgeW91ciBvd24gcmlzay4gWW91IG1heSBtb2RpZnkgb3IgcmVwbGFjZSB0aGVzZSBPUyBDb21wb25lbnRzOyBwcm92aWRlZCB0aGF0IHlvdSBjb21wbHkgd2l0aCB0aGUgdGVybXMgb2YgdGhpcyBMaWNlbnNlLCBhbnkgYXBwbGljYWJsZSBsaWNlbnNpbmcgdGVybXMgZ292ZXJuaW5nIHVzZSBvZiB0aGUgT1MgQ29tcG9uZW50cywgYW5kIGFwcGxpY2FibGUgbGF3cy4gU2lsZW5jZSBMYWJvcmF0b3JpZXMgaXMgbm90IG9ibGlnYXRlZCB0byBwcm92aWRlIGFueSB1cGRhdGVzLCBtYWludGVuYW5jZSwgd2FycmFudHksIHRlY2huaWNhbCBvciBvdGhlciBzdXBwb3J0LCBvciBzZXJ2aWNlcyBmb3IgdGhlIHJlc3VsdGFudCBtb2RpZmllZCBTb2Z0d2FyZS4gCgo1LiBMaW1pdGF0aW9uIG9mIExpYWJpbGl0eQoKVE8gVEhFIEZVTExFU1QgRVhURU5UIFBFUk1JVFRFRCBCWSBMQVcsIElOIE5PIEVWRU5UIFdJTEwgU0lMRU5DRSBMQUJPUkFUT1JJRVMgQkUgTElBQkxFIFRPIFlPVSAoQSkgVU5ERVIgQU5ZIFRIRU9SWSBPRiBMSUFCSUxJVFksIFdIRVRIRVIgQkFTRUQgSU4gQ09OVFJBQ1QsIFRPUlQsIE5FR0xJR0VOQ0UsIFNUUklDVCBMSUFCSUxJVFksIFdBUlJBTlRZLCBPUiBPVEhFUldJU0UgVU5ERVIgVEhJUyBMSUNFTlNFLCBPUiAoQikgRk9SIEFOWSBJTkRJUkVDVCwgQ09OU0VRVUVOVElBTCwgRVhFTVBMQVJZLCBJTkNJREVOVEFMLCBQVU5JVElWRSBPUiBTUEVDSUFMIERBTUFHRVMgT1IgTE9TVCBQUk9GSVRTLCBFVkVOIElGIFNJTEVOQ0UgTEFCT1JBVE9SSUVTIEhBUyBCRUVOIEFEVklTRUQgT0YgVEhFIFBPU1NJQklMSVRZIE9GIFNVQ0ggREFNQUdFUy4gVEhFIFBST0dSQU0sIFRIRUlSIENPTlNUSVRVRU5UIENPTVBPTkVOVFMsIFRIRSBSRVNVTFRJTkcgUFJPR1JBTSBBTkQgQU5ZIE9VVFBVVCAoQ09MTEVDVElWRUxZLCBQUk9HUkFNIE1BVEVSSUFMUykgQVJFIE5PVCBERVNJR05FRCBPUiBJTlRFTkRFRCBGT1IgVVNFIElOIEFOWSBBUFBMSUNBVElPTiBPUiBTSVRVQVRJT04gV0hFUkUgRkFJTFVSRSBPUiBGQVVMVCBPRiBUSEUgUFJPR1JBTSBNQVRFUklBTFMgQ09VTEQgUkVBU09OQUJMWSBCRSBBTlRJQ0lQQVRFRCBUTyBMRUFEIFRPIFNFUklPVVMgSU5KVVJZIE9GIEFOWSBQRVJTT04gT1IgUFJPUEVSVFksIElOQ0xVRElORyBQT1RFTlRJQUwgTE9TUyBPRiBQUk9QRVJUWSBBTkQgVklSVFVBTCBBU1NFVFMgKElOQ0xVRElORyBDUllQVE9DVVJSRU5DSUVTLCBOT04tRlVOR0lCTEUgVE9LRU5TLCBFVEMuKSwgTE9TUyBPRiBBQ0NFU1MgVE8gQSBWSVJUVUFMIEFTU0VUIFdBTExFVCwgVklPTEFUSU9OIE9GIEFOIElORElWSURVQUzigJlTIFBSSVZBQ1kgUklHSFRTIChFQUNILCBBIEhJR0gtUklTSyBVU0UpLiBJRiBZT1UgRUxFQ1QgVE8gVVNFIEFOWSBPRiBUSEUgUFJPR1JBTSBNQVRFUklBTFMgRk9SIEEgSElHSC1SSVNLIFVTRSwgWU9VIERPIFNPIEFUIFlPVVIgT1dOIFJJU0suIFlPVSBBR1JFRSBUTyBERVNJR04gQU5EIElNUExFTUVOVCBBUFBST1BSSUFURSBERUNJU0lPTi1NQUtJTkcgQU5EIFJJU0stTUlUSUdBVElPTiBQUk9DRURVUkVTIEFORCBQT0xJQ0lFUyBJTiBDT05ORUNUSU9OIFdJVEggQSBISUdILVJJU0sgVVNFIFNVQ0ggVEhBVCBFVkVOIElGIFRIRVJFIElTIEEgRkFJTFVSRSBPUiBGQVVMVCBJTiBBTlkgT0YgVEhFIFBST0dSQU0gTUFURVJJQUxTLCBUSEUgU0FGRVRZIE9GIFBFUlNPTlMgT1IgUFJPUEVSVFkgQUZGRUNURUQgQlkgVEhFIEFDVElWSVRZIFNUQVlTIEFUIEEgTEVWRUwgVEhBVCBJUyBSRUFTT05BQkxFLCBBUFBST1BSSUFURSwgQU5EIExBV0ZVTCBGT1IgVEhFIEZJRUxEIE9GIFRIRSBISUdILVJJU0sgVVNFLgoKNi4gSW5kZW1uaXR5CgpZb3Ugd2lsbCBpbmRlbW5pZnksIGRlZmVuZCBhbmQgaG9sZCBoYXJtbGVzcyBTaWxlbmNlIExhYm9yYXRvcmllcyBhbmQgaXRzIGFmZmlsaWF0ZXMsIGFuZCBlYWNoIG9mIGl0cyByZXNwZWN0aXZlIHNoYXJlaG9sZGVycywgZGlyZWN0b3JzLCBvZmZpY2VycywgZW1wbG95ZWVzLCBhZ2VudHMsIHN1Y2Nlc3NvcnMsIGFuZCBhc3NpZ25zIChjb2xsZWN0aXZlbHksIHRoZSBTaWxlbmNlIExhYm9yYXRvcmllcyBQYXJ0aWVzKSBmcm9tIGFuZCBhZ2FpbnN0IGFueSBsb3NzZXMsIGxpYWJpbGl0aWVzLCBkYW1hZ2VzLCBmaW5lcywgcGVuYWx0aWVzLCBhbmQgZXhwZW5zZXMgKGluY2x1ZGluZyByZWFzb25hYmxlIGF0dG9ybmV5c+KAmSBmZWVzKSBpbmN1cnJlZCBieSBhbnkgU2lsZW5jZSBMYWJvcmF0b3JpZXMgUGFydHkgaW4gY29ubmVjdGlvbiB3aXRoIGFueSBjbGFpbSwgZGVtYW5kLCBhbGxlZ2F0aW9uLCBsYXdzdWl0LCBwcm9jZWVkaW5nLCBvciBpbnZlc3RpZ2F0aW9uIChjb2xsZWN0aXZlbHksIENsYWltcykgYXJpc2luZyBvdXQgb2Ygb3IgcmVsYXRlZCB0bzogKGEpIHlvdXIgYWNjZXNzIHRvIG9yIHVzZSBvZiB0aGUgUHJvZ3JhbSBQcm9kdWN0cyAoYXMgd2VsbCBhcyBhbnkgcmVzdWx0cyBvciBkYXRhIGdlbmVyYXRlZCBmcm9tIHN1Y2ggYWNjZXNzIG9yIHVzZSksIGluY2x1ZGluZyBhbnkgSGlnaC1SaXNrIFVzZSAoZGVmaW5lZCBiZWxvdyk7IChiKSB5b3VyIHZpb2xhdGlvbiBvZiB0aGlzIExpY2Vuc2U7IG9yIChjKSB5b3VyIHZpb2xhdGlvbiwgbWlzYXBwcm9wcmlhdGlvbiBvciBpbmZyaW5nZW1lbnQgb2YgYW55IHJpZ2h0cyBvZiBhbm90aGVyIChpbmNsdWRpbmcgaW50ZWxsZWN0dWFsIHByb3BlcnR5IG9yIG90aGVyIHByb3ByaWV0YXJ5IHJpZ2h0cyBhbmQgcHJpdmFjeSByaWdodHMpLiBZb3Ugd2lsbCBwcm9tcHRseSBub3RpZnkgdGhlIFNpbGVuY2UgTGFib3JhdG9yaWVzIFBhcnRpZXMgb2YgYW55IHN1Y2ggQ2xhaW1zLCBhbmQgY29vcGVyYXRlIHdpdGggU2lsZW5jZSBMYWJvcmF0b3JpZXMgUGFydGllcyBpbiBkZWZlbmRpbmcgc3VjaCBDbGFpbXMuIFlvdSB3aWxsIGFsc28gZ3JhbnQgdGhlIFNpbGVuY2UgTGFib3JhdG9yaWVzIFBhcnRpZXMgc29sZSBjb250cm9sIG9mIHRoZSBkZWZlbnNlIG9yIHNldHRsZW1lbnQsIGF0IFNpbGVuY2UgTGFib3JhdG9yaWVz4oCZIHNvbGUgb3B0aW9uLCBvZiBhbnkgQ2xhaW1zLiBUaGlzIGluZGVtbml0eSBpcyBpbiBhZGRpdGlvbiB0bywgYW5kIG5vdCBpbiBsaWV1IG9mLCBhbnkgb3RoZXIgaW5kZW1uaXRpZXMgb3IgcmVtZWRpZXMgc2V0IGZvcnRoIGluIGEgd3JpdHRlbiBhZ3JlZW1lbnQgYmV0d2VlbiB5b3UgYW5kIFNpbGVuY2UgTGFib3JhdG9yaWVzIG9yIHRoZSBvdGhlciBTaWxlbmNlIExhYm9yYXRvcmllcyBQYXJ0aWVzLgoKNy4gQ29udHJpYnV0aW9ucwoKNy4xLiAiQ29udHJpYnV0aW9uIiBzaGFsbCBtZWFuIGFueSBvcmlnaW5hbCB3b3JrIG9mIGF1dGhvcnNoaXAsIGluY2x1ZGluZyBhbnkgbW9kaWZpY2F0aW9ucyBvciBhZGRpdGlvbnMgdG8gYW4gZXhpc3Rpbmcgd29yaywgdGhhdCBpcyBpbnRlbnRpb25hbGx5IHN1Ym1pdHRlZCBieSBZb3UgdG8gU2lsZW5jZSBMYWJvcmF0b3JpZXMgZm9yIGluY2x1c2lvbiBpbiwgb3IgZG9jdW1lbnRhdGlvbiBvZiwgYW55IG9mIHRoZSBwcm9kdWN0cyBvd25lZCBvciBtYW5hZ2VkIGJ5IFNpbGVuY2UgTGFib3JhdG9yaWVzICh0aGUgIldvcmsiKS4gRm9yIHRoZSBwdXJwb3NlcyBvZiB0aGlzIGRlZmluaXRpb24sICJzdWJtaXR0ZWQiIG1lYW5zIGFueSBmb3JtIG9mIGVsZWN0cm9uaWMsIHZlcmJhbCwgb3Igd3JpdHRlbiBjb21tdW5pY2F0aW9uIHNlbnQgdG8gU2lsZW5jZSBMYWJvcmF0b3JpZXMgb3IgaXRzIHJlcHJlc2VudGF0aXZlcywgaW5jbHVkaW5nIGJ1dCBub3QgbGltaXRlZCB0byBjb21tdW5pY2F0aW9uIG9uIGVsZWN0cm9uaWMgbWFpbGluZyBsaXN0cywgc291cmNlIGNvZGUgY29udHJvbCBzeXN0ZW1zLCBhbmQgaXNzdWUgdHJhY2tpbmcgc3lzdGVtcwoKNy4yLiBTdWJqZWN0IHRvIHRoZSB0ZXJtcyBhbmQgY29uZGl0aW9ucyBvZiB0aGlzIEFncmVlbWVudCwgWW91IGhlcmVieSBncmFudCB0byBTaWxlbmNlIExhYm9yYXRvcmllcyBhbmQgdG8gcmVjaXBpZW50cyBvZiBzb2Z0d2FyZSBwcm9kdWN0cyBkaXN0cmlidXRlZCBieSBTaWxlbmNlIExhYm9yYXRvcmllcyBhIHBlcnBldHVhbCwgd29ybGR3aWRlLCBub24tZXhjbHVzaXZlLCBuby1jaGFyZ2UsIHJveWFsdHktZnJlZSwgaXJyZXZvY2FibGUgY29weXJpZ2h0IGxpY2Vuc2UgdG8gcmVwcm9kdWNlLCBwcmVwYXJlIGRlcml2YXRpdmUgd29ya3Mgb2YsIHB1YmxpY2x5IGRpc3BsYXksIHB1YmxpY2x5IHBlcmZvcm0sIHN1YmxpY2Vuc2UsIGFuZCBkaXN0cmlidXRlIFlvdXIgQ29udHJpYnV0aW9ucyBhbmQgc3VjaCBkZXJpdmF0aXZlIHdvcmtzLgoKNy4zLiBTdWJqZWN0IHRvIHRoZSB0ZXJtcyBhbmQgY29uZGl0aW9ucyBvZiB0aGlzIEFncmVlbWVudCxZb3UgaGVyZWJ5IGdyYW50IHRvIFNpbGVuY2UgTGFib3JhdG9yaWVzIGFuZCB0byByZWNpcGllbnRzIG9mIHNvZnR3YXJlIGRpc3RyaWJ1dGVkIGJ5IFNpbGVuY2UgTGFib3JhdG9yaWVzIGEgcGVycGV0dWFsLCB3b3JsZHdpZGUsIG5vbi1leGNsdXNpdmUsIG5vLWNoYXJnZSwgcm95YWx0eS1mcmVlLCBpcnJldm9jYWJsZSAoZXhjZXB0IGFzIHN0YXRlZCBpbiB0aGlzIHNlY3Rpb24pIHBhdGVudCBsaWNlbnNlIHRvIG1ha2UsIGhhdmUgbWFkZSwgdXNlLCBvZmZlciB0byBzZWxsLCBzZWxsLCBpbXBvcnQsIGFuZCBvdGhlcndpc2UgdHJhbnNmZXIgdGhlIFdvcmssIHdoZXJlIHN1Y2ggbGljZW5zZSBhcHBsaWVzIG9ubHkgdG8gdGhvc2UgcGF0ZW50IGNsYWltcyBsaWNlbnNhYmxlIGJ5IFlvdSB0aGF0IGFyZSBuZWNlc3NhcmlseSBpbmZyaW5nZWQgYnkgWW91ciBDb250cmlidXRpb24ocykgYWxvbmUgb3IgYnkgY29tYmluYXRpb24gb2YgWW91ciBDb250cmlidXRpb24ocykgd2l0aCB0aGUgV29yayB0byB3aGljaCBzdWNoIENvbnRyaWJ1dGlvbihzKSB3YXMgc3VibWl0dGVkLiAKCjcuNC4gSWYgYW55IGVudGl0eSBpbnN0aXR1dGVzIHBhdGVudCBsaXRpZ2F0aW9uIGFnYWluc3QgWW91IG9yIGFueSBvdGhlciBlbnRpdHkgKGluY2x1ZGluZyBhIGNyb3NzLWNsYWltIG9yIGNvdW50ZXJjbGFpbSBpbiBhIGxhd3N1aXQpIGFsbGVnaW5nIHRoYXQgWW91ciBDb250cmlidXRpb24sIG9yIHRoZSBXb3JrIHRvIHdoaWNoIFlvdSBoYXZlIGNvbnRyaWJ1dGVkLCBjb25zdGl0dXRlcyBkaXJlY3Qgb3IgY29udHJpYnV0b3J5IHBhdGVudCBpbmZyaW5nZW1lbnQsIHRoZW4gYW55IHBhdGVudCBsaWNlbnNlcyBncmFudGVkIHRvIHRoYXQgZW50aXR5IHVuZGVyIHRoaXMgQWdyZWVtZW50IGZvciB0aGF0IENvbnRyaWJ1dGlvbiBvciBXb3JrIHNoYWxsIHRlcm1pbmF0ZSBhcyBvZiB0aGUgZGF0ZSBzdWNoIGxpdGlnYXRpb24gaXMgZmlsZWQuCgo3LjYuIFlvdSByZXByZXNlbnQgdGhhdCBZb3UgYXJlIGxlZ2FsbHkgZW50aXRsZWQgdG8gZ3JhbnQgdGhlIGFib3ZlIGxpY2Vuc2UuIElmIFlvdXIgZW1wbG95ZXIocykgaGFzIHJpZ2h0cyB0byBpbnRlbGxlY3R1YWwgcHJvcGVydHkgdGhhdCBZb3UgY3JlYXRlIHRoYXQgaW5jbHVkZXMgWW91ciBDb250cmlidXRpb25zLCBZb3UgcmVwcmVzZW50IHRoYXQgWW91IGhhdmUgcmVjZWl2ZWQgcGVybWlzc2lvbiB0byBtYWtlIENvbnRyaWJ1dGlvbnMgb24gYmVoYWxmIG9mIHRoYXQgZW1wbG95ZXIsIHRoYXQgWW91ciBlbXBsb3llciBoYXMgd2FpdmVkIHN1Y2ggcmlnaHRzIGZvciBZb3VyIENvbnRyaWJ1dGlvbnMgdG8gU2lsZW5jZSBMYWJvcmF0b3JpZXMsIG9yIHRoYXQgWW91ciBlbXBsb3llciBoYXMgZXhlY3V0ZWQgYSBzZXBhcmF0ZSBDb3Jwb3JhdGUgQ0xBIHdpdGggU2lsZW5jZSBMYWJvcmF0b3JpZXMuCgo3LjYuIFlvdSByZXByZXNlbnQgdGhhdCBlYWNoIG9mIFlvdXIgQ29udHJpYnV0aW9ucyBpcyBZb3VyIG9yaWdpbmFsIGNyZWF0aW9uLiBZb3UgcmVwcmVzZW50IHRoYXQgWW91ciBDb250cmlidXRpb24gc3VibWlzc2lvbnMgaW5jbHVkZSBjb21wbGV0ZSBkZXRhaWxzIG9mIGFueSB0aGlyZC1wYXJ0eSBsaWNlbnNlIG9yIG90aGVyIHJlc3RyaWN0aW9uIChpbmNsdWRpbmcsIGJ1dCBub3QgbGltaXRlZCB0bywgcmVsYXRlZCBwYXRlbnRzIGFuZCB0cmFkZW1hcmtzKSBvZiB3aGljaCBZb3UgYXJlIHBlcnNvbmFsbHkgYXdhcmUgYW5kIHdoaWNoIGFyZSBhc3NvY2lhdGVkIHdpdGggYW55IHBhcnQgb2YgWW91ciBDb250cmlidXRpb25zLgoKNy43LiBZb3UgYWdyZWUgdG8gbm90aWZ5IFNpbGVuY2UgTGFib3JhdG9yaWVzIG9mIGFueSBmYWN0cyBvciBjaXJjdW1zdGFuY2VzIG9mIHdoaWNoIFlvdSBiZWNvbWUgYXdhcmUgdGhhdCB3b3VsZCBtYWtlIHRoZXNlIHJlcHJlc2VudGF0aW9ucyBpbmFjY3VyYXRlIGluIGFueSByZXNwZWN0LgoKOC4gR292ZXJuaW5nIExhdwoKVGhpcyBMaWNlbnNlIHdpbGwgYmUgZ292ZXJuZWQgYnkgYW5kIHNoYWxsIGJlIGNvbnN0cnVlZCBpbiBhY2NvcmRhbmNlIHdpdGggdGhlIGxhd3Mgb2YgU2luZ2Fwb3JlIHdpdGhvdXQgcmVnYXJkIHRvIGFueSBjaG9pY2Ugb3IgY29uZmxpY3Qgb2YgbGF3cyBydWxlcy4gQWxsIG9yIGFueSBkaXNwdXRlcyBhcmlzaW5nIG91dCBvZiBvciB0b3VjaGluZyB1cG9uIG9yIGluIHJlbGF0aW9uIHRvIHRoaXMgTGljZW5zZSBpbmNsdWRpbmcgdGhlIGludGVycHJldGF0aW9uIGFuZCB2YWxpZGl0eSBvZiB0aGUgdGVybXMgdGhlcmVvZiBhbmQgdGhlIHJlc3BlY3RpdmUgcmlnaHRzIGFuZCBvYmxpZ2F0aW9ucyBvZiB0aGUgcGFydGllcyBzaGFsbCBiZSBzZXR0bGVkIHRocm91Z2ggYXJiaXRyYXRpb24uIFRoZSBhcmJpdHJhdGlvbiBwcm9jZWVkaW5ncyBzaGFsbCBiZSBoZWxkIGluIFNpbmdhcG9yZSBieSBhIHNvbGUgYXJiaXRyYXRvciB3aG8gc2hhbGwgYmUgYXBwb2ludGVkIGJ5IFNpbGVuY2UgTGFib3JhdG9yaWVzIGFuZCB3aG9zZSBkZWNpc2lvbiBzaGFsbCBiZSBmaW5hbCBhbmQgYmluZGluZyB1cG9uIGFsbCB0aGUgcGFydGllcy4gU3ViamVjdCB0byB0aGUgYXJiaXRyYXRpb24gY2xhdXNlLCB0aGUgY291cnRzIGluIFNpbmdhcG9yZSBhbG9uZSBzaGFsbCBoYXZlIGp1cmlzZGljdGlvbi4gVGhlIGxhbmd1YWdlIG9mIHRoZSBhcmJpdHJhdGlvbiBwcm9jZWVkaW5ncyBzaGFsbCBiZSBpbiBFbmdsaXNoLiBZb3UgYW5kIFNpbGVuY2UgTGFib3JhdG9yaWVzIGFncmVlIHRoYXQgYW55IGNhdXNlIG9mIGFjdGlvbiBhcmlzaW5nIGluIHJlbGF0aW9uIHRvIHRoZSBMaWNlbnNlIG11c3QgYmUgY29tbWVuY2VkIHdpdGhpbiB0aHJlZSAoMykgbW9udGhzIGFmdGVyIHRoZSBjYXVzZSBvZiBhY3Rpb24gYWNjcnVlcyBvciB5b3UgYmVjb21lIGF3YXJlIG9mIHRoZSBmYWN0cyBnaXZpbmcgcmlzZSB0byB0aGUgY2F1c2Ugb2YgYWN0aW9uLCB3aGljaGV2ZXIgaXMgbGF0ZXIuIE90aGVyd2lzZSwgc3VjaCBjYXVzZSBvZiBhY3Rpb24gc2hhbGwgYmUgcGVybWFuZW50bHkgYmFycmVkLiBFYWNoIHBhcnR5IHRvIGFueSBhcmJpdHJhdGlvbiB3aWxsIGNvdmVyIGl0cyBvd24gZmVlcyBhbmQgY29zdHMgYXNzb2NpYXRlZCB3aXRoIHRoZSBhcmJpdHJhdGlvbiBwcm9jZWVkaW5ncy4gVGhlIGF3YXJkIG9mIHRoZSBhcmJpdHJhdG9yIHdpbGwgYmUgZmluYWwgYW5kIGJpbmRpbmcsIGFuZCBhbnkganVkZ2VtZW50IG9uIHRoZSBhd2FyZCByZW5kZXJlZCBieSB0aGUgYXJiaXRyYXRvciBtYXkgYmUgZW50ZXJlZCBpbiBhbnkgY291cnQgb2YgY29tcGV0ZW50IGp1cmlzZGljdGlvbi4gVGhlIHBhcnRpZXMgdG8gdGhlIGFyYml0cmF0aW9uIHNoYWxsIG5vdCBhcHBlYWwgYW55IGFyYml0cmF0aW9uIGRlY2lzaW9uIHRvIGFueSBjb3VydC4gCgo5LiBNb2RpZmljYXRpb25zCgpTaWxlbmNlIExhYm9yYXRvcmllcyBtYXkgbW9kaWZ5IHRoZSB0ZXJtcyBvZiB0aGlzIExpY2Vuc2UgYXQgYW55IHRpbWUsIGF0IGl0cyBzb2xlIGRpc2NyZXRpb24uIFN1Y2ggbW9kaWZpZWQgdGVybXMgb2YgdGhpcyBMaWNlbnNlIHdpbGwgY29tZSBpbnRvIGVmZmVjdCBpbW1lZGlhdGVseSB1cG9uIHRoZWlyIHB1YmxpY2F0aW9uLCB1bmxlc3MgZGVjaWRlZCBvdGhlcndpc2UgYnkgU2lsZW5jZSBMYWJvcmF0b3JpZXMgKEVmZmVjdGl2ZSBEYXRlKS4gQnkgY29udGludWluZyB0byB1c2Ugb3IgYWNjZXNzIHRoZSBTb2Z0d2FyZSBhZnRlciB0aGUgRWZmZWN0aXZlIERhdGUsIHlvdSBhZ3JlZSB0byB0aGUgbW9kaWZpZWQgdGVybXMgb2YgdGhpcyBMaWNlbnNlLiBJdCBpcyB5b3VyIHJlc3BvbnNpYmlsaXR5IHRvIGNoZWNrIHRoaXMgTGljZW5zZSByZWd1bGFybHkgZm9yIGFueSBtb2RpZmljYXRpb25zLgoKMTAuIERlZmluaXRpb24KCk5vbi1Db21tZXJjaWFsIFVzZSBtZWFucyB5b3VyIHVzZSBvZiB0aGUgU29mdHdhcmUgYXMgZGVzY3JpYmVkIGJlbG93LCBhcyBkZXRlcm1pbmVkIGJ5IFNpbGVuY2UgTGFib3JhdG9yaWVzIGluIGl0cyBzb2xlIGRpc2NyZXRpb24sIGZvcjoKCmEuIHBlcnNvbmFsIHVzZSBmb3IgcmVzZWFyY2gsIGV4cGVyaW1lbnRzLCBwZXJzb25hbCBzdHVkeSwgZWR1Y2F0aW9uYWwgcHVycG9zZXMsIHByaXZhdGUgZW50ZXJ0YWlubWVudCwgcGVyc29uYWwgcHJvamVjdHMgb3IgYW1hdGV1ciBwdXJzdWl0czsgCgpiLiB1c2UgYnkgYW55IGNoYXJpdGFibGUgb3JnYW5pemF0aW9uLCBlZHVjYXRpb25hbCBpbnN0aXR1dGlvbiwgcHVibGljIHJlc2VhcmNoIG9yZ2FuaXphdGlvbiwgcHVibGljIHNhZmV0eSBvciBoZWFsdGggb3JnYW5pemF0aW9uLCBlbnZpcm9ubWVudGFsIHByb3RlY3Rpb24gb3JnYW5pemF0aW9uIG9yIGdvdmVybm1lbnQgaW5zdGl0dXRpb24sCgppbiBlYWNoIGNhc2UsIGkuZS4sICgxKSBhbmQgKDIpLCB3aXRob3V0IGFudGljaXBhdGVkIGNvbW1lcmNpYWwgYXBwbGljYXRpb24uIEZvciB0aGUgc2FrZSBvZiBjbGFyaXR5LCBtb2RpZnlpbmcgYW5kL29yIGNyZWF0aW5nIGEgc3Vic3RpdHV0ZSBmb3IgdGhlIFNvZnR3YXJlLCBvciBhbnkgb3RoZXIgdXNlIG9mIHRoZSBTb2Z0d2FyZSwgZm9yIGNvbW1lcmNpYWwgZ2FpbiwgaW5jbHVkaW5nIGJ5IHdheSBvZiAoYSkgdXNpbmcgdGhlIFNvZnR3YXJlIGZvciBpbnRlcm5hbCBidXNpbmVzcyBwdXJwb3Nlcywgb3IgKGIpIHJlc2FsZSBvciBkaXN0cmlidXRpb24gZm9yIGNvbW1lcmNpYWwgcHVycG9zZXMsIHNoYWxsIG5vdCBjb25zdGl0dXRlIE5vbi1Db21tZXJjaWFsIFVzZS4gCgpESVNDTEFJTUVSCgpUSElTIFNPRlRXQVJFIElTIFBST1ZJREVEIEJZIFRIRSBDT1BZUklHSFQgSE9MREVSIEFORCBDT05UUklCVVRPUlMg4oCcQVMgSVPigJ0gQU5EIEFOWSBFWFBSRVNTIE9SIElNUExJRUQgV0FSUkFOVElFUywgSU5DTFVESU5HLCBCVVQgTk9UIExJTUlURUQgVE8sIFRIRSBJTVBMSUVEIFdBUlJBTlRJRVMgT0YgTUVSQ0hBTlRBQklMSVRZIEFORCBGSVRORVNTIEZPUiBBIFBBUlRJQ1VMQVIgUFVSUE9TRSBBUkUgRElTQ0xBSU1FRC4gSU4gTk8gRVZFTlQgU0hBTEwgVEhFIENPUFlSSUdIVCBIT0xERVIgT1IgQ09OVFJJQlVUT1JTIEJFIExJQUJMRSBGT1IgQU5ZIERJUkVDVCwgSU5ESVJFQ1QsIElOQ0lERU5UQUwsIFNQRUNJQUwsIEVYRU1QTEFSWSwgT1IgQ09OU0VRVUVOVElBTCBEQU1BR0VTIChJTkNMVURJTkcsIEJVVCBOT1QgTElNSVRFRCBUTywgUFJPQ1VSRU1FTlQgT0YgU1VCU1RJVFVURSBHT09EUyBPUiBTRVJWSUNFUzsgTE9TUyBPRiBVU0UsIERBVEEsIE9SIFBST0ZJVFM7IE9SIEJVU0lORVNTIElOVEVSUlVQVElPTikgSE9XRVZFUiBDQVVTRUQgQU5EIE9OIEFOWSBUSEVPUlkgT0YgTElBQklMSVRZLCBXSEVUSEVSIElOIENPTlRSQUNULCBTVFJJQ1QgTElBQklMSVRZLCBPUiBUT1JUIChJTkNMVURJTkcgTkVHTElHRU5DRSBPUiBPVEhFUldJU0UpIEFSSVNJTkcgSU4gQU5ZIFdBWSBPVVQgT0YgVEhFIFVTRSBPRiBUSElTIFBST0dSQU0sIEVWRU4gSUYgQURWSVNFRCBPRiBUSEUgUE9TU0lCSUxJVFkgT0YgU1VDSCBEQU1BR0UuCgpXZSBoYXZlIGxhc3QgbW9kaWZpZWQgdGhpcyBMaWNlbnNlIG9uIDI4LTAxLTIwMjUuIAoKSWYgeW91IGhhdmUgYW55IHF1ZXN0aW9ucywgY29tbWVudHMgb3IgaW50ZXJlc3QgaW4gcHVyc3VpbmcgYW55IG90aGVyIGNvbW1lcmNpYWwgdXNlIGNhc2VzLCBwbGVhc2UgcmVhY2ggb3V0IHRvIHVzIGF0IGluZm9Ac2lsZW5jZWxhYm9yYXRvcmllcy5jb20uCg=="
+            }
+          }
+        }
+      ],
+      "purl": "pkg:cargo/sl-mpc-derive@0.1.1?download_url=file://.",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/silence-laboratories/multi-party-schnorr"
+        }
+      ],
+      "components": [
+        {
+          "type": "library",
+          "bom-ref": "path+file:///home/rhonstin/projects/multi-party-schnorr/crates/sl-mpc-derive#0.1.1 bin-target-0",
+          "name": "sl_mpc_derive",
+          "version": "0.1.1",
+          "purl": "pkg:cargo/sl-mpc-derive@0.1.1?download_url=file://.#src/lib.rs"
+        }
+      ]
+    },
+    "properties": [
+      {
+        "name": "cdx:rustc:sbom:target:triple",
+        "value": "x86_64-unknown-linux-gnu"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#base16ct@0.2.0",
+      "author": "RustCrypto Developers",
+      "name": "base16ct",
+      "version": "0.2.0",
+      "description": "Pure Rust implementation of Base16 a.k.a hexadecimal (RFC 4648) which avoids any usages of data-dependent branches/LUTs and thereby provides portable \"best effort\" constant-time operation and embedded-friendly no_std support ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/base16ct@0.2.0",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/base16ct"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/formats/tree/master/base16ct"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#base64ct@1.8.3",
+      "author": "RustCrypto Developers",
+      "name": "base64ct",
+      "version": "1.8.3",
+      "description": "Pure Rust implementation of Base64 (RFC 4648) which avoids any usages of data-dependent branches/LUTs and thereby provides portable \"best effort\" constant-time operation and embedded-friendly no_std support ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/base64ct@1.8.3",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/base64ct"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/RustCrypto/formats/tree/master/base64ct"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/formats"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#bitvec@1.1.1",
+      "name": "bitvec",
+      "version": "1.1.1",
+      "description": "Addresses memory by bits, for packed collections and bitfields",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ddcec3d12c579d40898fe0a9a358a803c23e9c52ca3c425707f81c9436211837"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "purl": "pkg:cargo/bitvec@1.1.1",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/bitvec/latest/bitvec"
+        },
+        {
+          "type": "website",
+          "url": "https://bitvecto-rs.github.io/bitvec"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/bitvecto-rs/bitvec"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#block-buffer@0.10.4",
+      "author": "RustCrypto Developers",
+      "name": "block-buffer",
+      "version": "0.10.4",
+      "description": "Buffer type for block processing of data",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/block-buffer@0.10.4",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/block-buffer"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/utils"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#cfg-if@1.0.4",
+      "author": "Alex Crichton <alex@alexcrichton.com>",
+      "name": "cfg-if",
+      "version": "1.0.4",
+      "description": "A macro to ergonomically define an item depending on a large number of #[cfg] parameters. Structured like an if-else chain, the first matching branch is the item that gets emitted. ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/cfg-if@1.0.4",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/rust-lang/cfg-if"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#const-oid@0.9.6",
+      "author": "RustCrypto Developers",
+      "name": "const-oid",
+      "version": "0.9.6",
+      "description": "Const-friendly implementation of the ISO/IEC Object Identifier (OID) standard as defined in ITU X.660, with support for BER/DER encoding/decoding as well as heapless no_std (i.e. embedded) support ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/const-oid@0.9.6",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/const-oid"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/formats/tree/master/const-oid"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#cpufeatures@0.2.17",
+      "author": "RustCrypto Developers",
+      "name": "cpufeatures",
+      "version": "0.2.17",
+      "description": "Lightweight runtime CPU feature detection for aarch64, loongarch64, and x86/x86_64 targets,  with no_std support and support for mobile targets including Android and iOS ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "59ed5838eebb26a2bb2e58f6d5b5316989ae9d08bab10e0e6d103e656d1b0280"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/cpufeatures@0.2.17",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/cpufeatures"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/utils"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#crypto-bigint@0.5.5",
+      "author": "RustCrypto Developers",
+      "name": "crypto-bigint",
+      "version": "0.5.5",
+      "description": "Pure Rust implementation of a big integer library which has been designed from the ground-up for use in cryptographic applications. Provides constant-time, no_std-friendly implementations of modern formulas using const generics. ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0dc92fb57ca44df6db8059111ab3af99a63d5d0f8375d9972e319a379c6bab76"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/crypto-bigint@0.5.5",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/crypto-bigint"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#crypto-common@0.1.7",
+      "author": "RustCrypto Developers",
+      "name": "crypto-common",
+      "version": "0.1.7",
+      "description": "Common cryptographic traits",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "78c8292055d1c1df0cce5d180393dc8cce0abec0a7102adb6c7b1eef6016d60a"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/crypto-common@0.1.7",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/crypto-common"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/traits"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#curve25519-dalek-derive@0.1.1",
+      "name": "curve25519-dalek-derive",
+      "version": "0.1.1",
+      "description": "curve25519-dalek Derives",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/curve25519-dalek-derive@0.1.1",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/curve25519-dalek-derive"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/dalek-cryptography/curve25519-dalek"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/dalek-cryptography/curve25519-dalek"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#curve25519-dalek@4.1.3",
+      "author": "Isis Lovecruft <isis@patternsinthevoid.net>, Henry de Valence <hdevalence@hdevalence.ca>",
+      "name": "curve25519-dalek",
+      "version": "4.1.3",
+      "description": "A pure-Rust implementation of group operations on ristretto255 and Curve25519",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "BSD-3-Clause"
+        }
+      ],
+      "purl": "pkg:cargo/curve25519-dalek@4.1.3",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/curve25519-dalek"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/dalek-cryptography/curve25519-dalek"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/curve25519-dalek"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#der@0.7.10",
+      "author": "RustCrypto Developers",
+      "name": "der",
+      "version": "0.7.10",
+      "description": "Pure Rust embedded-friendly implementation of the Distinguished Encoding Rules (DER) for Abstract Syntax Notation One (ASN.1) as described in ITU X.690 with full support for heapless no_std targets ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e7c1832837b905bbfb5101e07cc24c8deddf52f93225eee6ead5f4d63d53ddcb"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/der@0.7.10",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/formats/tree/master/der"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#digest@0.10.7",
+      "author": "RustCrypto Developers",
+      "name": "digest",
+      "version": "0.10.7",
+      "description": "Traits for cryptographic hash functions and message authentication codes",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/digest@0.10.7",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/digest"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/traits"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#ed25519-dalek@2.2.0",
+      "author": "isis lovecruft <isis@patternsinthevoid.net>, Tony Arcieri <bascule@gmail.com>, Michael Rosenberg <michael@mrosenberg.pub>",
+      "name": "ed25519-dalek",
+      "version": "2.2.0",
+      "description": "Fast and efficient ed25519 EdDSA key generations, signing, and verification in pure Rust.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "70e796c081cee67dc755e1a36a0a172b897fab85fc3f6bc48307991f64e4eca9"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "BSD-3-Clause"
+        }
+      ],
+      "purl": "pkg:cargo/ed25519-dalek@2.2.0",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/ed25519-dalek"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/dalek-cryptography/curve25519-dalek"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/ed25519-dalek"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#ed25519@2.2.3",
+      "author": "RustCrypto Developers",
+      "name": "ed25519",
+      "version": "2.2.3",
+      "description": "Edwards Digital Signature Algorithm (EdDSA) over Curve25519 (as specified in RFC 8032) support library providing signature type definitions and PKCS#8 private key decoding/encoding support ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "115531babc129696a58c64a4fef0a8bf9e9698629fb97e9e40767d235cfbcd53"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/ed25519@2.2.3",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/ed25519"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/signatures/tree/master/ed25519"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#elliptic-curve@0.13.8",
+      "author": "RustCrypto Developers",
+      "name": "elliptic-curve",
+      "version": "0.13.8",
+      "description": "General purpose Elliptic Curve Cryptography (ECC) support, including types and traits for representing various elliptic curve forms, scalars, points, and public/secret keys composed thereof. ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b5e6043086bf7973472e0c7dff2142ea0b680d30e18d9cc40f267efbf222bd47"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/elliptic-curve@0.13.8",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/traits/tree/master/elliptic-curve"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#ff@0.13.1",
+      "author": "Sean Bowe <ewillbefull@gmail.com>, Jack Grigg <thestr4d@gmail.com>",
+      "name": "ff",
+      "version": "0.13.1",
+      "description": "Library for building and interfacing with finite fields",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c0b50bfb653653f9ca9095b427bed08ab8d75a137839d9ad64eb11810d5b6393"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/ff@0.13.1",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/ff/"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/zkcrypto/ff"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/zkcrypto/ff"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#funty@2.0.0",
+      "author": "myrrlyn <self@myrrlyn.dev>",
+      "name": "funty",
+      "version": "2.0.0",
+      "description": "Trait generalization over the primitive types",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "purl": "pkg:cargo/funty@2.0.0",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/funty"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/myrrlyn/funty"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#generic-array@0.14.7",
+      "author": "Bartłomiej Kamiński <fizyk20@gmail.com>, Aaron Trent <novacrazy@gmail.com>",
+      "name": "generic-array",
+      "version": "0.14.7",
+      "description": "Generic types implementing functionality of arrays",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "purl": "pkg:cargo/generic-array@0.14.7",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "http://fizyk20.github.io/generic-array/generic_array/"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/fizyk20/generic-array.git"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#getrandom@0.2.17",
+      "author": "The Rand Project Developers",
+      "name": "getrandom",
+      "version": "0.2.17",
+      "description": "A small cross-platform library for retrieving random data from system source",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ff2abc00be7fca6ebc474524697ae276ad847ad0a6b3faa4bcb027e9a4614ad0"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/getrandom@0.2.17",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/getrandom"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/rust-random/getrandom"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#group@0.13.0",
+      "author": "Sean Bowe <ewillbefull@gmail.com>, Jack Grigg <jack@z.cash>",
+      "name": "group",
+      "version": "0.13.0",
+      "description": "Elliptic curve group traits and utilities",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f0f9ef7462f7c099f518d754361858f86d8a07af53ba9af0fe635bbccb151a63"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/group@0.13.0",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/group/"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/zkcrypto/group"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/zkcrypto/group"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#hmac@0.12.1",
+      "author": "RustCrypto Developers",
+      "name": "hmac",
+      "version": "0.12.1",
+      "description": "Generic implementation of Hash-based Message Authentication Code (HMAC)",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/hmac@0.12.1",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/hmac"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/MACs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#libc@0.2.189",
+      "name": "libc",
+      "version": "0.2.189",
+      "description": "Raw FFI bindings to platform libraries like libc.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/libc@0.2.189",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/rust-lang/libc"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#pkcs8@0.10.2",
+      "author": "RustCrypto Developers",
+      "name": "pkcs8",
+      "version": "0.10.2",
+      "description": "Pure Rust implementation of Public-Key Cryptography Standards (PKCS) #8: Private-Key Information Syntax Specification (RFC 5208), with additional support for PKCS#8v2 asymmetric key packages (RFC 5958) ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f950b2377845cebe5cf8b5165cb3cc1a5e0fa5cfa3e1f7f55707d8fd82e0a7b7"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/pkcs8@0.10.2",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/formats/tree/master/pkcs8"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#ppv-lite86@0.2.21",
+      "author": "The CryptoCorrosion Contributors",
+      "name": "ppv-lite86",
+      "version": "0.2.21",
+      "description": "Cross-platform cryptography-oriented low-level SIMD library.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/ppv-lite86@0.2.21",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/cryptocorrosion/cryptocorrosion"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+      "author": "David Tolnay <dtolnay@gmail.com>, Alex Crichton <alex@alexcrichton.com>",
+      "name": "proc-macro2",
+      "version": "1.0.107",
+      "description": "A substitute implementation of the compiler's `proc_macro` API to decouple token-based libraries from the procedural macro use case.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/proc-macro2@1.0.107",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/proc-macro2"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/dtolnay/proc-macro2"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+      "author": "David Tolnay <dtolnay@gmail.com>",
+      "name": "quote",
+      "version": "1.0.47",
+      "description": "Quasi-quoting macro quote!(...)",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/quote@1.0.47",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/quote/"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/dtolnay/quote"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#radium@0.7.0",
+      "author": "Nika Layzell <nika@thelayzells.com>, myrrlyn <self@myrrlyn.dev>",
+      "name": "radium",
+      "version": "0.7.0",
+      "description": "Portable interfaces for maybe-atomic types",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "purl": "pkg:cargo/radium@0.7.0",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/radium"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/bitvecto-rs/radium"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/bitvecto-rs/radium"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#rand@0.8.8",
+      "author": "The Rand Project Developers, The Rust Project Developers",
+      "name": "rand",
+      "version": "0.8.8",
+      "description": "Random number generators and other randomness functionality. ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e058c7de0b26af77780c769414d6257830bb240f3c38477dbc2c16e5f54d6d4c"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/rand@0.8.8",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/rand"
+        },
+        {
+          "type": "website",
+          "url": "https://rust-random.github.io/book"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/rust-random/rand"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#rand_chacha@0.3.1",
+      "author": "The Rand Project Developers, The Rust Project Developers, The CryptoCorrosion Contributors",
+      "name": "rand_chacha",
+      "version": "0.3.1",
+      "description": "ChaCha random number generator ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/rand_chacha@0.3.1",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/rand_chacha"
+        },
+        {
+          "type": "website",
+          "url": "https://rust-random.github.io/book"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/rust-random/rand"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.6.4",
+      "author": "The Rand Project Developers, The Rust Project Developers",
+      "name": "rand_core",
+      "version": "0.6.4",
+      "description": "Core random number generator traits and tools for implementation. ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/rand_core@0.6.4",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/rand_core"
+        },
+        {
+          "type": "website",
+          "url": "https://rust-random.github.io/book"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/rust-random/rand"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#rustc_version@0.4.1",
+      "name": "rustc_version",
+      "version": "0.4.1",
+      "description": "A library for querying the version of a installed rustc compiler",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/rustc_version@0.4.1",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/rustc_version/"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/djc/rustc-version-rs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#sec1@0.7.3",
+      "author": "RustCrypto Developers",
+      "name": "sec1",
+      "version": "0.7.3",
+      "description": "Pure Rust implementation of SEC1: Elliptic Curve Cryptography encoding formats including ASN.1 DER-serialized private keys as well as the Elliptic-Curve-Point-to-Octet-String encoding ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d3e97a565f76233a6003f9f5c54be1d9c5bdfa3eccfb189469f11ec4901c47dc"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/sec1@0.7.3",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/formats/tree/master/sec1"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#semver@1.0.28",
+      "author": "David Tolnay <dtolnay@gmail.com>",
+      "name": "semver",
+      "version": "1.0.28",
+      "description": "Parser and evaluator for Cargo's flavor of Semantic Versioning",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/semver@1.0.28",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/semver"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/dtolnay/semver"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.229",
+      "author": "Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>",
+      "name": "serde",
+      "version": "1.0.229",
+      "description": "A generic serialization/deserialization framework",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/serde@1.0.229",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/serde"
+        },
+        {
+          "type": "website",
+          "url": "https://serde.rs"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/serde-rs/serde"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229",
+      "author": "Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>",
+      "name": "serde_core",
+      "version": "1.0.229",
+      "description": "Serde traits only, with no support for derive -- use the `serde` crate instead",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/serde_core@1.0.229",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/serde_core"
+        },
+        {
+          "type": "website",
+          "url": "https://serde.rs"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/serde-rs/serde"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#serde_derive@1.0.229",
+      "author": "Erick Tryzelaar <erick.tryzelaar@gmail.com>, David Tolnay <dtolnay@gmail.com>",
+      "name": "serde_derive",
+      "version": "1.0.229",
+      "description": "Macros 1.1 implementation of #[derive(Serialize, Deserialize)]",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/serde_derive@1.0.229",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://serde.rs/derive.html"
+        },
+        {
+          "type": "website",
+          "url": "https://serde.rs"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/serde-rs/serde"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#serdect@0.2.0",
+      "author": "RustCrypto Developers",
+      "name": "serdect",
+      "version": "0.2.0",
+      "description": "Constant-time serde serializer/deserializer helpers for data that potentially contains secrets (e.g. cryptographic keys) ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a84f14a19e9a014bb9f4512488d9829a68e04ecabffb0f9904cd1ace94598177"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/serdect@0.2.0",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/formats/tree/master/serdect"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#sha2@0.10.9",
+      "author": "RustCrypto Developers",
+      "name": "sha2",
+      "version": "0.10.9",
+      "description": "Pure Rust implementation of the SHA-2 hash function family including SHA-224, SHA-256, SHA-384, and SHA-512. ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/sha2@0.10.9",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/sha2"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/hashes"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#signature@2.2.0",
+      "author": "RustCrypto Developers",
+      "name": "signature",
+      "version": "2.2.0",
+      "description": "Traits for cryptographic signature algorithms (e.g. ECDSA, Ed25519)",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "77549399552de45a898a580c1b41d445bf730df867cc44e6c0233bbc4b8329de"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/signature@2.2.0",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/signature"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/traits/tree/master/signature"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#spki@0.7.3",
+      "author": "RustCrypto Developers",
+      "name": "spki",
+      "version": "0.7.3",
+      "description": "X.509 Subject Public Key Info (RFC5280) describing public keys as well as their associated AlgorithmIdentifiers (i.e. OIDs) ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/spki@0.7.3",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/formats/tree/master/spki"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#subtle@2.6.1",
+      "author": "Isis Lovecruft <isis@patternsinthevoid.net>, Henry de Valence <hdevalence@hdevalence.ca>",
+      "name": "subtle",
+      "version": "2.6.1",
+      "description": "Pure-Rust traits and utilities for constant-time cryptographic implementations.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "BSD-3-Clause"
+        }
+      ],
+      "purl": "pkg:cargo/subtle@2.6.1",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/subtle"
+        },
+        {
+          "type": "website",
+          "url": "https://dalek.rs/"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/dalek-cryptography/subtle"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#syn@2.0.119",
+      "author": "David Tolnay <dtolnay@gmail.com>",
+      "name": "syn",
+      "version": "2.0.119",
+      "description": "Parser for Rust source code",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "872831b642d1a07999a962a351ed35b955ea2cfc8f3862091e2a240a84f17297"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/syn@2.0.119",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/syn"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/dtolnay/syn"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#syn@3.0.4",
+      "author": "David Tolnay <dtolnay@gmail.com>",
+      "name": "syn",
+      "version": "3.0.4",
+      "description": "Parser for Rust source code",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e6275cddf4610d1775e6d1fe9469b2e77d0f39fd98fb7450901b821e0c53649f"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/syn@3.0.4",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/syn"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/dtolnay/syn"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#tap@1.0.1",
+      "author": "Elliott Linder <elliott.darfink@gmail.com>, myrrlyn <self@myrrlyn.dev>",
+      "name": "tap",
+      "version": "1.0.1",
+      "description": "Generic extensions for tapping values in Rust",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "purl": "pkg:cargo/tap@1.0.1",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/tap"
+        },
+        {
+          "type": "website",
+          "url": "https://github.com/myrrlyn/tap"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/myrrlyn/tap"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#thiserror-impl@2.0.20",
+      "author": "David Tolnay <dtolnay@gmail.com>",
+      "name": "thiserror-impl",
+      "version": "2.0.20",
+      "description": "Implementation detail of the `thiserror` crate",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "bc04cd3e1236dd4a98afca4569f2deb3f120e5422a4023be2cb683f8486292af"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/thiserror-impl@2.0.20",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/dtolnay/thiserror"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#thiserror@2.0.20",
+      "author": "David Tolnay <dtolnay@gmail.com>",
+      "name": "thiserror",
+      "version": "2.0.20",
+      "description": "derive(Error)",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ec86235f5fcc2a73650310756d2ac5b138a5780bbbdfae3eeccec992c435ba4f"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/thiserror@2.0.20",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/thiserror"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/dtolnay/thiserror"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#typenum@1.20.1",
+      "name": "typenum",
+      "version": "1.20.1",
+      "description": "Typenum is a Rust library for type-level numbers evaluated at     compile time. It currently supports bits, unsigned integers, and signed     integers. It also provides a type-level array of type-level numbers, but its     implementation is incomplete.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/typenum@1.20.1",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/typenum"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/paholg/typenum"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#unicode-ident@1.0.24",
+      "author": "David Tolnay <dtolnay@gmail.com>",
+      "name": "unicode-ident",
+      "version": "1.0.24",
+      "description": "Determine whether characters have the XID_Start or XID_Continue properties according to Unicode Standard Annex #31",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "(MIT OR Apache-2.0) AND Unicode-3.0"
+        }
+      ],
+      "purl": "pkg:cargo/unicode-ident@1.0.24",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/unicode-ident"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/dtolnay/unicode-ident"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#version_check@0.9.5",
+      "author": "Sergio Benitez <sb@sergio.bz>",
+      "name": "version_check",
+      "version": "0.9.5",
+      "description": "Tiny crate to check the version of the installed/running rustc.",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT OR Apache-2.0"
+        }
+      ],
+      "purl": "pkg:cargo/version_check@0.9.5",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/version_check/"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/SergioBenitez/version_check"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#wyz@0.5.1",
+      "author": "myrrlyn <self@myrrlyn.dev>",
+      "name": "wyz",
+      "version": "0.5.1",
+      "description": "myrrlyn’s utility collection",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "05f360fc0b24296329c78fda852a1e9ae82de9cf7b27dae4b7f62f118f77b9ed"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "MIT"
+        }
+      ],
+      "purl": "pkg:cargo/wyz@0.5.1",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/wyz"
+        },
+        {
+          "type": "website",
+          "url": "https://myrrlyn.net/crates/wyz"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/myrrlyn/wyz"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#zerocopy-derive@0.8.56",
+      "name": "zerocopy-derive",
+      "version": "0.8.56",
+      "description": "Custom derive for traits from the zerocopy crate",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f2ab42fc20575779bd240faa45f94a74256f755c0fa9e89f0ede20d91d0cdfc1"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "BSD-2-Clause OR Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/zerocopy-derive@0.8.56",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/google/zerocopy"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#zerocopy@0.8.56",
+      "name": "zerocopy",
+      "version": "0.8.56",
+      "description": "Zerocopy makes zero-cost memory manipulation effortless. We write \"unsafe\" so you don't have to.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "556764e583adb45a9f8d413c2a147fa7e8d821e48e12b14fd560b607998b75eb"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "BSD-2-Clause OR Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/zerocopy@0.8.56",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/google/zerocopy"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#zeroize@1.9.0",
+      "author": "The RustCrypto Project Developers",
+      "name": "zeroize",
+      "version": "1.9.0",
+      "description": "Securely clear secrets from memory with a simple trait built on stable Rust primitives which guarantee memory is zeroed using an operation will not be 'optimized away' by the compiler. Uses a portable pure Rust implementation that works everywhere, even WASM! ",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e13c156562582aa81c60cb29407084cdb54c4164760106ab78e6c5b0858cf64e"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/zeroize@1.9.0",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/zeroize"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/utils"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "registry+https://github.com/rust-lang/crates.io-index#zeroize_derive@1.5.0",
+      "author": "The RustCrypto Project Developers",
+      "name": "zeroize_derive",
+      "version": "1.5.0",
+      "description": "Custom derive support for zeroize",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3c50655cbb0fe3fc43170059e702f1ce5e19b84cec58dc87b037a09935c2f328"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR MIT"
+        }
+      ],
+      "purl": "pkg:cargo/zeroize_derive@1.5.0",
+      "externalReferences": [
+        {
+          "type": "documentation",
+          "url": "https://docs.rs/zeroize_derive"
+        },
+        {
+          "type": "vcs",
+          "url": "https://github.com/RustCrypto/utils"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "path+file:///home/rhonstin/projects/multi-party-schnorr/crates/sl-mpc-derive#0.1.1",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#crypto-bigint@0.5.5",
+        "registry+https://github.com/rust-lang/crates.io-index#curve25519-dalek@4.1.3",
+        "registry+https://github.com/rust-lang/crates.io-index#ed25519-dalek@2.2.0",
+        "registry+https://github.com/rust-lang/crates.io-index#elliptic-curve@0.13.8",
+        "registry+https://github.com/rust-lang/crates.io-index#ff@0.13.1",
+        "registry+https://github.com/rust-lang/crates.io-index#hmac@0.12.1",
+        "registry+https://github.com/rust-lang/crates.io-index#rand@0.8.8",
+        "registry+https://github.com/rust-lang/crates.io-index#rand_chacha@0.3.1",
+        "registry+https://github.com/rust-lang/crates.io-index#sha2@0.10.9",
+        "registry+https://github.com/rust-lang/crates.io-index#thiserror@2.0.20"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#base16ct@0.2.0"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#base64ct@1.8.3"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#bitvec@1.1.1",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#funty@2.0.0",
+        "registry+https://github.com/rust-lang/crates.io-index#radium@0.7.0",
+        "registry+https://github.com/rust-lang/crates.io-index#tap@1.0.1",
+        "registry+https://github.com/rust-lang/crates.io-index#wyz@0.5.1"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#block-buffer@0.10.4",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#generic-array@0.14.7"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#cfg-if@1.0.4"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#const-oid@0.9.6"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#cpufeatures@0.2.17"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#crypto-bigint@0.5.5",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#generic-array@0.14.7",
+        "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.6.4",
+        "registry+https://github.com/rust-lang/crates.io-index#subtle@2.6.1",
+        "registry+https://github.com/rust-lang/crates.io-index#zeroize@1.9.0"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#crypto-common@0.1.7",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#generic-array@0.14.7",
+        "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.6.4",
+        "registry+https://github.com/rust-lang/crates.io-index#typenum@1.20.1"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#curve25519-dalek-derive@0.1.1",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+        "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+        "registry+https://github.com/rust-lang/crates.io-index#syn@2.0.119"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#curve25519-dalek@4.1.3",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#cfg-if@1.0.4",
+        "registry+https://github.com/rust-lang/crates.io-index#cpufeatures@0.2.17",
+        "registry+https://github.com/rust-lang/crates.io-index#curve25519-dalek-derive@0.1.1",
+        "registry+https://github.com/rust-lang/crates.io-index#digest@0.10.7",
+        "registry+https://github.com/rust-lang/crates.io-index#group@0.13.0",
+        "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.6.4",
+        "registry+https://github.com/rust-lang/crates.io-index#rustc_version@0.4.1",
+        "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.229",
+        "registry+https://github.com/rust-lang/crates.io-index#subtle@2.6.1",
+        "registry+https://github.com/rust-lang/crates.io-index#zeroize@1.9.0"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#der@0.7.10",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#const-oid@0.9.6",
+        "registry+https://github.com/rust-lang/crates.io-index#zeroize@1.9.0"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#digest@0.10.7",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#block-buffer@0.10.4",
+        "registry+https://github.com/rust-lang/crates.io-index#const-oid@0.9.6",
+        "registry+https://github.com/rust-lang/crates.io-index#crypto-common@0.1.7",
+        "registry+https://github.com/rust-lang/crates.io-index#subtle@2.6.1"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#ed25519-dalek@2.2.0",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#curve25519-dalek@4.1.3",
+        "registry+https://github.com/rust-lang/crates.io-index#ed25519@2.2.3",
+        "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.6.4",
+        "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.229",
+        "registry+https://github.com/rust-lang/crates.io-index#sha2@0.10.9",
+        "registry+https://github.com/rust-lang/crates.io-index#signature@2.2.0",
+        "registry+https://github.com/rust-lang/crates.io-index#subtle@2.6.1",
+        "registry+https://github.com/rust-lang/crates.io-index#zeroize@1.9.0"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#ed25519@2.2.3",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#pkcs8@0.10.2",
+        "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.229",
+        "registry+https://github.com/rust-lang/crates.io-index#signature@2.2.0"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#elliptic-curve@0.13.8",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#base16ct@0.2.0",
+        "registry+https://github.com/rust-lang/crates.io-index#crypto-bigint@0.5.5",
+        "registry+https://github.com/rust-lang/crates.io-index#digest@0.10.7",
+        "registry+https://github.com/rust-lang/crates.io-index#ff@0.13.1",
+        "registry+https://github.com/rust-lang/crates.io-index#generic-array@0.14.7",
+        "registry+https://github.com/rust-lang/crates.io-index#group@0.13.0",
+        "registry+https://github.com/rust-lang/crates.io-index#pkcs8@0.10.2",
+        "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.6.4",
+        "registry+https://github.com/rust-lang/crates.io-index#sec1@0.7.3",
+        "registry+https://github.com/rust-lang/crates.io-index#serdect@0.2.0",
+        "registry+https://github.com/rust-lang/crates.io-index#subtle@2.6.1",
+        "registry+https://github.com/rust-lang/crates.io-index#zeroize@1.9.0"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#ff@0.13.1",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#bitvec@1.1.1",
+        "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.6.4",
+        "registry+https://github.com/rust-lang/crates.io-index#subtle@2.6.1"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#funty@2.0.0"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#generic-array@0.14.7",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#typenum@1.20.1",
+        "registry+https://github.com/rust-lang/crates.io-index#version_check@0.9.5",
+        "registry+https://github.com/rust-lang/crates.io-index#zeroize@1.9.0"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#getrandom@0.2.17",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#cfg-if@1.0.4",
+        "registry+https://github.com/rust-lang/crates.io-index#libc@0.2.189"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#group@0.13.0",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#ff@0.13.1",
+        "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.6.4",
+        "registry+https://github.com/rust-lang/crates.io-index#subtle@2.6.1"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#hmac@0.12.1",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#digest@0.10.7"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#libc@0.2.189"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#pkcs8@0.10.2",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#der@0.7.10",
+        "registry+https://github.com/rust-lang/crates.io-index#spki@0.7.3"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#ppv-lite86@0.2.21",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#zerocopy@0.8.56"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#unicode-ident@1.0.24"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#radium@0.7.0"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#rand@0.8.8",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#libc@0.2.189",
+        "registry+https://github.com/rust-lang/crates.io-index#rand_chacha@0.3.1",
+        "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.6.4"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#rand_chacha@0.3.1",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#ppv-lite86@0.2.21",
+        "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.6.4"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.6.4",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#getrandom@0.2.17"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#rustc_version@0.4.1",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#semver@1.0.28"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#sec1@0.7.3",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#base16ct@0.2.0",
+        "registry+https://github.com/rust-lang/crates.io-index#der@0.7.10",
+        "registry+https://github.com/rust-lang/crates.io-index#generic-array@0.14.7",
+        "registry+https://github.com/rust-lang/crates.io-index#pkcs8@0.10.2",
+        "registry+https://github.com/rust-lang/crates.io-index#serdect@0.2.0",
+        "registry+https://github.com/rust-lang/crates.io-index#subtle@2.6.1",
+        "registry+https://github.com/rust-lang/crates.io-index#zeroize@1.9.0"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#semver@1.0.28"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.229",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229",
+        "registry+https://github.com/rust-lang/crates.io-index#serde_derive@1.0.229"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#serde_core@1.0.229"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#serde_derive@1.0.229",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+        "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+        "registry+https://github.com/rust-lang/crates.io-index#syn@3.0.4"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#serdect@0.2.0",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#base16ct@0.2.0",
+        "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.229"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#sha2@0.10.9",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#cfg-if@1.0.4",
+        "registry+https://github.com/rust-lang/crates.io-index#cpufeatures@0.2.17",
+        "registry+https://github.com/rust-lang/crates.io-index#digest@0.10.7"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#signature@2.2.0",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#digest@0.10.7",
+        "registry+https://github.com/rust-lang/crates.io-index#rand_core@0.6.4"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#spki@0.7.3",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#base64ct@1.8.3",
+        "registry+https://github.com/rust-lang/crates.io-index#der@0.7.10"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#subtle@2.6.1"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#syn@2.0.119",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+        "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+        "registry+https://github.com/rust-lang/crates.io-index#unicode-ident@1.0.24"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#syn@3.0.4",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+        "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+        "registry+https://github.com/rust-lang/crates.io-index#unicode-ident@1.0.24"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#tap@1.0.1"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#thiserror-impl@2.0.20",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+        "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+        "registry+https://github.com/rust-lang/crates.io-index#syn@3.0.4"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#thiserror@2.0.20",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#thiserror-impl@2.0.20"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#typenum@1.20.1"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#unicode-ident@1.0.24"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#version_check@0.9.5"
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#wyz@0.5.1",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#tap@1.0.1"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#zerocopy-derive@0.8.56",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+        "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+        "registry+https://github.com/rust-lang/crates.io-index#syn@2.0.119"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#zerocopy@0.8.56",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#zerocopy-derive@0.8.56"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#zeroize@1.9.0",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#zeroize_derive@1.5.0"
+      ]
+    },
+    {
+      "ref": "registry+https://github.com/rust-lang/crates.io-index#zeroize_derive@1.5.0",
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#proc-macro2@1.0.107",
+        "registry+https://github.com/rust-lang/crates.io-index#quote@1.0.47",
+        "registry+https://github.com/rust-lang/crates.io-index#syn@2.0.119"
+      ]
+    }
+  ]
+}
