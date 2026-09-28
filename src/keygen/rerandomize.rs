@@ -9,8 +9,8 @@
 //! 2. After the same participant-set checks as DSG round 1 (no DLOG), parties
 //!    compute `final_sid` and open by sending `blind_factor` and `randomizer_i`.
 //! 3. Commitments are checked; each party adds `alpha = H(∑ randomizer_i)` to its
-//!    shamir share and `G·alpha` to the public key, then applies Orchard ak
-//!    sign-normalization (ỹ = 0) by default and outputs the new keyshare.
+//!    shamir share and `G·alpha` to the public key, then outputs the new keyshare
+//!    together with `alpha`.
 
 use alloc::vec::Vec;
 
@@ -284,7 +284,7 @@ impl Round for RerandParty<RerandR2> {
     type InputMessage = RerandMsg2;
     type Input = Vec<RerandMsg2>;
     type Error = RerandError;
-    type Output = Keyshare<RedPallasPoint>;
+    type Output = (Keyshare<RedPallasPoint>, Fq);
 
     fn process(self, msgs: Self::Input) -> Result<Self::Output, Self::Error> {
         let msgs = validate_input_messages(msgs, &self.state.pid_list)?;
@@ -319,16 +319,7 @@ impl Round for RerandParty<RerandR2> {
         keyshare.d_i += alpha;
         keyshare.public_key += RedPallasPoint::generator() * alpha;
 
-        // Orchard ak sign normalization (Zcash Protocol Spec §4.2.3): always ensure ỹ = 0
-        // on the rerandomized public key. If the high bit of repr(pk) is 1, negate the
-        // share and public key so sum{-d_i} = -pk.
-        if keyshare.public_key.y_coord_sign_bit_set() {
-            use core::ops::Neg;
-            keyshare.public_key = keyshare.public_key.neg();
-            keyshare.d_i = keyshare.d_i.neg();
-        }
-
-        Ok(keyshare)
+        Ok((keyshare, alpha))
     }
 }
 
@@ -337,7 +328,7 @@ mod tests {
     use super::*;
     use crate::common::utils::support::{run_keygen, run_round};
 
-    fn run_rerand(shares: Vec<Keyshare<RedPallasPoint>>) -> Vec<Keyshare<RedPallasPoint>> {
+    fn run_rerand(shares: Vec<Keyshare<RedPallasPoint>>) -> Vec<(Keyshare<RedPallasPoint>, Fq)> {
         let mut rng = rand::thread_rng();
         let parties: Vec<_> = shares
             .into_iter()
@@ -359,32 +350,21 @@ mod tests {
 
         let subset: Vec<_> = shares.into_iter().take(2).collect();
         let old_shares: Vec<_> = subset.clone();
-        let new_shares = run_rerand(subset);
+        let (new_shares, alphas): (Vec<_>, Vec<_>) = run_rerand(subset).into_iter().unzip();
 
+        assert_eq!(alphas[0], alphas[1]);
         assert_eq!(new_shares[0].public_key, new_shares[1].public_key);
         assert_ne!(new_shares[0].public_key, old_pk);
-        assert!(
-            !new_shares[0].public_key.y_coord_sign_bit_set(),
-            "rerandomized pk must have ỹ = 0"
-        );
 
+        // d' = d + α, pk' = pk + G·α
         let delta_share_0 = new_shares[0].d_i - old_shares[0].d_i;
         let delta_share_1 = new_shares[1].d_i - old_shares[1].d_i;
-        let delta_pk = new_shares[0].public_key - old_pk;
-
-        // No flip: d' = d + α, pk' = pk + G·α
-        // Flip:     d' = -(d + α), pk' = -(pk + G·α)
-        if RedPallasPoint::generator() * delta_share_0 == delta_pk {
-            assert_eq!(delta_share_0, delta_share_1);
-        } else {
-            let sum_share_0 = new_shares[0].d_i + old_shares[0].d_i;
-            let sum_share_1 = new_shares[1].d_i + old_shares[1].d_i;
-            assert_eq!(sum_share_0, sum_share_1);
-            assert_eq!(
-                new_shares[0].public_key + old_pk,
-                RedPallasPoint::generator() * sum_share_0
-            );
-        }
+        assert_eq!(delta_share_0, delta_share_1);
+        assert_eq!(delta_share_0, alphas[0]);
+        assert_eq!(
+            new_shares[0].public_key - old_pk,
+            RedPallasPoint::generator() * alphas[0]
+        );
     }
 
     #[test]
@@ -398,7 +378,8 @@ mod tests {
 
         let shares = run_keygen::<2, 3, RedPallasPoint>();
         let subset: Vec<_> = shares.into_iter().take(2).collect();
-        let new_shares = run_rerand(subset);
+        let (new_shares, alphas): (Vec<_>, Vec<_>) = run_rerand(subset).into_iter().unzip();
+        assert_eq!(alphas[0], alphas[1]);
         let vk_bytes: [u8; 32] = new_shares[0]
             .public_key
             .to_bytes()
