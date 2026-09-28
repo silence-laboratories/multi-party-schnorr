@@ -9,9 +9,8 @@
 //! 2. After the same participant-set checks as DSG round 1 (no DLOG), parties
 //!    compute `final_sid` and open by sending `blind_factor` and `randomizer_i`.
 //! 3. Commitments are checked; each party adds `alpha = H(∑ randomizer_i)` to its
-//!    shamir share and `G·alpha` to the public key, then applies Orchard ak
-//!    sign-normalization (ỹ = 0) by default and outputs the new keyshare together
-//!    with `alpha`.
+//!    shamir share and `G·alpha` to the public key, then outputs the new keyshare
+//!    together with `alpha`.
 
 use alloc::vec::Vec;
 
@@ -356,30 +355,16 @@ mod tests {
         assert_eq!(alphas[0], alphas[1]);
         assert_eq!(new_shares[0].public_key, new_shares[1].public_key);
         assert_ne!(new_shares[0].public_key, old_pk);
-        assert!(
-            !new_shares[0].public_key.y_coord_sign_bit_set(),
-            "rerandomized pk must have ỹ = 0"
-        );
 
+        // d' = d + α, pk' = pk + G·α
         let delta_share_0 = new_shares[0].d_i - old_shares[0].d_i;
         let delta_share_1 = new_shares[1].d_i - old_shares[1].d_i;
-        let delta_pk = new_shares[0].public_key - old_pk;
-
-        // No flip: d' = d + α, pk' = pk + G·α
-        // Flip:     d' = -(d + α), pk' = -(pk + G·α)
-        if RedPallasPoint::generator() * delta_share_0 == delta_pk {
-            assert_eq!(delta_share_0, delta_share_1);
-            assert_eq!(delta_share_0, alphas[0]);
-        } else {
-            let sum_share_0 = new_shares[0].d_i + old_shares[0].d_i;
-            let sum_share_1 = new_shares[1].d_i + old_shares[1].d_i;
-            assert_eq!(sum_share_0, sum_share_1);
-            assert_eq!(sum_share_0, -alphas[0]);
-            assert_eq!(
-                new_shares[0].public_key + old_pk,
-                RedPallasPoint::generator() * sum_share_0
-            );
-        }
+        assert_eq!(delta_share_0, delta_share_1);
+        assert_eq!(delta_share_0, alphas[0]);
+        assert_eq!(
+            new_shares[0].public_key - old_pk,
+            RedPallasPoint::generator() * alphas[0]
+        );
     }
 
     #[test]
