@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use super::crypto::{DLogProof, HashBytes, P2pShare, SessionId};
 
-/// Broadcast: round-1 commitment.
+/// Round-1 commitment. Delivery: broadcast, signed only.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VrfKeygenMsg1 {
@@ -18,6 +18,7 @@ pub struct VrfKeygenMsg1 {
 
 /// Round-2 opening for a single recipient.
 ///
+/// Delivery: peer-to-peer, encrypted to `to_party` and signed by `from_party`.
 /// Public fields (`r_i`, `chain_code_id`, polynomial, dlog proofs) may be duplicated per recipient.
 /// `share` is plaintext Shamir material for `to_party` only; the host must encrypt
 /// this message to that party (do not broadcast one blob containing every share).
