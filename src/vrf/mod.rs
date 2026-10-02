@@ -16,8 +16,8 @@ pub use crate::derive::impls::ristretto::{
 #[cfg(any(test, feature = "test-support"))]
 pub use dkg::run_vrf_keygen;
 pub use dkg::{
-    setup_vrf_keygen, VrfDkgParty, VrfDkgR0, VrfDkgR1, VrfDkgR2, VrfKeygenError, VrfKeygenMsg1,
-    VrfKeygenMsg2,
+    keyshare_from_vrf, setup_vrf_keygen, VrfDkgParty, VrfDkgR0, VrfDkgR1, VrfDkgR2, VrfKeygenError,
+    VrfKeygenMsg1, VrfKeygenMsg2,
 };
 pub use eval::{VrfOutput, VrfParty, VrfPartyRistretto, VrfR0, VrfR1, VrfR2};
 pub use hard_derivation::{

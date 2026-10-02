@@ -121,7 +121,8 @@ where
         .collect()
 }
 
-fn keyshare_from_vrf(share: VrfKeyshare) -> Keyshare<VrfPoint> {
+/// Convert a Ristretto [`VrfKeyshare`] into the [`Keyshare`] used by MPS hard derivation.
+pub fn keyshare_from_vrf(share: VrfKeyshare) -> Keyshare<VrfPoint> {
     Keyshare {
         threshold: share.threshold,
         total_parties: share.total_parties,
@@ -134,6 +135,12 @@ fn keyshare_from_vrf(share: VrfKeyshare) -> Keyshare<VrfPoint> {
         root_chain_code: share.root_chain_code,
         #[cfg(feature = "keyshare-session-id")]
         final_session_id: share.final_session_id,
+    }
+}
+
+impl From<VrfKeyshare> for Keyshare<VrfPoint> {
+    fn from(share: VrfKeyshare) -> Self {
+        keyshare_from_vrf(share)
     }
 }
 
