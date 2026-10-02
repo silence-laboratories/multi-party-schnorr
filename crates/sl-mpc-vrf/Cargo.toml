@@ -18,7 +18,7 @@ sl-mpc-mate = "1.1.0"
 curve25519-dalek = { version = "~4.1.3", features = ["digest", "group"] }
 elliptic-curve = { version = "0.13" }
 crypto-bigint = "0.5"
-ff = "0.13.0"
+ff = "0.14.0"
 rand = "0.8"
 rand_chacha = "0.3.1"
 sha2 = "0.10.7"
