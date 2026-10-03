@@ -91,6 +91,8 @@ impl Context {
     }
 
     /// Round 1 outbound: sample polynomial commitments and plaintext P2P shares.
+    ///
+    /// Delivery of the returned commitment: broadcast, signed only.
     pub fn round1_out<R: RngCore + CryptoRng>(
         &mut self,
         _rng: &mut R,
@@ -134,8 +136,10 @@ impl Context {
 
     /// Round 1 inbound: `messages` must include this party's round-1 message.
     ///
-    /// Returns one P2P opening per party (including self). Each message contains
-    /// only that recipient's Shamir share.
+    /// Inbound messages are the signed round-1 broadcast. Returns one opening
+    /// per party (including self). Delivery of each returned message:
+    /// peer-to-peer, encrypted to that recipient and signed by this sender.
+    /// Each message contains only that recipient's Shamir share.
     pub fn round1_in<R: RngCore + CryptoRng>(
         &mut self,
         rng: &mut R,
@@ -204,6 +208,9 @@ impl Context {
     }
 
     /// Round 2 inbound: one opening from each party, all addressed to this party.
+    ///
+    /// Each inbound message was peer-to-peer, encrypted to this party and signed
+    /// by its sender.
     pub fn round2_in(
         &mut self,
         messages: Vec<VrfKeygenMsg2>,

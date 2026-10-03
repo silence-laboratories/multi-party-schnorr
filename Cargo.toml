@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/sl-mpc-derive", "crates/sl-mpc-vrf"]
+members = [".", "crates/sl-mpc-derive", "crates/sl-mpc-vrf", "crates/sl-mpc-mlsag"]
 resolver = "2"
 
 [package]
