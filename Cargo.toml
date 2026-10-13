@@ -50,7 +50,7 @@ test-support = ["rand/std", "rand/std_rng"]
 
 [dependencies]
 sl-mpc-derive = { path = "crates/sl-mpc-derive", version = "0.1.1", optional = true, default-features = false }
-sl-mpc-vrf = { path = "crates/sl-mpc-vrf", version = "0.1.0-pre.5", optional = true, default-features = false }
+sl-mpc-vrf = { path = "crates/sl-mpc-vrf", version = "0.1.0-pre.6", optional = true, default-features = false }
 zeroize = { version = "1.6.1", default-features = false, features = ["zeroize_derive"] }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 serde_bytes = { version = "0.11.15", default-features = false, optional = true }

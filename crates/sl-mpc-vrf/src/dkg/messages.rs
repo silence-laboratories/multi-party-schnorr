@@ -1,7 +1,10 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-use curve25519_dalek::RistrettoPoint;
+use alloc::vec::Vec;
+
+use curve25519_dalek::{RistrettoPoint, Scalar};
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +44,7 @@ pub struct VrfKeyshare {
     pub threshold: u8,
     pub total_parties: u8,
     pub party_id: u8,
-    pub(crate) d_i: curve25519_dalek::Scalar,
+    pub(crate) d_i: Scalar,
     pub public_key: RistrettoPoint,
     pub(crate) party_public_shares: Vec<RistrettoPoint>,
     pub key_id: [u8; 32],
