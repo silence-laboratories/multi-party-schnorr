@@ -1,6 +1,8 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
+use alloc::{vec, vec::Vec};
+
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use elliptic_curve::{group::GroupEncoding, subtle::ConstantTimeEq, Group};
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};

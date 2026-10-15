@@ -1,6 +1,8 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
+use alloc::{vec, vec::Vec};
+
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use elliptic_curve::Group;
 use rand::{CryptoRng, Rng, RngCore};
@@ -386,6 +388,8 @@ pub(crate) mod test_support {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+
     use curve25519_dalek::RistrettoPoint;
 
     use super::test_support::{init_states, vrf_dkg_inner};
