@@ -13,12 +13,12 @@ pub use crate::derive::hard_derive::HardDeriveOutput;
 pub use crate::derive::impls::ristretto::{
     RistrettoRo, VrfGroup, VrfHashToCurve, VrfPoint, VrfScalar,
 };
-#[cfg(any(test, feature = "test-support"))]
-pub use dkg::run_vrf_keygen;
 pub use dkg::{
-    keyshare_from_vrf, setup_vrf_keygen, VrfDkgParty, VrfDkgR0, VrfDkgR1, VrfDkgR2, VrfKeygenError,
-    VrfKeygenMsg1, VrfKeygenMsg2,
+    keyshare_from_vrf, VrfDkgParty, VrfDkgR0, VrfDkgR1, VrfDkgR2, VrfKeygenError, VrfKeygenMsg1,
+    VrfKeygenMsg2,
 };
+#[cfg(any(test, feature = "test-support"))]
+pub use dkg::{run_vrf_keygen, setup_vrf_keygen};
 pub use eval::{VrfOutput, VrfParty, VrfPartyRistretto, VrfR0, VrfR1, VrfR2};
 pub use hard_derivation::{
     keyshare_after_hard_derive, HardDeriveError, HardDeriveMsg0, HardDeriveMsg1, HardDeriveParty,

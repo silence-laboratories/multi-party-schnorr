@@ -109,6 +109,7 @@ impl Round for VrfDkgParty<VrfDkgR2> {
     }
 }
 
+#[cfg(any(test, feature = "test-support"))]
 fn run_round_local<I, R, O, E>(actors: impl IntoIterator<Item = R>, msgs: I) -> Vec<O>
 where
     R: Round<Input = I, Output = O, Error = E>,
@@ -145,6 +146,7 @@ impl From<VrfKeyshare> for Keyshare<VrfPoint> {
 }
 
 /// Initialize VRF DKG parties for a full quorum (`n` parties, threshold `t`).
+#[cfg(any(test, feature = "test-support"))]
 pub fn setup_vrf_keygen(t: u8, n: u8) -> Result<Vec<VrfDkgParty<VrfDkgR0>>, VrfKeygenError> {
     let mut rng = rand::thread_rng();
 
