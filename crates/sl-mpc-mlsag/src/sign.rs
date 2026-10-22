@@ -84,50 +84,55 @@ struct PartyCommit {
     commitment: [u8; 32],
 }
 
-enum Phase {
-    Init,
-    Round1Sent {
-        individual_sid: SessionId,
-        alpha0: Scalar,
-        blind_factor: [u8; 32],
-        seed: [u8; 32],
-        l0: RistrettoPoint,
-        r0: RistrettoPoint,
-        commitment: [u8; 32],
-    },
-    ReadyToOpen {
-        alpha0: Scalar,
-        blind_factor: [u8; 32],
-        seed: [u8; 32],
-        l0: RistrettoPoint,
-        r0: RistrettoPoint,
-        final_session_id: SessionId,
-        commits: Vec<PartyCommit>,
-    },
-    Opened {
-        alpha0: Scalar,
-        final_session_id: SessionId,
-        commits: Vec<PartyCommit>,
-    },
-    Nonces {
-        alpha0: Scalar,
-        final_session_id: SessionId,
-        l0: RistrettoPoint,
-        r0: RistrettoPoint,
-        party_l0: Vec<(u8, RistrettoPoint)>,
-    },
-    Closed {
-        final_session_id: SessionId,
-        l0: RistrettoPoint,
-        r0: RistrettoPoint,
-        party_l0: Vec<(u8, RistrettoPoint)>,
-        c_pi: Scalar,
-        tour_binding: [u8; 32],
-    },
+struct StateInit;
+
+struct StateRound1Sent {
+    individual_sid: SessionId,
+    alpha0: Scalar,
+    blind_factor: [u8; 32],
+    seed: [u8; 32],
+    l0: RistrettoPoint,
+    r0: RistrettoPoint,
+    commitment: [u8; 32],
+}
+
+struct StateReadyToOpen {
+    alpha0: Scalar,
+    blind_factor: [u8; 32],
+    seed: [u8; 32],
+    l0: RistrettoPoint,
+    r0: RistrettoPoint,
+    final_session_id: SessionId,
+    commits: Vec<PartyCommit>,
+}
+
+struct StateOpened {
+    alpha0: Scalar,
+    final_session_id: SessionId,
+    commits: Vec<PartyCommit>,
+}
+
+#[derive(Debug)]
+struct StateNonces {
+    alpha0: Scalar,
+    final_session_id: SessionId,
+    l0: RistrettoPoint,
+    r0: RistrettoPoint,
+    party_l0: Vec<(u8, RistrettoPoint)>,
+}
+
+struct StateClosed {
+    final_session_id: SessionId,
+    l0: RistrettoPoint,
+    r0: RistrettoPoint,
+    party_l0: Vec<(u8, RistrettoPoint)>,
+    c_pi: Scalar,
+    tour_binding: [u8; 32],
 }
 
 /// One party's MLSAG signing session.
-pub struct MlsagSignContext {
+#[derive(Debug)]
+pub struct MlsagSignContext<T> {
     party_id: u8,
     keyshare: MlsagKeyshare,
     pid_list: Vec<u8>,
@@ -137,7 +142,7 @@ pub struct MlsagSignContext {
     /// Lagrange-weighted additive share of the onetime secret over `pid_list`.
     k_j: Scalar,
     hp: RistrettoPoint,
-    phase: Phase,
+    state: T,
 }
 
 /// Public-input binding mixed into the combined signing session id.
@@ -281,7 +286,13 @@ fn collect_commits(
         .collect())
 }
 
-impl MlsagSignContext {
+impl<T> MlsagSignContext<T> {
+    pub fn party_id(&self) -> u8 {
+        self.party_id
+    }
+}
+
+impl MlsagSignContext<StateInit> {
     /// Start signing. `participating_party_ids` is any set of size at least `t` that includes this party.
     /// `input.ring[real_index]` must be this keyshare's onetime public key.
     pub fn new(
@@ -320,31 +331,8 @@ impl MlsagSignContext {
             input,
             k_j,
             hp,
-            phase: Phase::Init,
+            state: StateInit,
         })
-    }
-
-    pub fn party_id(&self) -> u8 {
-        self.party_id
-    }
-
-    /// Combined session id. Available once [`round1_in`](Self::round1_in) has run.
-    pub fn session_id(&self) -> Option<SessionId> {
-        match &self.phase {
-            Phase::ReadyToOpen {
-                final_session_id, ..
-            }
-            | Phase::Opened {
-                final_session_id, ..
-            }
-            | Phase::Nonces {
-                final_session_id, ..
-            }
-            | Phase::Closed {
-                final_session_id, ..
-            } => Some(*final_session_id),
-            Phase::Init | Phase::Round1Sent { .. } => None,
-        }
     }
 
     /// Sample a fresh session id and spend nonce, and publish the commitment.
@@ -355,12 +343,9 @@ impl MlsagSignContext {
     ///
     /// Delivery: broadcast to the signing quorum, signed only.
     pub fn round1_out<R: CryptoRng + RngCore>(
-        &mut self,
+        self,
         rng: &mut R,
-    ) -> Result<SignMsg1, MlsagError> {
-        if !matches!(self.phase, Phase::Init) {
-            return Err(MlsagError::InvalidState);
-        }
+    ) -> Result<(MlsagSignContext<StateRound1Sent>, SignMsg1), MlsagError> {
         let mut individual_sid = [0u8; 32];
         let mut blind_factor = [0u8; 32];
         let mut seed = [0u8; 32];
@@ -372,29 +357,16 @@ impl MlsagSignContext {
         let r0 = self.hp * alpha0;
         let commitment =
             hash_nonce_commitment(&individual_sid, self.party_id, &l0, &r0, &blind_factor);
-        self.phase = Phase::Round1Sent {
-            individual_sid,
-            alpha0,
-            blind_factor,
-            seed,
-            l0,
-            r0,
-            commitment,
-        };
-        Ok(SignMsg1 {
-            from_party: self.party_id,
-            session_id: individual_sid,
-            commitment,
-        })
-    }
 
-    /// Check the round-1 commitments and hash them into the combined session id.
-    ///
-    /// The return value is local. [`round2_out`](Self::round2_out) puts the same
-    /// id on the opening message. Inbound `messages` are the signed round-1 broadcast.
-    pub fn round1_in(&mut self, messages: Vec<SignMsg1>) -> Result<SessionId, MlsagError> {
-        let (individual_sid, alpha0, blind_factor, seed, l0, r0, commitment) = match &self.phase {
-            Phase::Round1Sent {
+        let next_state = MlsagSignContext {
+            party_id: self.party_id,
+            keyshare: self.keyshare,
+            pid_list: self.pid_list,
+            binding: self.binding,
+            input: self.input,
+            k_j: self.k_j,
+            hp: self.hp,
+            state: StateRound1Sent {
                 individual_sid,
                 alpha0,
                 blind_factor,
@@ -402,17 +374,37 @@ impl MlsagSignContext {
                 l0,
                 r0,
                 commitment,
-            } => (
-                *individual_sid,
-                *alpha0,
-                *blind_factor,
-                *seed,
-                *l0,
-                *r0,
-                *commitment,
-            ),
-            _ => return Err(MlsagError::InvalidState),
+            },
         };
+        let msg1 = SignMsg1 {
+            from_party: self.party_id,
+            session_id: individual_sid,
+            commitment,
+        };
+
+        Ok((next_state, msg1))
+    }
+}
+
+impl MlsagSignContext<StateRound1Sent> {
+    /// Check the round-1 commitments and hash them into the combined session id.
+    ///
+    /// The return value is local. [`round2_out`](Self::round2_out) puts the same
+    /// id on the opening message. Inbound `messages` are the signed round-1 broadcast.
+    pub fn round1_in(
+        self,
+        messages: Vec<SignMsg1>,
+    ) -> Result<(MlsagSignContext<StateReadyToOpen>, SessionId), MlsagError> {
+        let StateRound1Sent {
+            individual_sid,
+            alpha0,
+            blind_factor,
+            seed,
+            l0,
+            r0,
+            commitment,
+        } = self.state;
+
         let commits = collect_commits(
             messages,
             &self.pid_list,
@@ -421,18 +413,31 @@ impl MlsagSignContext {
             &commitment,
         )?;
         let final_session_id = combined_session_id(&self.binding, &commits);
-        self.phase = Phase::ReadyToOpen {
-            alpha0,
-            blind_factor,
-            seed,
-            l0,
-            r0,
-            final_session_id,
-            commits,
-        };
-        Ok(final_session_id)
-    }
 
+        let next_state = MlsagSignContext {
+            party_id: self.party_id,
+            keyshare: self.keyshare,
+            pid_list: self.pid_list,
+            binding: self.binding,
+            input: self.input,
+            k_j: self.k_j,
+            hp: self.hp,
+            state: StateReadyToOpen {
+                alpha0,
+                blind_factor,
+                seed,
+                l0,
+                r0,
+                final_session_id,
+                commits,
+            },
+        };
+
+        Ok((next_state, final_session_id))
+    }
+}
+
+impl MlsagSignContext<StateReadyToOpen> {
     /// Prove knowledge of `α₀` under the combined session id and open the nonce.
     ///
     /// The DH-tuple transcript session id is the combined id from
@@ -440,8 +445,8 @@ impl MlsagSignContext {
     /// sampled in [`round1_out`](Self::round1_out).
     ///
     /// Delivery: broadcast to the signing quorum, signed only.
-    pub fn round2_out(&mut self) -> Result<SignMsg2, MlsagError> {
-        let Phase::ReadyToOpen {
+    pub fn round2_out(self) -> Result<(MlsagSignContext<StateOpened>, SignMsg2), MlsagError> {
+        let StateReadyToOpen {
             alpha0,
             blind_factor,
             seed,
@@ -449,17 +454,9 @@ impl MlsagSignContext {
             r0,
             final_session_id,
             commits,
-        } = &self.phase
-        else {
-            return Err(MlsagError::InvalidState);
-        };
-        let alpha0 = *alpha0;
-        let blind_factor = *blind_factor;
-        let l0 = *l0;
-        let r0 = *r0;
-        let final_session_id = *final_session_id;
-        let commits = commits.clone();
-        let mut proof_rng = ChaCha20Rng::from_seed(*seed);
+        } = self.state;
+
+        let mut proof_rng = ChaCha20Rng::from_seed(seed);
         let aux = (self.party_id as u32).to_be_bytes();
         let mut transcript = dh_tuple_transcript(&final_session_id, &aux);
         let pi = DhTupleProof::prove(
@@ -473,37 +470,55 @@ impl MlsagSignContext {
             &mut transcript,
             &mut proof_rng,
         );
-        self.phase = Phase::Opened {
-            alpha0,
-            final_session_id,
-            commits,
+
+        let next_state = MlsagSignContext {
+            party_id: self.party_id,
+            keyshare: self.keyshare,
+            pid_list: self.pid_list,
+            binding: self.binding,
+            input: self.input,
+            k_j: self.k_j,
+            hp: self.hp,
+            state: StateOpened {
+                alpha0,
+                final_session_id,
+                commits,
+            },
         };
-        Ok(SignMsg2 {
+
+        let msg2 = SignMsg2 {
             from_party: self.party_id,
             session_id: final_session_id,
             blind_factor,
             l0: l0.compress().to_bytes(),
             r0: r0.compress().to_bytes(),
             pi,
-        })
+        };
+
+        Ok((next_state, msg2))
     }
 
+    pub fn session_id(&self) -> SessionId {
+        self.state.final_session_id
+    }
+}
+
+impl MlsagSignContext<StateOpened> {
     /// Check each opening against its round-1 commitment and return the summed `(L0, R0)`.
     ///
     /// Inbound `messages` are the signed round-2 broadcast. The sum is local:
     /// whoever calls [`crate::fill_ring`] reads that same broadcast and does not
     /// get a separate message.
-    pub fn round2_in(&mut self, messages: Vec<SignMsg2>) -> Result<NonceCommit, MlsagError> {
-        let Phase::Opened {
+    pub fn round2_in(
+        self,
+        messages: Vec<SignMsg2>,
+    ) -> Result<(MlsagSignContext<StateNonces>, NonceCommit), MlsagError> {
+        let StateOpened {
             alpha0,
             final_session_id,
             commits,
-        } = &self.phase
-        else {
-            return Err(MlsagError::InvalidState);
-        };
-        let alpha0 = *alpha0;
-        let final_session_id = *final_session_id;
+        } = self.state;
+
         if messages.len() != commits.len() {
             return Err(MlsagError::InvalidMsgCount);
         }
@@ -561,19 +576,37 @@ impl MlsagSignContext {
         }
         party_l0.sort_by_key(|(pid, _)| *pid);
 
-        self.phase = Phase::Nonces {
-            alpha0,
-            final_session_id,
-            l0: l0_sum,
-            r0: r0_sum,
-            party_l0,
+        let next_state = MlsagSignContext {
+            party_id: self.party_id,
+            keyshare: self.keyshare,
+            pid_list: self.pid_list,
+            binding: self.binding,
+            input: self.input,
+            k_j: self.k_j,
+            hp: self.hp,
+            state: StateNonces {
+                alpha0,
+                final_session_id,
+                l0: l0_sum,
+                r0: r0_sum,
+                party_l0,
+            },
         };
-        Ok(NonceCommit {
+
+        let nonce_commit = NonceCommit {
             l0: l0_sum,
             r0: r0_sum,
-        })
+        };
+
+        Ok((next_state, nonce_commit))
     }
 
+    pub fn session_id(&self) -> SessionId {
+        self.state.final_session_id
+    }
+}
+
+impl MlsagSignContext<StateNonces> {
     /// Close this party's spend response against the ring tour.
     ///
     /// `tour` is broadcast to the quorum, signed only (not encrypted). Every
@@ -582,37 +615,55 @@ impl MlsagSignContext {
     /// `c_π` is recomputed from the tour, summed nonce, and this session's public input.
     ///
     /// The returned partial response is broadcast to the quorum, signed only.
-    pub fn round3_out(&mut self, tour: &RingTour) -> Result<SignMsg3, MlsagError> {
-        let Phase::Nonces {
+    pub fn round3_out(
+        self,
+        tour: &RingTour,
+    ) -> Result<(MlsagSignContext<StateClosed>, SignMsg3), MlsagError> {
+        let StateNonces {
             alpha0,
             final_session_id,
             l0,
             r0,
             party_l0,
-        } = &self.phase
-        else {
-            return Err(MlsagError::InvalidState);
-        };
-        let challenges = signing_challenges(&self.input, &self.keyshare.key_image, l0, r0, tour)?;
+        } = self.state;
+
+        let challenges = signing_challenges(&self.input, &self.keyshare.key_image, &l0, &r0, tour)?;
         let c_pi = challenges[self.input.real_index];
-        let r_pi_0 = *alpha0 - c_pi * self.k_j;
-        let next = Phase::Closed {
-            final_session_id: *final_session_id,
-            l0: *l0,
-            r0: *r0,
-            party_l0: party_l0.clone(),
-            c_pi,
-            tour_binding: bind_tour(tour),
+        let r_pi_0 = alpha0 - c_pi * self.k_j;
+
+        let next_state = MlsagSignContext {
+            party_id: self.party_id,
+            keyshare: self.keyshare,
+            pid_list: self.pid_list,
+            binding: self.binding,
+            input: self.input,
+            k_j: self.k_j,
+            hp: self.hp,
+            state: StateClosed {
+                final_session_id,
+                l0,
+                r0,
+                party_l0,
+                c_pi,
+                tour_binding: bind_tour(tour),
+            },
         };
-        let final_session_id = *final_session_id;
-        self.phase = next;
-        Ok(SignMsg3 {
+
+        let msg3 = SignMsg3 {
             from_party: self.party_id,
             session_id: final_session_id,
             r_pi_0,
-        })
+        };
+
+        Ok((next_state, msg3))
     }
 
+    pub fn session_id(&self) -> SessionId {
+        self.state.final_session_id
+    }
+}
+
+impl MlsagSignContext<StateClosed> {
     /// Sum spend responses, check each against the opened nonce, and emit [`RingMLSAG`].
     ///
     /// Inbound `messages` are the signed round-3 broadcast. `tour` must be the
@@ -622,17 +673,15 @@ impl MlsagSignContext {
         messages: Vec<SignMsg3>,
         tour: &RingTour,
     ) -> Result<RingMLSAG, MlsagError> {
-        let Phase::Closed {
+        let StateClosed {
             final_session_id,
             l0,
             r0,
             party_l0,
             c_pi,
             tour_binding,
-        } = self.phase
-        else {
-            return Err(MlsagError::InvalidState);
-        };
+        } = self.state;
+
         if bind_tour(tour) != tour_binding {
             return Err(MlsagError::InvalidChallenge);
         }
@@ -732,30 +781,49 @@ mod tests {
         z: &Scalar,
     ) -> RingMLSAG {
         let mut rng = rand::thread_rng();
-        let mut parties: Vec<_> = pids
+        let parties: Vec<_> = pids
             .iter()
             .map(|&pid| {
                 MlsagSignContext::new(shares[pid as usize].clone(), pids.to_vec(), input.clone())
                     .unwrap()
             })
             .collect();
-        let msg1: Vec<_> = parties
-            .iter_mut()
-            .map(|p| p.round1_out(&mut rng).unwrap())
-            .collect();
-        let sids: Vec<_> = parties
-            .iter_mut()
-            .map(|p| p.round1_in(msg1.clone()).unwrap())
-            .collect();
+
+        let mut next_states = Vec::new();
+        let mut messages1 = Vec::new();
+        for p in parties {
+            let (next_state, msg1) = p.round1_out(&mut rng).unwrap();
+            next_states.push(next_state);
+            messages1.push(msg1);
+        }
+        let parties = next_states;
+
+        let mut next_states = Vec::new();
+        let mut sids = Vec::new();
+        for p in parties {
+            let (next_state, sid) = p.round1_in(messages1.clone()).unwrap();
+            next_states.push(next_state);
+            sids.push(sid);
+        }
         assert!(sids.iter().all(|sid| *sid == sids[0]));
-        let msg2: Vec<_> = parties
-            .iter_mut()
-            .map(|p| p.round2_out().unwrap())
-            .collect();
-        let commits: Vec<_> = parties
-            .iter_mut()
-            .map(|p| p.round2_in(msg2.clone()).unwrap())
-            .collect();
+        let parties = next_states;
+
+        let mut next_states = Vec::new();
+        let mut messages2 = Vec::new();
+        for p in parties {
+            let (next_state, msg2) = p.round2_out().unwrap();
+            next_states.push(next_state);
+            messages2.push(msg2);
+        }
+        let parties = next_states;
+
+        let mut next_states = Vec::new();
+        let mut commits = Vec::new();
+        for p in parties {
+            let (next_state, c) = p.round2_in(messages2.clone()).unwrap();
+            next_states.push(next_state);
+            commits.push(c);
+        }
         for commit in &commits[1..] {
             assert_eq!(*commit, commits[0]);
         }
@@ -768,14 +836,22 @@ mod tests {
             &mut rng,
         )
         .unwrap();
-        let msg3: Vec<_> = parties
-            .iter_mut()
-            .map(|p| p.round3_out(&tour).unwrap())
-            .collect();
-        let signatures: Vec<_> = parties
-            .into_iter()
-            .map(|p| p.round3_in(msg3.clone(), &tour).unwrap())
-            .collect();
+        let parties = next_states;
+
+        let mut next_states = Vec::new();
+        let mut messages3 = Vec::new();
+        for p in parties {
+            let (next_state, msg3) = p.round3_out(&tour).unwrap();
+            next_states.push(next_state);
+            messages3.push(msg3);
+        }
+        let parties = next_states;
+
+        let mut signatures = Vec::new();
+        for p in parties {
+            let signature = p.round3_in(messages3.clone(), &tour).unwrap();
+            signatures.push(signature);
+        }
         for signature in &signatures[1..] {
             assert_eq!(*signature, signatures[0]);
         }
@@ -802,26 +878,47 @@ mod tests {
         let mut rng = rand::thread_rng();
         let (input, _z) = input_for_key(shares[0].public_key(), b"threshold-mlsag", 1, 9, &mut rng);
         let pids = [0u8, 1];
-        let mut parties: Vec<_> = pids
+        let parties: Vec<_> = pids
             .iter()
             .map(|&pid| {
                 MlsagSignContext::new(shares[pid as usize].clone(), pids.to_vec(), input.clone())
                     .unwrap()
             })
             .collect();
-        let msg1: Vec<_> = parties
-            .iter_mut()
-            .map(|p| p.round1_out(&mut rng).unwrap())
-            .collect();
-        for party in &mut parties {
-            party.round1_in(msg1.clone()).unwrap();
+
+        let mut next_states = Vec::new();
+        let mut messages1 = Vec::new();
+        for p in parties {
+            let (next_state, msg1) = p.round1_out(&mut rng).unwrap();
+            next_states.push(next_state);
+            messages1.push(msg1);
         }
-        let mut msg2: Vec<_> = parties
-            .iter_mut()
-            .map(|p| p.round2_out().unwrap())
-            .collect();
-        msg2[0].blind_factor[0] ^= 0xff;
-        let err = parties[1].round2_in(msg2).unwrap_err();
-        assert_eq!(err, MlsagError::InvalidNonceCommitment(0));
+        let parties = next_states;
+
+        let mut next_states = Vec::new();
+        let mut sids = Vec::new();
+        for p in parties {
+            let (next_state, sid) = p.round1_in(messages1.clone()).unwrap();
+            next_states.push(next_state);
+            sids.push(sid);
+        }
+        assert!(sids.iter().all(|sid| *sid == sids[0]));
+        let parties = next_states;
+
+        let mut next_states = Vec::new();
+        let mut messages2 = Vec::new();
+        for p in parties {
+            let (next_state, msg2) = p.round2_out().unwrap();
+            next_states.push(next_state);
+            messages2.push(msg2);
+        }
+        let parties = next_states;
+
+        messages2[0].blind_factor[0] ^= 0xff;
+
+        for p in parties {
+            let err = p.round2_in(messages2.clone()).unwrap_err();
+            assert_eq!(err, MlsagError::InvalidNonceCommitment(0));
+        }
     }
 }
