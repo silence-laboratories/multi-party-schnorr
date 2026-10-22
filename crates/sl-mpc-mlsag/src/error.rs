@@ -30,8 +30,6 @@ pub enum MlsagError {
     InvalidDhProof(u8),
     #[error("Invalid spend response from party {0}")]
     InvalidResponse(u8),
-    #[error("protocol called out of phase")]
-    InvalidState,
     #[error("real index out of ring bounds")]
     IndexOutOfBounds,
     #[error("invalid ring point at index {0}")]

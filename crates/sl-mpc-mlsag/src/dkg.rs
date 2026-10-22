@@ -37,9 +37,20 @@ pub fn keyshare_session_id(dkg_session_id: &SessionId, pid_list: &[u8]) -> Sessi
     hasher.finalize().into()
 }
 
-enum Phase {
-    Dkg(Box<VrfDkgContext>),
-    Image(Box<KeyshareContext>),
+struct MlsagDkgContextR0 {
+    vrf: VrfDkgContext,
+}
+
+struct MlsagDkgContextR1 {
+    vrf: VrfDkgContext,
+}
+
+struct MlsagDkgContextR2 {
+    vrf: VrfDkgContext,
+}
+
+struct MlsagDkgContextR3 {
+    keyshare_context: KeyshareContext<KeyshareContextR1>,
 }
 
 /// End-to-end MLSAG DKG for one party.
@@ -50,12 +61,18 @@ enum Phase {
 /// 2. `round2_in` — finish Shamir shares and emit this party's `I_j` (broadcast,
 ///    signed only; all `n` parties)
 /// 3. `round3_in` — verify all `I_j`, output [`MlsagKeyshare`] with shared `I`
-pub struct MlsagDkgContext {
+pub struct MlsagDkgContext<T> {
     party_id: u8,
-    phase: Option<Phase>,
+    state: T,
 }
 
-impl MlsagDkgContext {
+impl<T> MlsagDkgContext<T> {
+    pub fn party_id(&self) -> u8 {
+        self.party_id
+    }
+}
+
+impl MlsagDkgContext<MlsagDkgContextR0> {
     pub fn new<R: CryptoRng + RngCore>(
         party: MlsagDkgParty,
         rng: &mut R,
@@ -63,92 +80,121 @@ impl MlsagDkgContext {
         let party_id = party.party_id;
         Ok(Self {
             party_id,
-            phase: Some(Phase::Dkg(Box::new(VrfDkgContext::new(party, rng)?))),
+            state: MlsagDkgContextR0 {
+                vrf: VrfDkgContext::new(party, rng)?,
+            },
         })
-    }
-
-    pub fn party_id(&self) -> u8 {
-        self.party_id
     }
 
     /// Round 1 outbound: polynomial commitments.
     ///
     /// Delivery: broadcast, signed only.
     pub fn round1_out<R: CryptoRng + RngCore>(
-        &mut self,
+        self,
         rng: &mut R,
-    ) -> Result<VrfKeygenMsg1, MlsagError> {
-        match self.phase.as_mut() {
-            Some(Phase::Dkg(c)) => Ok(c.round1_out(rng)?),
-            _ => Err(MlsagError::InvalidState),
-        }
-    }
+    ) -> Result<(MlsagDkgContext<MlsagDkgContextR1>, VrfKeygenMsg1), MlsagError> {
+        let mut vrf = self.state.vrf;
+        let msg1 = vrf.round1_out(rng)?;
 
+        let next_state = MlsagDkgContext {
+            party_id: self.party_id,
+            state: MlsagDkgContextR1 { vrf },
+        };
+
+        Ok((next_state, msg1))
+    }
+}
+
+impl MlsagDkgContext<MlsagDkgContextR1> {
     /// Round 1 inbound: collect the signed broadcast commitments.
     ///
     /// Returns one opening per party. Each opening is peer-to-peer: encrypt it
     /// to that recipient and sign it as this sender. It carries that party's
     /// Shamir share.
     pub fn round1_in<R: CryptoRng + RngCore>(
-        &mut self,
+        self,
         rng: &mut R,
         messages: Vec<VrfKeygenMsg1>,
-    ) -> Result<Vec<VrfKeygenMsg2>, MlsagError> {
-        match self.phase.as_mut() {
-            Some(Phase::Dkg(c)) => Ok(c.round1_in(rng, messages)?),
-            _ => Err(MlsagError::InvalidState),
-        }
-    }
+    ) -> Result<(MlsagDkgContext<MlsagDkgContextR2>, Vec<VrfKeygenMsg2>), MlsagError> {
+        let mut vrf = self.state.vrf;
+        let msg2 = vrf.round1_in(rng, messages)?;
 
+        let next_state = MlsagDkgContext {
+            party_id: self.party_id,
+            state: MlsagDkgContextR2 { vrf },
+        };
+
+        Ok((next_state, msg2))
+    }
+}
+
+impl MlsagDkgContext<MlsagDkgContextR2> {
     /// Round 2: finish Shamir DKG from the encrypted peer-to-peer openings, then
     /// emit this party's key-image contribution.
     ///
     /// The returned [`KeyshareMsg`] is broadcast, signed only. The key-image
     /// quorum is always all `n` parties (`0..n`).
     pub fn round2_in<R: CryptoRng + RngCore>(
-        &mut self,
+        self,
         rng: &mut R,
         messages: Vec<VrfKeygenMsg2>,
-    ) -> Result<KeyshareMsg, MlsagError> {
-        let Phase::Dkg(mut vrf) = self.phase.take().ok_or(MlsagError::InvalidState)? else {
-            return Err(MlsagError::InvalidState);
-        };
-
+    ) -> Result<(MlsagDkgContext<MlsagDkgContextR3>, KeyshareMsg), MlsagError> {
+        let mut vrf = self.state.vrf;
         let share = match vrf.round2_in(messages) {
             Ok(s) => s,
             Err(e) => {
-                self.phase = Some(Phase::Dkg(vrf));
+                // self.phase = Some(Phase::Dkg(vrf));
                 return Err(e.into());
             }
         };
 
         let pid_list: Vec<u8> = (0..share.total_parties).collect();
-        let mut image = KeyshareContext::new(share, pid_list, rng)?;
-        let msg = image.round_out()?;
-        self.phase = Some(Phase::Image(Box::new(image)));
-        Ok(msg)
-    }
+        let image = KeyshareContext::new(share, pid_list, rng)?;
+        let (image, msg) = image.round_out()?;
 
-    /// Round 3: verify the signed broadcast of every `I_j` and output [`MlsagKeyshare`].
-    pub fn round3_in(self, messages: Vec<KeyshareMsg>) -> Result<MlsagKeyshare, MlsagError> {
-        match self.phase {
-            Some(Phase::Image(ctx)) => (*ctx).round_in(messages),
-            _ => Err(MlsagError::InvalidState),
-        }
+        let next_state = MlsagDkgContext {
+            party_id: self.party_id,
+            state: MlsagDkgContextR3 {
+                keyshare_context: image,
+            },
+        };
+
+        Ok((next_state, msg))
     }
 }
 
+impl MlsagDkgContext<MlsagDkgContextR3> {
+    /// Round 3: verify the signed broadcast of every `I_j` and output [`MlsagKeyshare`].
+    pub fn round3_in(self, messages: Vec<KeyshareMsg>) -> Result<MlsagKeyshare, MlsagError> {
+        self.state.keyshare_context.round_in(messages)
+    }
+}
+
+pub struct KeyshareContextR0 {
+    seed: [u8; 32],
+}
+
+pub struct KeyshareContextR1;
+
 /// Key-image assembly for a fixed quorum (used by [`MlsagDkgContext`] with all parties).
-pub struct KeyshareContext {
+pub struct KeyshareContext<T> {
     keyshare: VrfKeyshare,
     pid_list: Vec<u8>,
     session_id: SessionId,
     hp: RistrettoPoint,
-    seed: [u8; 32],
-    round_complete: bool,
+    state: T,
 }
 
-impl KeyshareContext {
+impl<T> KeyshareContext<T> {
+    pub fn session_id(&self) -> SessionId {
+        self.session_id
+    }
+    pub fn pid_list(&self) -> &[u8] {
+        &self.pid_list
+    }
+}
+
+impl KeyshareContext<KeyshareContextR0> {
     /// Start key-image assembly for `participating_party_ids` (`|S| ≥ t`, includes this party).
     pub fn new<R: CryptoRng + RngCore>(
         keyshare: VrfKeyshare,
@@ -188,27 +234,16 @@ impl KeyshareContext {
             pid_list,
             session_id,
             hp,
-            seed: rng.gen(),
-            round_complete: false,
+            state: KeyshareContextR0 { seed: rng.gen() },
         })
-    }
-
-    pub fn session_id(&self) -> SessionId {
-        self.session_id
-    }
-
-    pub fn pid_list(&self) -> &[u8] {
-        &self.pid_list
     }
 
     /// Produce this party's `(I_j, proof)`.
     ///
     /// Delivery: broadcast, signed only.
-    pub fn round_out(&mut self) -> Result<KeyshareMsg, MlsagError> {
-        if self.round_complete {
-            return Err(MlsagError::InvalidState);
-        }
-
+    pub fn round_out(
+        self,
+    ) -> Result<(KeyshareContext<KeyshareContextR1>, KeyshareMsg), MlsagError> {
         let coeff = get_lagrange_coeff::<RistrettoPoint>(
             &self.keyshare.party_id,
             self.pid_list.iter().copied(),
@@ -218,7 +253,7 @@ impl KeyshareContext {
         let i_j = self.hp * k_j;
 
         let aux = (self.keyshare.party_id as u32).to_be_bytes();
-        let mut proof_rng = ChaCha20Rng::from_seed(self.seed);
+        let mut proof_rng = ChaCha20Rng::from_seed(self.state.seed);
         let mut transcript = dh_tuple_transcript(&self.session_id, &aux);
         let pi = DhTupleProof::prove(
             DhTuplePoints {
@@ -232,21 +267,30 @@ impl KeyshareContext {
             &mut proof_rng,
         );
 
-        self.round_complete = true;
+        let party_id = self.keyshare.party_id;
 
-        Ok(KeyshareMsg {
-            from_party: self.keyshare.party_id,
+        let next_state = KeyshareContext {
+            keyshare: self.keyshare,
+            pid_list: self.pid_list,
+            session_id: self.session_id,
+            hp: self.hp,
+            state: KeyshareContextR1,
+        };
+
+        let msg = KeyshareMsg {
+            from_party: party_id,
             session_id: self.session_id,
             i_j: i_j.compress().to_bytes(),
             pi,
-        })
-    }
+        };
 
+        Ok((next_state, msg))
+    }
+}
+
+impl KeyshareContext<KeyshareContextR1> {
     /// Verify all quorum messages and output [`MlsagKeyshare`].
     pub fn round_in(self, messages: Vec<KeyshareMsg>) -> Result<MlsagKeyshare, MlsagError> {
-        if !self.round_complete {
-            return Err(MlsagError::InvalidState);
-        }
         if messages.len() != self.pid_list.len() {
             return Err(MlsagError::InvalidMsgCount);
         }
@@ -317,48 +361,61 @@ impl KeyshareContext {
 #[cfg(test)]
 pub(crate) fn run_mlsag_dkg(n: u8, t: u8) -> Vec<MlsagKeyshare> {
     let mut rng = rand::thread_rng();
-    let mut parties: Vec<MlsagDkgContext> = (0..n)
+    let parties: Vec<_> = (0..n)
         .map(|id| MlsagDkgContext::new(MlsagDkgParty::new(n, t, id), &mut rng).unwrap())
         .collect();
 
-    let msg1: Vec<_> = parties
-        .iter_mut()
-        .map(|p| p.round1_out(&mut rng).unwrap())
-        .collect();
+    let mut next_states = Vec::new();
+    let mut messages1 = Vec::new();
+    for p in parties {
+        let (next_state, msg1) = p.round1_out(&mut rng).unwrap();
+        next_states.push(next_state);
+        messages1.push(msg1);
+    }
+    let parties = next_states;
 
-    let msg2: Vec<_> = parties
-        .iter_mut()
-        .flat_map(|party| {
-            let mut messages: Vec<_> = msg1
-                .iter()
-                .filter(|m| m.from_party != party.party_id())
-                .cloned()
-                .collect();
-            let own = *msg1
-                .iter()
-                .find(|m| m.from_party == party.party_id())
-                .unwrap();
-            messages.push(own);
-            party.round1_in(&mut rng, messages).unwrap()
-        })
-        .collect();
+    let mut next_states = Vec::new();
+    let mut messages2 = Vec::new();
+    for p in parties {
+        let mut messages: Vec<_> = messages1
+            .iter()
+            .filter(|m| m.from_party != p.party_id())
+            .cloned()
+            .collect();
+        let own = *messages1
+            .iter()
+            .find(|m| m.from_party == p.party_id())
+            .unwrap();
+        messages.push(own);
 
-    let msg3: Vec<_> = parties
-        .iter_mut()
-        .map(|party| {
-            let batch: Vec<_> = msg2
-                .iter()
-                .filter(|m| m.to_party == party.party_id())
-                .cloned()
-                .collect();
-            party.round2_in(&mut rng, batch).unwrap()
-        })
-        .collect();
+        let (next_state, msg2) = p.round1_in(&mut rng, messages).unwrap();
+        next_states.push(next_state);
+        messages2.extend(msg2);
+    }
+    let parties = next_states;
 
-    parties
-        .into_iter()
-        .map(|party| party.round3_in(msg3.clone()).unwrap())
-        .collect()
+    let mut next_states = Vec::new();
+    let mut messages3 = Vec::new();
+    for p in parties {
+        let batch: Vec<_> = messages2
+            .iter()
+            .filter(|m| m.to_party == p.party_id())
+            .cloned()
+            .collect();
+
+        let (next_state, msg3) = p.round2_in(&mut rng, batch).unwrap();
+        next_states.push(next_state);
+        messages3.push(msg3);
+    }
+    let parties = next_states;
+
+    let mut shares = Vec::new();
+    for p in parties {
+        let share = p.round3_in(messages3.clone()).unwrap();
+        shares.push(share);
+    }
+
+    shares
 }
 
 #[cfg(test)]
