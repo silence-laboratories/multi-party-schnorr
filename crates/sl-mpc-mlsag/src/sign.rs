@@ -291,7 +291,11 @@ impl MlsagSignContext {
     ) -> Result<Self, MlsagError> {
         let pid_list = normalize_pids(participating_party_ids, &keyshare)?;
         let opened = open_sign_input(&input)?;
-        if opened.members[input.real_index].0 != keyshare.public_key {
+        if opened.members[input.real_index]
+            .0
+            .ct_ne(&keyshare.public_key)
+            .into()
+        {
             return Err(MlsagError::PublicKeyMismatch);
         }
         if bool::from(keyshare.public_key.is_identity())
@@ -659,7 +663,7 @@ impl MlsagSignContext {
                 self.keyshare.total_parties,
                 self.pid_list.iter().copied(),
             );
-            if g * msg.r_pi_0 + k_pub * c_pi != l0_j {
+            if (g * msg.r_pi_0 + k_pub * c_pi).ct_ne(&l0_j).into() {
                 return Err(MlsagError::InvalidResponse(msg.from_party));
             }
             r_sum += msg.r_pi_0;

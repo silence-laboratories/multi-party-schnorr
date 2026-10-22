@@ -10,6 +10,7 @@ use curve25519_dalek::{
     ristretto::{CompressedRistretto, RistrettoPoint},
     Scalar,
 };
+use elliptic_curve::subtle::{Choice, ConditionallySelectable, ConstantTimeEq};
 use elliptic_curve::Group;
 use rand::{CryptoRng, RngCore};
 
@@ -116,14 +117,16 @@ fn walk_challenges(walk: &Walk<'_>) -> Vec<Scalar> {
     for step in 0..n {
         let i = (walk.real_index + step) % n;
         let (p_i, commitment_i) = walk.members[i];
-        let (l0, r0, l1) = if i == walk.real_index {
-            (*walk.l0, *walk.r0, *walk.l1)
-        } else {
-            let l0 = g * walk.responses[2 * i] + p_i * c[i];
-            let r0 = hash_to_point(&p_i) * walk.responses[2 * i] + walk.image * c[i];
-            let l1 = g * walk.responses[2 * i + 1] + (walk.output - commitment_i) * c[i];
-            (l0, r0, l1)
-        };
+
+        let l0 = g * walk.responses[2 * i] + p_i * c[i];
+        let r0 = hash_to_point(&p_i) * walk.responses[2 * i] + walk.image * c[i];
+        let l1 = g * walk.responses[2 * i + 1] + (walk.output - commitment_i) * c[i];
+
+        let choice = Choice::from((i == walk.real_index) as u8);
+        let l0 = RistrettoPoint::conditional_select(&l0, walk.l0, choice);
+        let r0 = RistrettoPoint::conditional_select(&r0, walk.r0, choice);
+        let l1 = RistrettoPoint::conditional_select(&l1, walk.l1, choice);
+
         c[(i + 1) % n] = challenge(walk.message, walk.key_image, &l0, &r0, &l1);
     }
     c
@@ -177,19 +180,12 @@ pub fn fill_ring<R: CryptoRng + RngCore>(
     let opened = open_sign_input(input)?;
     let g = RistrettoPoint::generator();
     let (_, c_real) = opened.members[input.real_index];
-    if opened.output - c_real != g * z {
+    if (opened.output - c_real).ct_ne(&(g * z)).into() {
         return Err(MlsagError::ValueNotConserved);
     }
 
     let n = opened.members.len();
-    let mut responses = vec![Scalar::ZERO; 2 * n];
-    for i in 0..n {
-        if i == input.real_index {
-            continue;
-        }
-        responses[2 * i] = random_scalar(rng);
-        responses[2 * i + 1] = random_scalar(rng);
-    }
+    let responses: Vec<_> = (0..2 * n).map(|_| random_scalar(rng)).collect();
     let alpha1 = random_scalar(rng);
     let mut tour = RingTour {
         responses,
@@ -228,7 +224,7 @@ pub fn sign_with_scalar<R: CryptoRng + RngCore>(
 ) -> Result<RingMLSAG, MlsagError> {
     let opened = open_sign_input(input)?;
     let p = opened.members[input.real_index].0;
-    if p != RistrettoPoint::mul_base(onetime_private) {
+    if p.ct_ne(&RistrettoPoint::mul_base(onetime_private)).into() {
         return Err(MlsagError::PublicKeyMismatch);
     }
     let key_image = KeyImage::from_scalar(onetime_private);
@@ -265,19 +261,18 @@ impl RingMLSAG {
             .decompress()
             .ok_or(MlsagError::InvalidKeyImage)?;
         let g = RistrettoPoint::generator();
-        let mut recomputed = vec![Scalar::ZERO; n];
+        let mut recomputed = self.c_zero;
         for (i, (p_i, commitment_i)) in opened.members.iter().copied().enumerate() {
-            let c_i = if i == 0 { self.c_zero } else { recomputed[i] };
+            let c_i = recomputed;
             let l0 = g * self.responses[2 * i] + p_i * c_i;
             let r0 = hash_to_point(&p_i) * self.responses[2 * i] + image * c_i;
             let l1 = g * self.responses[2 * i + 1] + (opened.output - commitment_i) * c_i;
-            recomputed[(i + 1) % n] = challenge(&input.message, &self.key_image, &l0, &r0, &l1);
+            recomputed = challenge(&input.message, &self.key_image, &l0, &r0, &l1);
         }
-        if self.c_zero == recomputed[0] {
-            Ok(())
-        } else {
-            Err(MlsagError::InvalidSignature)
+        if self.c_zero.ct_ne(&recomputed).into() {
+            return Err(MlsagError::InvalidSignature);
         }
+        Ok(())
     }
 }
 
