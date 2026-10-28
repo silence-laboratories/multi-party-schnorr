@@ -1,3 +1,5 @@
 /target
 /.cargo/
 /bindings/mlsag/pkg/
+config.bat
+node_modules
