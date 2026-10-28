@@ -20,7 +20,7 @@ const VALUE: u64 = 9;
 
 #[wasm_bindgen_test]
 pub fn mlsag_dkg_2x3() {
-    let shares = run_dkg(PARTICIPANTS, THRESHOLD, false);
+    let shares = run_dkg(PARTICIPANTS, THRESHOLD);
 
     assert_eq!(shares.len(), PARTICIPANTS as usize);
     for (party_id, share) in shares.iter().enumerate() {
@@ -36,11 +36,11 @@ pub fn mlsag_dkg_2x3() {
 
 #[wasm_bindgen_test]
 pub fn mlsag_sign_2x3_every_quorum_verifies() {
-    let shares = run_dkg(PARTICIPANTS, THRESHOLD, false);
+    let shares = run_dkg(PARTICIPANTS, THRESHOLD);
     let ring = RingFixture::new(&shares[0].public_key(), 1, 4);
 
     for quorum in [[0u8, 1], [1, 2], [0, 2]] {
-        let signature = run_sign(&shares, &quorum, &ring, false);
+        let signature = run_sign(&shares, &quorum, &ring);
 
         assert!(verify_signature(signature.clone(), &ring.input(MESSAGE)));
         assert!(!verify_signature(signature.clone(), &ring.input(b"other")));
@@ -49,21 +49,41 @@ pub fn mlsag_sign_2x3_every_quorum_verifies() {
 }
 
 #[wasm_bindgen_test]
-pub fn mlsag_sessions_survive_cbor_roundtrip() {
-    let shares: Vec<Keyshare> = run_dkg(PARTICIPANTS, THRESHOLD, true)
+pub fn mlsag_keyshare_roundtrip_still_signs() {
+    let shares: Vec<Keyshare> = run_dkg(PARTICIPANTS, THRESHOLD)
         .into_iter()
         .map(|share| Keyshare::from_bytes(share.to_bytes()).unwrap())
         .collect();
     let ring = RingFixture::new(&shares[0].public_key(), 0, 3);
 
-    let signature = run_sign(&shares, &[0, 2], &ring, true);
+    let signature = run_sign(&shares, &[0, 2], &ring);
 
     assert!(verify_signature(signature, &ring.input(MESSAGE)));
 }
 
-fn run_dkg(participants: u8, threshold: u8, roundtrip: bool) -> Vec<Keyshare> {
+#[wasm_bindgen_test]
+pub fn mlsag_every_session_draws_fresh_randomness() {
+    let first_keygen = |party_id| {
+        KeygenSession::new(PARTICIPANTS, THRESHOLD, party_id)
+            .create_first_message()
+            .payload()
+    };
+    assert_ne!(first_keygen(0), first_keygen(0));
+
+    let shares = run_dkg(PARTICIPANTS, THRESHOLD);
+    let ring = RingFixture::new(&shares[0].public_key(), 1, 3);
+    let input = ring.input(MESSAGE);
+    let first_sign = || {
+        SignSession::new(&shares[0], vec![0, 1], &input)
+            .create_first_message()
+            .payload()
+    };
+    assert_ne!(first_sign(), first_sign());
+}
+
+fn run_dkg(participants: u8, threshold: u8) -> Vec<Keyshare> {
     let mut sessions: Vec<KeygenSession> = (0..participants)
-        .map(|party_id| KeygenSession::new(participants, threshold, party_id, None))
+        .map(|party_id| KeygenSession::new(participants, threshold, party_id))
         .collect();
 
     let mut queue = VecDeque::new();
@@ -85,11 +105,7 @@ fn run_dkg(participants: u8, threshold: u8, roundtrip: bool) -> Vec<Keyshare> {
         };
 
         for receiver in receivers {
-            let session = &mut sessions[receiver];
-            queue.extend(session.recv_message(msg.clone_message()));
-            if roundtrip {
-                *session = KeygenSession::from_bytes(&session.to_bytes());
-            }
+            queue.extend(sessions[receiver].recv_message(msg.clone_message()));
         }
     }
 
@@ -104,40 +120,27 @@ fn run_dkg(participants: u8, threshold: u8, roundtrip: bool) -> Vec<Keyshare> {
         .collect()
 }
 
-fn run_sign(shares: &[Keyshare], quorum: &[u8], ring: &RingFixture, roundtrip: bool) -> Vec<u8> {
+fn run_sign(shares: &[Keyshare], quorum: &[u8], ring: &RingFixture) -> Vec<u8> {
     let input = ring.input(MESSAGE);
-    let maybe_roundtrip = |sessions: &mut Vec<SignSession>| {
-        if roundtrip {
-            for session in sessions.iter_mut() {
-                *session = SignSession::from_bytes(&session.to_bytes());
-            }
-        }
-    };
 
     let mut sessions: Vec<SignSession> = quorum
         .iter()
-        .map(|&party_id| {
-            SignSession::new(&shares[party_id as usize], quorum.to_vec(), &input, None)
-        })
+        .map(|&party_id| SignSession::new(&shares[party_id as usize], quorum.to_vec(), &input))
         .collect();
-    maybe_roundtrip(&mut sessions);
 
     let round1: Vec<Message> = sessions
         .iter_mut()
         .map(|session| session.create_first_message())
         .collect();
-    maybe_roundtrip(&mut sessions);
 
     let round2: Vec<Message> = sessions
         .iter_mut()
         .flat_map(|session| session.handle_messages(clone_all(&round1)))
         .collect();
-    maybe_roundtrip(&mut sessions);
 
     for session in sessions.iter_mut() {
         assert!(session.handle_messages(clone_all(&round2)).is_empty());
     }
-    maybe_roundtrip(&mut sessions);
 
     let nonce_commit = sessions[0].nonce_commit();
     assert!(sessions
@@ -149,19 +152,16 @@ fn run_sign(shares: &[Keyshare], quorum: &[u8], ring: &RingFixture, roundtrip: b
         shares[quorum[0] as usize].key_image(),
         nonce_commit,
         ring.z.as_bytes().to_vec(),
-        None,
     );
 
     let round3: Vec<Message> = sessions
         .iter_mut()
         .map(|session| session.handle_ring_tour(tour.clone()))
         .collect();
-    maybe_roundtrip(&mut sessions);
 
     for session in sessions.iter_mut() {
         assert!(session.handle_messages(clone_all(&round3)).is_empty());
     }
-    maybe_roundtrip(&mut sessions);
 
     let signatures: Vec<Vec<u8>> = sessions
         .into_iter()

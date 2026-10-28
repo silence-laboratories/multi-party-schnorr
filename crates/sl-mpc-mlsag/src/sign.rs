@@ -31,6 +31,7 @@ use crate::{
 };
 
 const SIGN_SID_LABEL: &[u8] = b"SL-MLSAG-SIGN";
+const SIGN_PROOF_SEED_LABEL: &[u8] = b"SL-MLSAG-SIGN-PROOF-SEED";
 
 /// Round 1: this party's random session id, and a commitment to that id together
 /// with `(L0, R0)` and a blind.
@@ -77,7 +78,6 @@ pub struct NonceCommit {
     pub r0: RistrettoPoint,
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 struct PartyCommit {
     party_id: u8,
@@ -85,10 +85,8 @@ struct PartyCommit {
     commitment: [u8; 32],
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StateInit;
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StateRound1Sent {
     individual_sid: SessionId,
     alpha0: Scalar,
@@ -99,7 +97,6 @@ pub struct StateRound1Sent {
     commitment: [u8; 32],
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StateReadyToOpen {
     alpha0: Scalar,
     blind_factor: [u8; 32],
@@ -110,14 +107,12 @@ pub struct StateReadyToOpen {
     commits: Vec<PartyCommit>,
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StateOpened {
     alpha0: Scalar,
     final_session_id: SessionId,
     commits: Vec<PartyCommit>,
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug)]
 pub struct StateNonces {
     alpha0: Scalar,
@@ -127,7 +122,6 @@ pub struct StateNonces {
     party_l0: Vec<(u8, RistrettoPoint)>,
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StateClosed {
     final_session_id: SessionId,
     l0: RistrettoPoint,
@@ -138,7 +132,10 @@ pub struct StateClosed {
 }
 
 /// One party's MLSAG signing session.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+///
+/// Not `Clone` or serializable on purpose: after [`round1_out`](Self::round1_out)
+/// the state holds the spend nonce `α₀`, and answering two different challenges
+/// from one copy of it reveals this party's share.
 #[derive(Debug)]
 pub struct MlsagSignContext<T> {
     party_id: u8,
@@ -193,6 +190,25 @@ fn hash_nonce_commitment(
     hasher.update(l0.compress().as_bytes());
     hasher.update(r0.compress().as_bytes());
     hasher.update(blind_factor);
+    hasher.finalize().into()
+}
+
+/// Randomness for the round-2 DH-tuple proof, bound to the session id and the
+/// statement it proves, so a different transcript never reuses the proof nonce.
+fn proof_seed(
+    seed: &[u8; 32],
+    session_id: &SessionId,
+    party_id: u8,
+    l0: &RistrettoPoint,
+    r0: &RistrettoPoint,
+) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(SIGN_PROOF_SEED_LABEL);
+    hasher.update(seed);
+    hasher.update(session_id);
+    hasher.update((party_id as u32).to_be_bytes());
+    hasher.update(l0.compress().as_bytes());
+    hasher.update(r0.compress().as_bytes());
     hasher.finalize().into()
 }
 
@@ -464,7 +480,13 @@ impl MlsagSignContext<StateReadyToOpen> {
             commits,
         } = self.state;
 
-        let mut proof_rng = ChaCha20Rng::from_seed(seed);
+        let mut proof_rng = ChaCha20Rng::from_seed(proof_seed(
+            &seed,
+            &final_session_id,
+            self.party_id,
+            &l0,
+            &r0,
+        ));
         let aux = (self.party_id as u32).to_be_bytes();
         let mut transcript = dh_tuple_transcript(&final_session_id, &aux);
         let pi = DhTupleProof::prove(

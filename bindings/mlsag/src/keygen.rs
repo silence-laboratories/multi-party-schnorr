@@ -2,10 +2,8 @@
 // This software is licensed under the Silence Laboratories License Agreement.
 
 use js_sys::Error;
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha20Rng;
-use serde::{Deserialize, Serialize};
-use wasm_bindgen::{prelude::*, throw_str, UnwrapThrowExt};
+use rand::rngs::OsRng;
+use wasm_bindgen::{prelude::*, throw_str};
 
 use sl_mpc_mlsag::{
     dkg::{MlsagDkgContextR0, MlsagDkgContextR1, MlsagDkgContextR2, MlsagDkgContextR3},
@@ -14,11 +12,9 @@ use sl_mpc_mlsag::{
 
 use crate::{
     keyshare::Keyshare,
-    maybe_seeded_rng,
     message::{Message, MessageRouting},
 };
 
-#[derive(Serialize, Deserialize)]
 #[allow(clippy::large_enum_variant)]
 enum KeygenRound {
     Init(MlsagDkgContext<MlsagDkgContextR0>),
@@ -29,32 +25,27 @@ enum KeygenRound {
     Failed { reason: String },
 }
 
-#[derive(Serialize, Deserialize)]
+/// One party's MLSAG key-generation session.
+///
+/// The session lives in memory only and cannot be serialised: replaying a
+/// round from a saved copy against different peer messages would reuse its
+/// secret randomness. If a session is lost, every party starts a new one.
 #[wasm_bindgen]
 pub struct KeygenSession {
     round: KeygenRound,
     pending: Vec<Message>,
     total: usize,
     party_id: u8,
-    seed: [u8; 32],
 }
 
 #[wasm_bindgen]
 impl KeygenSession {
-    /// Creates a new MLSAG key-generation session for a party. The optional
-    /// seed allows deterministic replay in tests.
+    /// Creates a new MLSAG key-generation session for a party.
     #[wasm_bindgen(constructor)]
-    pub fn new(
-        participants: u8,
-        threshold: u8,
-        party_id: u8,
-        seed: Option<Vec<u8>>,
-    ) -> KeygenSession {
-        let mut rng = maybe_seeded_rng(seed);
-
+    pub fn new(participants: u8, threshold: u8, party_id: u8) -> KeygenSession {
         let party = MlsagDkgContext::new(
             MlsagDkgParty::new(participants, threshold, party_id),
-            &mut rng,
+            &mut OsRng,
         );
 
         let party = match party {
@@ -67,23 +58,7 @@ impl KeygenSession {
             pending: vec![],
             total: participants as usize,
             party_id,
-            seed: rng.gen(),
         }
-    }
-
-    /// Reconstructs a session that was previously serialised with
-    /// [`to_bytes`](Self::to_bytes).
-    #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(bytes: &[u8]) -> KeygenSession {
-        ciborium::from_reader(bytes).expect_throw("CBOR decode error")
-    }
-
-    /// Serialises the session state into CBOR for persistence or transfer.
-    #[wasm_bindgen(js_name = toBytes)]
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut buffer = vec![];
-        ciborium::into_writer(self, &mut buffer).expect_throw("CBOR encode error");
-        buffer
     }
 
     /// Returns the protocol error that caused the session to fail, if
@@ -118,8 +93,7 @@ impl KeygenSession {
             }
         };
 
-        let mut rng = self.round_rng();
-        match party.round1_out(&mut rng) {
+        match party.round1_out(&mut OsRng) {
             Ok((next, msg)) => {
                 self.round = KeygenRound::WaitMsg1(next);
                 let msg = Message::encode(msg);
@@ -187,7 +161,6 @@ impl KeygenSession {
 
 impl KeygenSession {
     fn handle_messages(&mut self, messages: Vec<Message>) -> Vec<Message> {
-        let mut rng = self.round_rng();
         match core::mem::replace(
             &mut self.round,
             KeygenRound::Failed {
@@ -196,7 +169,7 @@ impl KeygenSession {
         ) {
             KeygenRound::WaitMsg1(party) => {
                 let msgs = Message::decode_vec::<VrfKeygenMsg1>(&messages);
-                match party.round1_in(&mut rng, msgs) {
+                match party.round1_in(&mut OsRng, msgs) {
                     Ok((next, msgs)) => {
                         self.round = KeygenRound::WaitMsg2(next);
                         Message::encode_vec(msgs)
@@ -207,7 +180,7 @@ impl KeygenSession {
 
             KeygenRound::WaitMsg2(party) => {
                 let msgs = Message::decode_vec::<VrfKeygenMsg2>(&messages);
-                match party.round2_in(&mut rng, msgs) {
+                match party.round2_in(&mut OsRng, msgs) {
                     Ok((next, msg)) => {
                         self.round = KeygenRound::WaitMsg3(next);
                         vec![Message::encode(msg)]
@@ -237,14 +210,6 @@ impl KeygenSession {
                 throw_str("invalid state");
             }
         }
-    }
-
-    /// Randomness for the next round. The stored seed is advanced so a
-    /// serialised session never replays a round's randomness.
-    fn round_rng(&mut self) -> ChaCha20Rng {
-        let mut rng = ChaCha20Rng::from_seed(self.seed);
-        self.seed = rng.gen();
-        rng
     }
 
     fn fail(&mut self, err: impl std::error::Error) -> ! {

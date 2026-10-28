@@ -5,7 +5,13 @@
 //  wasm-pack build -t web bindings/mlsag
 // deno test -A bindings/mlsag/tests/test-mlsag.ts
 
-import { assert, assertEquals, assertFalse, assertThrows } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+    assert,
+    assertEquals,
+    assertFalse,
+    assertNotEquals,
+    assertThrows,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { RistrettoPoint } from "https://esm.sh/@noble/curves@1.9.7/ed25519";
 
 import initMlsag, {
@@ -115,7 +121,7 @@ function signInput(fixture: RingFixture, message: Uint8Array = MESSAGE): SignInp
     return new SignInput(message, fixture.ring, fixture.realIndex, fixture.outputCommitment);
 }
 
-export function runDkgMessageQueue(parties: KeygenSession[], roundtrip = false): void {
+export function runDkgMessageQueue(parties: KeygenSession[]): void {
     const queue: Message[] = parties.map((p) => p.createFirstMessage());
 
     let steps = 0;
@@ -136,9 +142,6 @@ export function runDkgMessageQueue(parties: KeygenSession[], roundtrip = false):
 
         for (const p of receivers) {
             queue.push(...parties[p].receiveMessage(msg.clone()));
-            if (roundtrip) {
-                parties[p] = KeygenSession.fromBytes(parties[p].toBytes());
-            }
         }
     }
 
@@ -148,41 +151,25 @@ export function runDkgMessageQueue(parties: KeygenSession[], roundtrip = false):
     }
 }
 
-export function dkg(participants: number, threshold: number, roundtrip = false): Keyshare[] {
+export function dkg(participants: number, threshold: number): Keyshare[] {
     const parties: KeygenSession[] = [];
     for (let i = 0; i < participants; i++) {
-        parties.push(new KeygenSession(participants, threshold, i, undefined));
+        parties.push(new KeygenSession(participants, threshold, i));
     }
 
-    runDkgMessageQueue(parties, roundtrip);
+    runDkgMessageQueue(parties);
     return parties.map((party) => party.keyshare());
 }
 
-export function dsg(
-    shares: Keyshare[],
-    quorum: number[],
-    fixture: RingFixture,
-    roundtrip = false,
-): Uint8Array {
+export function dsg(shares: Keyshare[], quorum: number[], fixture: RingFixture): Uint8Array {
     const pids = new Uint8Array(quorum);
-    let sessions = quorum.map((pid) =>
-        new SignSession(shares[pid], pids, signInput(fixture), undefined)
-    );
-    const maybeRoundtrip = () => {
-        if (roundtrip) {
-            sessions = sessions.map((s) => SignSession.fromBytes(s.toBytes()));
-        }
-    };
+    const sessions = quorum.map((pid) => new SignSession(shares[pid], pids, signInput(fixture)));
 
-    maybeRoundtrip();
     const round1 = sessions.map((s) => s.createFirstMessage());
-    maybeRoundtrip();
     const round2 = sessions.flatMap((s) => s.handleMessages(cloneAll(round1)));
-    maybeRoundtrip();
     for (const s of sessions) {
         assertEquals(s.handleMessages(cloneAll(round2)).length, 0);
     }
-    maybeRoundtrip();
 
     const nonceCommit = sessions[0].nonceCommit();
     for (const s of sessions) {
@@ -194,15 +181,12 @@ export function dsg(
         shares[quorum[0]].keyImage,
         nonceCommit,
         fixture.z,
-        undefined,
     );
 
     const round3 = sessions.map((s) => s.handleRingTour(tour));
-    maybeRoundtrip();
     for (const s of sessions) {
         assertEquals(s.handleMessages(cloneAll(round3)).length, 0);
     }
-    maybeRoundtrip();
 
     const signatures = sessions.map((s) => s.signature());
     for (const signature of signatures) {
@@ -252,14 +236,41 @@ test("MLSAG DSG 3x3 with every party", () => {
     assert(verifySignature(signature, signInput(fixture)));
 });
 
-test("MLSAG sessions and keyshares survive CBOR roundtrip", () => {
-    const shares = dkg(PARTICIPANTS, THRESHOLD, true)
+test("MLSAG keyshares survive CBOR roundtrip and still sign", () => {
+    const shares = dkg(PARTICIPANTS, THRESHOLD)
         .map((share) => Keyshare.fromBytes(share.toBytes()));
     const fixture = ringFixture(shares[0].publicKey, 1, 3);
 
-    const signature = dsg(shares, [0, 2], fixture, true);
+    const signature = dsg(shares, [0, 2], fixture);
 
     assert(verifySignature(signature, signInput(fixture)));
+});
+
+test("MLSAG sessions cannot be serialised mid-protocol", () => {
+    const shares = dkg(PARTICIPANTS, THRESHOLD);
+    const fixture = ringFixture(shares[0].publicKey, 1, 3);
+    const keygen = new KeygenSession(PARTICIPANTS, THRESHOLD, 0) as any;
+    const sign = new SignSession(shares[0], new Uint8Array([0, 1]), signInput(fixture)) as any;
+
+    for (const session of [keygen, sign]) {
+        assertEquals(session.toBytes, undefined);
+    }
+    for (const cls of [KeygenSession, SignSession] as any[]) {
+        assertEquals(cls.fromBytes, undefined);
+    }
+});
+
+test("MLSAG every session draws fresh randomness", () => {
+    const firstKeygen = () => new KeygenSession(PARTICIPANTS, THRESHOLD, 0).createFirstMessage().payload;
+    assertNotEquals(firstKeygen(), firstKeygen());
+
+    const shares = dkg(PARTICIPANTS, THRESHOLD);
+    const fixture = ringFixture(shares[0].publicKey, 1, 3);
+    const firstSign = () =>
+        new SignSession(shares[0], new Uint8Array([0, 1]), signInput(fixture))
+            .createFirstMessage()
+            .payload;
+    assertNotEquals(firstSign(), firstSign());
 });
 
 test("MLSAG sign rejects a ring whose real slot is not the key", () => {
@@ -267,7 +278,7 @@ test("MLSAG sign rejects a ring whose real slot is not the key", () => {
     const fixture = ringFixture(randomPoint(), 1, 3);
 
     assertThrows(
-        () => new SignSession(shares[0], new Uint8Array([0, 1]), signInput(fixture), undefined),
+        () => new SignSession(shares[0], new Uint8Array([0, 1]), signInput(fixture)),
         Error,
         "ring onetime key does not match keyshare",
     );
@@ -277,9 +288,7 @@ test("MLSAG fillRing rejects an unbalanced amount", () => {
     const shares = dkg(PARTICIPANTS, THRESHOLD);
     const fixture = ringFixture(shares[0].publicKey, 1, 3);
     const pids = new Uint8Array([0, 1]);
-    const sessions = [0, 1].map((pid) =>
-        new SignSession(shares[pid], pids, signInput(fixture), undefined)
-    );
+    const sessions = [0, 1].map((pid) => new SignSession(shares[pid], pids, signInput(fixture)));
 
     const round1 = sessions.map((s) => s.createFirstMessage());
     const round2 = sessions.flatMap((s) => s.handleMessages(cloneAll(round1)));
@@ -292,7 +301,6 @@ test("MLSAG fillRing rejects an unbalanced amount", () => {
                 shares[0].keyImage,
                 sessions[0].nonceCommit(),
                 scalarToBytes(randomScalar()),
-                undefined,
             ),
         Error,
         "input and output amounts are not equal",

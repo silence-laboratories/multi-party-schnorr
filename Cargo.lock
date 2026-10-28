@@ -624,7 +624,6 @@ dependencies = [
  "getrandom",
  "js-sys",
  "rand",
- "rand_chacha",
  "serde",
  "sl-mpc-mlsag",
  "wasm-bindgen",

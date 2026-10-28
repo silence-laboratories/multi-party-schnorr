@@ -6,9 +6,7 @@ use curve25519_dalek::{
     Scalar,
 };
 use js_sys::Error;
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha20Rng;
-use serde::{Deserialize, Serialize};
+use rand::rngs::OsRng;
 use wasm_bindgen::{prelude::*, throw_str, UnwrapThrowExt};
 
 use sl_mpc_mlsag::{
@@ -17,7 +15,7 @@ use sl_mpc_mlsag::{
     SignMsg3, SignPublicInput,
 };
 
-use crate::{keyshare::Keyshare, maybe_seeded_rng, message::Message};
+use crate::{keyshare::Keyshare, message::Message};
 
 const POINT_SIZE: usize = 32;
 const RING_MEMBER_SIZE: usize = 2 * POINT_SIZE;
@@ -65,13 +63,9 @@ impl SignInput {
     }
 }
 
-#[derive(Serialize, Deserialize)]
 #[allow(clippy::large_enum_variant)]
 enum SignRound {
-    Init {
-        party: MlsagSignContext<StateInit>,
-        seed: [u8; 32],
-    },
+    Init(MlsagSignContext<StateInit>),
     WaitMsg1(MlsagSignContext<StateRound1Sent>),
     WaitMsg2(MlsagSignContext<StateOpened>),
     WaitRingTour {
@@ -89,7 +83,12 @@ enum SignRound {
     },
 }
 
-#[derive(Serialize, Deserialize)]
+/// One party's MLSAG signing session.
+///
+/// The session lives in memory only and cannot be serialised. After
+/// `createFirstMessage` it holds this party's spend nonce, and answering two
+/// different challenges from one copy of that state reveals the key share.
+/// If a session is lost, every signer aborts and starts a new one.
 #[wasm_bindgen]
 pub struct SignSession {
     round: SignRound,
@@ -100,14 +99,12 @@ impl SignSession {
     /// Creates a new signer for the provided key share and signing
     /// input. `participating_party_ids` is the signing quorum: at least
     /// `threshold` ids including this party. `input.ring[realIndex]` must
-    /// carry this key share's public key. The optional seed allows
-    /// deterministic replay in tests.
+    /// carry this key share's public key.
     #[wasm_bindgen(constructor)]
     pub fn new(
         keyshare: &Keyshare,
         participating_party_ids: Vec<u8>,
         input: &SignInput,
-        seed: Option<Vec<u8>>,
     ) -> SignSession {
         let party = MlsagSignContext::new(
             keyshare.as_inner().clone(),
@@ -121,27 +118,8 @@ impl SignSession {
         };
 
         SignSession {
-            round: SignRound::Init {
-                party,
-                seed: maybe_seeded_rng(seed).gen(),
-            },
+            round: SignRound::Init(party),
         }
-    }
-
-    /// Reconstructs a session from bytes that were previously
-    /// produced via [`to_bytes`](Self::to_bytes).
-    #[wasm_bindgen(js_name = fromBytes)]
-    pub fn from_bytes(bytes: &[u8]) -> SignSession {
-        ciborium::from_reader(bytes).expect_throw("CBOR decode error")
-    }
-
-    /// Serialises the session state into CBOR so progress can be
-    /// persisted.
-    #[wasm_bindgen(js_name = toBytes)]
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut buffer = vec![];
-        ciborium::into_writer(self, &mut buffer).expect_throw("CBOR encode error");
-        buffer
     }
 
     /// Returns the failure that caused the session to abort, if any.
@@ -157,13 +135,13 @@ impl SignSession {
     /// message: a commitment to this party's session id and spend nonce.
     #[wasm_bindgen(js_name = createFirstMessage)]
     pub fn create_first_message(&mut self) -> Message {
-        let (party, seed) = match core::mem::replace(
+        let party = match core::mem::replace(
             &mut self.round,
             SignRound::Failed {
                 reason: "invalid state".into(),
             },
         ) {
-            SignRound::Init { party, seed } => (party, seed),
+            SignRound::Init(party) => party,
             SignRound::Failed { reason } => {
                 self.round = SignRound::Failed { reason };
                 throw_str("failed");
@@ -174,7 +152,7 @@ impl SignSession {
             }
         };
 
-        match party.round1_out(&mut ChaCha20Rng::from_seed(seed)) {
+        match party.round1_out(&mut OsRng) {
             Ok((next, msg)) => {
                 self.round = SignRound::WaitMsg1(next);
                 Message::encode(msg)
@@ -332,7 +310,6 @@ pub fn fill_ring(
     key_image: Vec<u8>,
     nonce_commit: Vec<u8>,
     z: Vec<u8>,
-    seed: Option<Vec<u8>>,
 ) -> Vec<u8> {
     let key_image = match <[u8; 32]>::try_from(key_image.as_slice())
         .ok()
@@ -349,14 +326,7 @@ pub fn fill_ring(
     let r0 = decompress_point(&nonce_commit[POINT_SIZE..]);
     let z = canonical_scalar(&z);
 
-    let tour = match sl_mpc_mlsag::fill_ring(
-        &input.inner,
-        &key_image,
-        &l0,
-        &r0,
-        &z,
-        &mut maybe_seeded_rng(seed),
-    ) {
+    let tour = match sl_mpc_mlsag::fill_ring(&input.inner, &key_image, &l0, &r0, &z, &mut OsRng) {
         Ok(tour) => tour,
         Err(err) => throw_str(&err.to_string()),
     };

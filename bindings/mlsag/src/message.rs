@@ -1,7 +1,7 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use wasm_bindgen::{prelude::*, UnwrapThrowExt};
 
 use sl_mpc_mlsag::{KeyshareMsg, SignMsg1, SignMsg2, SignMsg3, VrfKeygenMsg1, VrfKeygenMsg2};
@@ -11,7 +11,7 @@ pub trait MessageRouting {
     fn dst_party_id(&self) -> Option<u8>;
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone)]
 #[wasm_bindgen]
 pub struct Message {
     from_id: u8,

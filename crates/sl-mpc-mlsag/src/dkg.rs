@@ -22,6 +22,7 @@ use crate::{
 };
 
 const KEYSHARE_SID_LABEL: &[u8] = b"SL-MLSAG-KEYIMAGE";
+const KEYSHARE_PROOF_SEED_LABEL: &[u8] = b"SL-MLSAG-KEYIMAGE-PROOF-SEED";
 
 /// Party metadata for MLSAG DKG (same layout as Ristretto VRF DKG).
 pub type MlsagDkgParty = VrfDkgParty;
@@ -37,22 +38,37 @@ pub fn keyshare_session_id(dkg_session_id: &SessionId, pid_list: &[u8]) -> Sessi
     hasher.finalize().into()
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Randomness for the key-image DH-tuple proof, bound to the session id and the
+/// statement it proves, so a different transcript never reuses the proof nonce.
+fn keyshare_proof_seed(
+    seed: &[u8; 32],
+    session_id: &SessionId,
+    party_id: u8,
+    party_kj: &RistrettoPoint,
+    i_j: &RistrettoPoint,
+) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(KEYSHARE_PROOF_SEED_LABEL);
+    hasher.update(seed);
+    hasher.update(session_id);
+    hasher.update((party_id as u32).to_be_bytes());
+    hasher.update(party_kj.compress().as_bytes());
+    hasher.update(i_j.compress().as_bytes());
+    hasher.finalize().into()
+}
+
 pub struct MlsagDkgContextR0 {
     vrf: VrfDkgContext,
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MlsagDkgContextR1 {
     vrf: VrfDkgContext,
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MlsagDkgContextR2 {
     vrf: VrfDkgContext,
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MlsagDkgContextR3 {
     keyshare_context: KeyshareContext<KeyshareContextR1>,
 }
@@ -65,7 +81,9 @@ pub struct MlsagDkgContextR3 {
 /// 2. `round2_in` — finish Shamir shares and emit this party's `I_j` (broadcast,
 ///    signed only; all `n` parties)
 /// 3. `round3_in` — verify all `I_j`, output [`MlsagKeyshare`] with shared `I`
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+///
+/// Not `Clone` or serializable on purpose: replaying a round from one copy of
+/// the state against different peer messages reuses its secret randomness.
 pub struct MlsagDkgContext<T> {
     party_id: u8,
     state: T,
@@ -175,16 +193,13 @@ impl MlsagDkgContext<MlsagDkgContextR3> {
     }
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyshareContextR0 {
     seed: [u8; 32],
 }
 
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyshareContextR1;
 
 /// Key-image assembly for a fixed quorum (used by [`MlsagDkgContext`] with all parties).
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyshareContext<T> {
     keyshare: VrfKeyshare,
     pid_list: Vec<u8>,
@@ -261,7 +276,13 @@ impl KeyshareContext<KeyshareContextR0> {
         let i_j = self.hp * k_j;
 
         let aux = (self.keyshare.party_id as u32).to_be_bytes();
-        let mut proof_rng = ChaCha20Rng::from_seed(self.state.seed);
+        let mut proof_rng = ChaCha20Rng::from_seed(keyshare_proof_seed(
+            &self.state.seed,
+            &self.session_id,
+            self.keyshare.party_id,
+            &party_kj,
+            &i_j,
+        ));
         let mut transcript = dh_tuple_transcript(&self.session_id, &aux);
         let pi = DhTupleProof::prove(
             DhTuplePoints {
