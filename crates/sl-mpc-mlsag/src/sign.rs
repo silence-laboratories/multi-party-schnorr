@@ -77,6 +77,7 @@ pub struct NonceCommit {
     pub r0: RistrettoPoint,
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone)]
 struct PartyCommit {
     party_id: u8,
@@ -84,9 +85,11 @@ struct PartyCommit {
     commitment: [u8; 32],
 }
 
-struct StateInit;
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StateInit;
 
-struct StateRound1Sent {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StateRound1Sent {
     individual_sid: SessionId,
     alpha0: Scalar,
     blind_factor: [u8; 32],
@@ -96,7 +99,8 @@ struct StateRound1Sent {
     commitment: [u8; 32],
 }
 
-struct StateReadyToOpen {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StateReadyToOpen {
     alpha0: Scalar,
     blind_factor: [u8; 32],
     seed: [u8; 32],
@@ -106,14 +110,16 @@ struct StateReadyToOpen {
     commits: Vec<PartyCommit>,
 }
 
-struct StateOpened {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StateOpened {
     alpha0: Scalar,
     final_session_id: SessionId,
     commits: Vec<PartyCommit>,
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug)]
-struct StateNonces {
+pub struct StateNonces {
     alpha0: Scalar,
     final_session_id: SessionId,
     l0: RistrettoPoint,
@@ -121,7 +127,8 @@ struct StateNonces {
     party_l0: Vec<(u8, RistrettoPoint)>,
 }
 
-struct StateClosed {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StateClosed {
     final_session_id: SessionId,
     l0: RistrettoPoint,
     r0: RistrettoPoint,
@@ -131,6 +138,7 @@ struct StateClosed {
 }
 
 /// One party's MLSAG signing session.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug)]
 pub struct MlsagSignContext<T> {
     party_id: u8,

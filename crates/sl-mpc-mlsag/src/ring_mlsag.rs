@@ -42,6 +42,7 @@ pub struct SignPublicInput {
 ///
 /// Delivery: broadcast to the signing quorum, signed only (not encrypted).
 /// The zero spend slot identifies `real_index`, so this must not leave the quorum.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RingTour {
     pub responses: Vec<Scalar>,

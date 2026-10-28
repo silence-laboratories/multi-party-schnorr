@@ -31,3 +31,51 @@ jobs:
 
     - name: Run tests
       run: cargo test --all-features --release --locked
+
+  wasm-bindings:
+    name: Test MLSAG wasm bindings
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      # Optimize the WASM crypto tests without disabling their debug checks.
+      # Apply these before cache restore so they are included in its key.
+      CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS: 'true'
+      CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS: 'true'
+
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Install stable toolchain
+      uses: dtolnay/rust-toolchain@1.88
+      with:
+        components: clippy
+        targets: wasm32-unknown-unknown
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: "wasm-bindings"
+
+    - name: install wasm-pack
+      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+    - uses: denoland/setup-deno@v2
+      with:
+        deno-version: v2.4.5
+        cache: true
+
+    - name: cargo clippy (wasm32)
+      run: cargo clippy -p mlsag-wasm-ll --all-targets --target wasm32-unknown-unknown --locked -- -D warnings
+
+    - name: cargo test
+      run: cargo test -p mlsag-wasm-ll --locked
+
+    - name: wasm-pack build
+      run: wasm-pack build -t web bindings/mlsag
+
+    - name: wasm-pack test
+      run: |
+        cd bindings/mlsag
+        wasm-pack test --release --node
+
+    - name: deno test
+      run: deno test -A bindings/mlsag/tests/test-mlsag.ts

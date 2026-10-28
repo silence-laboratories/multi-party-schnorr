@@ -37,19 +37,23 @@ pub fn keyshare_session_id(dkg_session_id: &SessionId, pid_list: &[u8]) -> Sessi
     hasher.finalize().into()
 }
 
-struct MlsagDkgContextR0 {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct MlsagDkgContextR0 {
     vrf: VrfDkgContext,
 }
 
-struct MlsagDkgContextR1 {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct MlsagDkgContextR1 {
     vrf: VrfDkgContext,
 }
 
-struct MlsagDkgContextR2 {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct MlsagDkgContextR2 {
     vrf: VrfDkgContext,
 }
 
-struct MlsagDkgContextR3 {
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct MlsagDkgContextR3 {
     keyshare_context: KeyshareContext<KeyshareContextR1>,
 }
 
@@ -61,6 +65,7 @@ struct MlsagDkgContextR3 {
 /// 2. `round2_in` — finish Shamir shares and emit this party's `I_j` (broadcast,
 ///    signed only; all `n` parties)
 /// 3. `round3_in` — verify all `I_j`, output [`MlsagKeyshare`] with shared `I`
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MlsagDkgContext<T> {
     party_id: u8,
     state: T,
@@ -170,13 +175,16 @@ impl MlsagDkgContext<MlsagDkgContextR3> {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyshareContextR0 {
     seed: [u8; 32],
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyshareContextR1;
 
 /// Key-image assembly for a fixed quorum (used by [`MlsagDkgContext`] with all parties).
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyshareContext<T> {
     keyshare: VrfKeyshare,
     pid_list: Vec<u8>,
