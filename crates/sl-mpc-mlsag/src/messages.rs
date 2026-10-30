@@ -1,10 +1,11 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
+use crate::{
+    key_image::KeyImage,
+    mlsag::{DhTupleProof, MlsagDkgKeyshare, SessionId},
+};
 use curve25519_dalek::{RistrettoPoint, Scalar};
-use sl_mpc_vrf::{DhTupleProof, SessionId, VrfKeyshare};
-
-use crate::key_image::KeyImage;
 
 /// Partial key-image contribution with DH-tuple proof.
 ///
@@ -45,8 +46,8 @@ pub struct MlsagKeyshare {
 }
 
 impl MlsagKeyshare {
-    pub fn from_vrf_keyshare(
-        share: &VrfKeyshare,
+    pub fn from_dkg_keyshare(
+        share: &MlsagDkgKeyshare,
         key_image: KeyImage,
         keyshare_session_id: SessionId,
         keyshare_pid_list: Vec<u8>,

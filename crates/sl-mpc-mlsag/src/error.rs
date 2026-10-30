@@ -3,13 +3,13 @@
 
 use thiserror::Error;
 
-use sl_mpc_vrf::VrfKeygenError;
+use crate::mlsag::MlsagDkgError;
 
 /// Errors for MLSAG DKG (Shamir keygen + key-image assembly).
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum MlsagError {
-    #[error("VRF DKG: {0}")]
-    Dkg(#[from] VrfKeygenError),
+    #[error("DKG: {0}")]
+    Dkg(#[from] MlsagDkgError),
     #[error("Invalid party ids on messages list")]
     InvalidParticipantSet,
     #[error("Invalid input message count")]

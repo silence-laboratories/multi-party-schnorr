@@ -18,6 +18,17 @@
 //! `r_{π,0} = α₀ − c_π · x` from [`crate::MlsagKeyshare`] shares. They never
 //! see `z`.
 
+use crate::{
+    error::MlsagError,
+    hash_to_point::hash_to_point,
+    key_image::KeyImage,
+    messages::MlsagKeyshare,
+    mlsag::{dh_tuple_transcript, DhTuplePoints, DhTupleProof, SessionId},
+    ring_mlsag::{
+        assemble_ring_mlsag, open_sign_input, scalar_is_canonical, signing_challenges, RingMLSAG,
+        RingTour, SignPublicInput,
+    },
+};
 use curve25519_dalek::{ristretto::CompressedRistretto, RistrettoPoint, Scalar};
 use elliptic_curve::subtle::ConstantTimeEq;
 use elliptic_curve::Group;
@@ -25,18 +36,6 @@ use rand::{CryptoRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256};
 use sl_mpc_derive::math::{get_lagrange_coeff, participant_public_share};
-use sl_mpc_vrf::{dh_tuple_transcript, DhTuplePoints, DhTupleProof, SessionId};
-
-use crate::{
-    error::MlsagError,
-    hash_to_point::hash_to_point,
-    key_image::KeyImage,
-    messages::MlsagKeyshare,
-    ring_mlsag::{
-        assemble_ring_mlsag, open_sign_input, scalar_is_canonical, signing_challenges, RingMLSAG,
-        RingTour, SignPublicInput,
-    },
-};
 
 const SIGN_SID_LABEL: &[u8] = b"SL-MLSAG-SIGN";
 const KEY_IMAGE_AUX_LABEL: &[u8] = b"SL-MLSAG-SIGN-KEY-IMAGE";
