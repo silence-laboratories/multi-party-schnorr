@@ -1,7 +1,9 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-//! End-to-end MLSAG DKG: Feldman–Shamir keygen + all-party key image `I = x · H_p(P)`.
+//! End-to-end MLSAG DKG: Feldman–Shamir keygen of the root spend key `b` +
+//! all-party key image `I_B = b · H_p(B)`. Per-output key images are computed
+//! at signing time; see [`crate::sign`].
 
 use curve25519_dalek::{ristretto::CompressedRistretto, RistrettoPoint};
 use elliptic_curve::Group;

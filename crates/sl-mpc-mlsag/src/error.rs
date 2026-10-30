@@ -42,6 +42,8 @@ pub enum MlsagError {
     ValueNotConserved,
     #[error("ring onetime key does not match keyshare")]
     PublicKeyMismatch,
+    #[error("invalid one-time key tweak")]
+    InvalidTweak,
     #[error("expected {expected} responses, found {found}")]
     LengthMismatch { expected: usize, found: usize },
     #[error("invalid MLSAG signature")]

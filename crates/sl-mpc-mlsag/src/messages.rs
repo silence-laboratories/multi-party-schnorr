@@ -19,7 +19,11 @@ pub struct KeyshareMsg {
     pub pi: DhTupleProof,
 }
 
-/// MLSAG signing-key share after end-to-end DKG (Shamir share + key image `I`).
+/// MLSAG root spend-key share after end-to-end DKG (Shamir share of `b` +
+/// key image of `B`).
+///
+/// Outputs are spent with `x = b + t` for a per-output tweak `t`; signing
+/// computes that output's key image.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MlsagKeyshare {
@@ -27,12 +31,14 @@ pub struct MlsagKeyshare {
     pub total_parties: u8,
     pub party_id: u8,
     pub(crate) d_i: Scalar,
+    /// Root spend public key `B = b·G`.
     pub public_key: RistrettoPoint,
     pub(crate) party_public_shares: Vec<RistrettoPoint>,
     pub key_id: [u8; 32],
     pub root_chain_code: [u8; 32],
     pub dkg_session_id: SessionId,
     pub keyshare_session_id: SessionId,
+    /// `b · H_p(B)`: the key image of the output with tweak `t = 0`.
     pub key_image: KeyImage,
     /// Quorum that produced `key_image`.
     pub keyshare_pid_list: Vec<u8>,
