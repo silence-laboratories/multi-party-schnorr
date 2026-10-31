@@ -26,7 +26,7 @@ name = "refresh"
 required-features = [ "eddsa", "test-support" ]
 
 [features]
-default = ["eddsa", "session"]
+default = ["eddsa", "session", "taproot"]
 eddsa = ["curve25519-dalek", "ed25519-dalek", "dep:sl-mpc-derive", "sl-mpc-derive/eddsa"]
 vrf = ["eddsa", "serde", "sl-mpc-derive/vrf", "dep:sl-mpc-vrf", "sl-mpc-vrf/serde"]
 taproot = ["k256/schnorr"]
