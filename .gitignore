@@ -1,2 +1,4 @@
 /target
 /.cargo/
+config.bat
+node_modules
