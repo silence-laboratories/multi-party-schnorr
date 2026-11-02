@@ -1,30 +1,30 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-//! End-to-end MLSAG DKG: Feldman–Shamir keygen + all-party key image `I = x · H_p(P)`.
-
-use curve25519_dalek::{ristretto::CompressedRistretto, RistrettoPoint};
-use elliptic_curve::Group;
-use rand::{CryptoRng, Rng, RngCore, SeedableRng};
-use rand_chacha::ChaCha20Rng;
-use sha2::{Digest, Sha256};
-use sl_mpc_derive::math::{get_lagrange_coeff, participant_public_share};
-use sl_mpc_vrf::{
-    dh_tuple_transcript, DhTuplePoints, DhTupleProof, SessionId, VrfDkgContext, VrfDkgParty,
-    VrfKeygenMsg1, VrfKeygenMsg2, VrfKeyshare,
-};
+//! End-to-end MLSAG DKG: Feldman–Shamir keygen of the root spend key `b` +
+//! all-party key image `I_B = b · H_p(B)`. Per-output key images are computed
+//! at signing time; see [`crate::sign`].
 
 use crate::{
     error::MlsagError,
     hash_to_point::hash_to_point,
     key_image::KeyImage,
     messages::{KeyshareMsg, MlsagKeyshare},
+    mlsag::{
+        dh_tuple_transcript, DhTuplePoints, DhTupleProof, MlsagDkgKeyshare, MlsagDkgMsg1,
+        MlsagDkgMsg2, MlsagDkgShareContext, SessionId,
+    },
 };
+use curve25519_dalek::{ristretto::CompressedRistretto, RistrettoPoint};
+use elliptic_curve::Group;
+use rand::{CryptoRng, Rng, RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
+use sha2::{Digest, Sha256};
+use sl_mpc_derive::math::{get_lagrange_coeff, participant_public_share};
+
+pub use crate::mlsag::MlsagDkgParty;
 
 const KEYSHARE_SID_LABEL: &[u8] = b"SL-MLSAG-KEYIMAGE";
-
-/// Party metadata for MLSAG DKG (same layout as Ristretto VRF DKG).
-pub type MlsagDkgParty = VrfDkgParty;
 
 /// Build Fiat–Shamir session id for the key-image round from DKG sid + quorum.
 pub fn keyshare_session_id(dkg_session_id: &SessionId, pid_list: &[u8]) -> SessionId {
@@ -38,15 +38,15 @@ pub fn keyshare_session_id(dkg_session_id: &SessionId, pid_list: &[u8]) -> Sessi
 }
 
 struct MlsagDkgContextR0 {
-    vrf: VrfDkgContext,
+    sharing: MlsagDkgShareContext,
 }
 
 struct MlsagDkgContextR1 {
-    vrf: VrfDkgContext,
+    sharing: MlsagDkgShareContext,
 }
 
 struct MlsagDkgContextR2 {
-    vrf: VrfDkgContext,
+    sharing: MlsagDkgShareContext,
 }
 
 struct MlsagDkgContextR3 {
@@ -81,7 +81,7 @@ impl MlsagDkgContext<MlsagDkgContextR0> {
         Ok(Self {
             party_id,
             state: MlsagDkgContextR0 {
-                vrf: VrfDkgContext::new(party, rng)?,
+                sharing: MlsagDkgShareContext::new(party, rng)?,
             },
         })
     }
@@ -92,13 +92,13 @@ impl MlsagDkgContext<MlsagDkgContextR0> {
     pub fn round1_out<R: CryptoRng + RngCore>(
         self,
         rng: &mut R,
-    ) -> Result<(MlsagDkgContext<MlsagDkgContextR1>, VrfKeygenMsg1), MlsagError> {
-        let mut vrf = self.state.vrf;
-        let msg1 = vrf.round1_out(rng)?;
+    ) -> Result<(MlsagDkgContext<MlsagDkgContextR1>, MlsagDkgMsg1), MlsagError> {
+        let mut sharing = self.state.sharing;
+        let msg1 = sharing.round1_out(rng)?;
 
         let next_state = MlsagDkgContext {
             party_id: self.party_id,
-            state: MlsagDkgContextR1 { vrf },
+            state: MlsagDkgContextR1 { sharing },
         };
 
         Ok((next_state, msg1))
@@ -114,14 +114,14 @@ impl MlsagDkgContext<MlsagDkgContextR1> {
     pub fn round1_in<R: CryptoRng + RngCore>(
         self,
         rng: &mut R,
-        messages: Vec<VrfKeygenMsg1>,
-    ) -> Result<(MlsagDkgContext<MlsagDkgContextR2>, Vec<VrfKeygenMsg2>), MlsagError> {
-        let mut vrf = self.state.vrf;
-        let msg2 = vrf.round1_in(rng, messages)?;
+        messages: Vec<MlsagDkgMsg1>,
+    ) -> Result<(MlsagDkgContext<MlsagDkgContextR2>, Vec<MlsagDkgMsg2>), MlsagError> {
+        let mut sharing = self.state.sharing;
+        let msg2 = sharing.round1_in(rng, messages)?;
 
         let next_state = MlsagDkgContext {
             party_id: self.party_id,
-            state: MlsagDkgContextR2 { vrf },
+            state: MlsagDkgContextR2 { sharing },
         };
 
         Ok((next_state, msg2))
@@ -137,16 +137,10 @@ impl MlsagDkgContext<MlsagDkgContextR2> {
     pub fn round2_in<R: CryptoRng + RngCore>(
         self,
         rng: &mut R,
-        messages: Vec<VrfKeygenMsg2>,
+        messages: Vec<MlsagDkgMsg2>,
     ) -> Result<(MlsagDkgContext<MlsagDkgContextR3>, KeyshareMsg), MlsagError> {
-        let mut vrf = self.state.vrf;
-        let share = match vrf.round2_in(messages) {
-            Ok(s) => s,
-            Err(e) => {
-                // self.phase = Some(Phase::Dkg(vrf));
-                return Err(e.into());
-            }
-        };
+        let mut sharing = self.state.sharing;
+        let share = sharing.round2_in(messages)?;
 
         let pid_list: Vec<u8> = (0..share.total_parties).collect();
         let image = KeyshareContext::new(share, pid_list, rng)?;
@@ -178,7 +172,7 @@ pub struct KeyshareContextR1;
 
 /// Key-image assembly for a fixed quorum (used by [`MlsagDkgContext`] with all parties).
 pub struct KeyshareContext<T> {
-    keyshare: VrfKeyshare,
+    keyshare: MlsagDkgKeyshare,
     pid_list: Vec<u8>,
     session_id: SessionId,
     hp: RistrettoPoint,
@@ -197,7 +191,7 @@ impl<T> KeyshareContext<T> {
 impl KeyshareContext<KeyshareContextR0> {
     /// Start key-image assembly for `participating_party_ids` (`|S| ≥ t`, includes this party).
     pub fn new<R: CryptoRng + RngCore>(
-        keyshare: VrfKeyshare,
+        keyshare: MlsagDkgKeyshare,
         participating_party_ids: Vec<u8>,
         rng: &mut R,
     ) -> Result<Self, MlsagError> {
@@ -348,7 +342,7 @@ impl KeyshareContext<KeyshareContextR1> {
             point: image_point.compress(),
         };
 
-        Ok(MlsagKeyshare::from_vrf_keyshare(
+        Ok(MlsagKeyshare::from_dkg_keyshare(
             &self.keyshare,
             key_image,
             self.session_id,

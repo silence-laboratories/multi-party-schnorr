@@ -11,6 +11,7 @@ pub mod error;
 pub mod hash_to_point;
 pub mod key_image;
 pub mod messages;
+pub mod mlsag;
 pub mod ring_mlsag;
 pub mod sign;
 
@@ -20,11 +21,9 @@ pub use error::MlsagError;
 pub use hash_to_point::{hash_to_point, HASH_TO_POINT_DOMAIN_TAG};
 pub use key_image::KeyImage;
 pub use messages::{KeyshareMsg, MlsagKeyshare};
+pub use mlsag::{MlsagDkgError, MlsagDkgKeyshare, MlsagDkgMsg1, MlsagDkgMsg2, SessionId};
 pub use ring_mlsag::{
     assemble_ring_mlsag, fill_ring, sign_with_scalar, RingMLSAG, RingMember, RingTour,
     SignPublicInput,
 };
 pub use sign::{sign_session_id, MlsagSignContext, NonceCommit, SignMsg1, SignMsg2, SignMsg3};
-
-// Re-export message types used by [`MlsagDkgContext`] rounds.
-pub use sl_mpc_vrf::{SessionId, VrfKeygenMsg1, VrfKeygenMsg2};
