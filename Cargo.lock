@@ -842,7 +842,7 @@ dependencies = [
  "sha2",
  "sl-mpc-derive",
  "sl-mpc-vrf",
- "thiserror 2.0.20",
+ "thiserror",
 ]
 
 [[package]]

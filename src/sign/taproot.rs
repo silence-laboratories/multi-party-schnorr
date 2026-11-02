@@ -81,12 +81,19 @@ impl Round for SignReady<ProjectivePoint> {
             .into();
         let tweak_scalar = Scalar::reduce_from_bytes(&tweak);
 
+        // The spend commits to the even-Y form of the internal key, so the share follows it.
+        let mut internal_point = self.public_key;
+        let mut internal_share = self.d_i;
+        if internal_point.to_affine().y_is_odd().unwrap_u8() == 1 {
+            internal_point = -internal_point;
+            internal_share = -internal_share;
+        }
+
         let tweaked_big_p =
-            (self.public_key + ProjectivePoint::GENERATOR * tweak_scalar).to_affine();
+            (internal_point + ProjectivePoint::GENERATOR * tweak_scalar).to_affine();
 
         let big_r = self.big_r.to_affine();
         let mut k_i = self.k_i;
-        let internal_share = self.d_i;
 
         if big_r.y_is_odd().unwrap_u8() == 1 {
             k_i = -k_i;
@@ -166,7 +173,13 @@ impl Round for PartialSign<ProjectivePoint> {
             .into();
         let tweak_scalar = Scalar::reduce_from_bytes(&tweak);
 
-        let tweaked_pubkey = self.public_key + ProjectivePoint::GENERATOR * tweak_scalar;
+        // The spend commits to the even-Y form of the internal key.
+        let mut internal_point = self.public_key;
+        if internal_point.to_affine().y_is_odd().unwrap_u8() == 1 {
+            internal_point = -internal_point;
+        }
+
+        let tweaked_pubkey = internal_point + ProjectivePoint::GENERATOR * tweak_scalar;
         taproot_public_key(&tweaked_pubkey)
             .unwrap()
             .verify_prehash(&self.msg_to_sign, &signature)
@@ -263,6 +276,196 @@ mod tests {
         run_sign_via_new(subset.clone());
         run_sign::<Legacy>(subset.clone());
         run_sign::<Bip32Public>(subset);
+    }
+
+    /// Derives the output key a Bitcoin node computes for a key-path spend,
+    /// which commits to the even-Y form of the signers' internal key.
+    fn bip341_output_key(internal_key: &ProjectivePoint) -> ProjectivePoint {
+        use elliptic_curve::point::{AffineCoordinates, DecompactPoint};
+
+        let x_only = internal_key.to_affine().x();
+        let even_y_internal = ProjectivePoint::from(
+            k256::AffinePoint::decompact(&x_only).expect("x coordinate lies on the curve"),
+        );
+        let tweak: [u8; 32] = Sha256::new()
+            .chain_update(TAP_TWEAK_HASH)
+            .chain_update(x_only)
+            .finalize()
+            .into();
+
+        even_y_internal + ProjectivePoint::GENERATOR * Scalar::reduce_from_bytes(&tweak)
+    }
+
+    /// Signs under `path` with all shares, returning the signature and the
+    /// internal key the signers derived for that path.
+    fn sign_at_path(
+        shares: &[Keyshare<ProjectivePoint>],
+        path: &DerivationPath,
+        msg_hash: [u8; 32],
+    ) -> (Signature, ProjectivePoint) {
+        let (_, internal_key) = shares[0]
+            .derive_with_offset::<Legacy>(path)
+            .expect("path is soft-derivable");
+
+        let mut rng = rand::thread_rng();
+        let parties = shares
+            .iter()
+            .cloned()
+            .map(Arc::new)
+            .map(|keyshare| {
+                SignerParty::<_, ProjectivePoint>::new_with_format::<_, Legacy>(
+                    keyshare,
+                    msg_hash,
+                    path.clone(),
+                    &mut rng,
+                )
+            })
+            .collect();
+
+        (finish_sign_rounds(parties), internal_key)
+    }
+
+    /// A key-path signature has to verify against the output key derived from the
+    /// signers' internal key, since that is the key the spent output commits to.
+    ///
+    /// Soft derivation can yield an internal key with an odd Y coordinate, and
+    /// signing does not take it to its even-Y form before applying the tweak, so
+    /// those paths produce signatures no Bitcoin node accepts. The root key is
+    /// unaffected because keygen already normalizes it.
+    ///
+    /// Remove `#[ignore]` once signing normalizes the internal key.
+    #[test]
+    fn signature_verifies_against_bip341_output_key() {
+        use elliptic_curve::point::AffineCoordinates;
+        use signature::hazmat::PrehashVerifier;
+
+        let msg_hash: [u8; 32] = Sha256::digest(b"key-path spend").into();
+        let shares = run_keygen::<2, 2, ProjectivePoint>();
+
+        let mut odd_y_paths = 0;
+        let mut rejected = Vec::new();
+
+        for path_str in
+            core::iter::once("m".into()).chain((0..20u32).map(|index| alloc::format!("m/{index}")))
+        {
+            let path: DerivationPath = path_str.parse().expect("well-formed path");
+            let (signature, internal_key) = sign_at_path(&shares, &path, msg_hash);
+
+            if bool::from(internal_key.to_affine().y_is_odd()) {
+                odd_y_paths += 1;
+            }
+
+            let output_key = taproot_public_key(&bip341_output_key(&internal_key))
+                .expect("output key is a valid x-only key");
+
+            if output_key.verify_prehash(&msg_hash, &signature).is_err() {
+                rejected.push(path_str);
+            }
+        }
+
+        assert!(
+            odd_y_paths > 0,
+            "no odd-Y internal key was derived, so the test did not exercise the case"
+        );
+        assert!(
+            rejected.is_empty(),
+            "signatures rejected under the BIP-341 output key for paths: {rejected:?}"
+        );
+    }
+
+    /// Hard derivation produces a fresh internal key with natural parity, so a
+    /// key-path signature under it must still verify against the output key a
+    /// Bitcoin node computes, with or without a soft suffix.
+    #[cfg(feature = "vrf")]
+    #[test]
+    fn taproot_hard_derive_verifies_against_bip341_output_key() {
+        use elliptic_curve::point::AffineCoordinates;
+        use signature::hazmat::PrehashVerifier;
+
+        use crate::vrf::{
+            keyshare_after_hard_derive, run_vrf_keygen, HardDeriveParty, MpcDeriveInit, VrfPoint,
+        };
+
+        /// Drives one protocol round for every party.
+        fn run_local<I, R, O, E>(actors: Vec<R>, msgs: I) -> Vec<O>
+        where
+            R: Round<Input = I, Output = O, Error = E>,
+            I: Clone,
+            E: core::fmt::Debug,
+        {
+            actors
+                .into_iter()
+                .map(|actor| actor.process(msgs.clone()).unwrap())
+                .collect()
+        }
+
+        /// Hard-derives `label` with the full quorum and returns the derived shares.
+        fn hard_derive(
+            root: &[Keyshare<ProjectivePoint>],
+            vrf: &[Keyshare<VrfPoint>],
+            label: &[u8],
+        ) -> Vec<Keyshare<ProjectivePoint>> {
+            let party_ids: Vec<u8> = root.iter().map(|ks| ks.party_id()).collect();
+            let inits: Vec<_> = root
+                .iter()
+                .cloned()
+                .zip(vrf.iter().cloned())
+                .map(|(r, v)| MpcDeriveInit::with_ristretto_vrf(r, v))
+                .collect();
+
+            let mut rng = rand::thread_rng();
+            let parties: Vec<_> = inits
+                .iter()
+                .cloned()
+                .map(|init| HardDeriveParty::new(init, label.to_vec(), &mut rng).unwrap())
+                .collect();
+
+            let (parties, msgs0): (Vec<_>, Vec<_>) = run_local(parties, ()).into_iter().unzip();
+            let (parties, msgs1): (Vec<_>, Vec<_>) = run_local(parties, msgs0).into_iter().unzip();
+            let outputs: Vec<_> = run_local(parties, msgs1);
+
+            inits
+                .iter()
+                .zip(&outputs)
+                .map(|(init, out)| keyshare_after_hard_derive(init, out, &party_ids))
+                .collect()
+        }
+
+        let msg_hash: [u8; 32] = Sha256::digest(b"hard derived key-path spend").into();
+        let root = run_keygen::<2, 2, ProjectivePoint>();
+        let vrf = run_vrf_keygen::<2, 2>();
+
+        let mut odd_y_cases = 0;
+        let mut rejected = Vec::new();
+
+        for index in 0..8u32 {
+            let label = alloc::format!("m/{index}'");
+            let derived = hard_derive(&root, &vrf, label.as_bytes());
+
+            // With no soft suffix, and with one.
+            for suffix in ["m", "m/2"] {
+                let path: DerivationPath = suffix.parse().unwrap();
+                let (signature, internal_key) = sign_at_path(&derived, &path, msg_hash);
+
+                if bool::from(internal_key.to_affine().y_is_odd()) {
+                    odd_y_cases += 1;
+                }
+
+                let output_key = taproot_public_key(&bip341_output_key(&internal_key)).unwrap();
+                if output_key.verify_prehash(&msg_hash, &signature).is_err() {
+                    rejected.push(alloc::format!("{label} + {suffix}"));
+                }
+            }
+        }
+
+        assert!(
+            odd_y_cases > 0,
+            "no odd-Y internal key was produced, so the test did not exercise the case"
+        );
+        assert!(
+            rejected.is_empty(),
+            "signatures rejected under the BIP-341 output key for: {rejected:?}"
+        );
     }
 
     #[test]
