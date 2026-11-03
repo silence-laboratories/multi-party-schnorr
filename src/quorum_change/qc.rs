@@ -1311,7 +1311,6 @@ where
         sha2::Digest::update(&mut hasher, point.to_bytes());
     }
     sha2::Digest::update(&mut hasher, r1_i);
-    sha2::Digest::update(&mut hasher, r1_i);
     hasher.finalize().into()
 }
 
