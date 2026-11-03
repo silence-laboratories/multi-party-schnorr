@@ -31,6 +31,7 @@ use crate::{
 };
 
 const SIGN_SID_LABEL: &[u8] = b"SL-MLSAG-SIGN";
+const SIGN_NONCE_COMMITMENT_LABEL: &[u8] = b"SL-MLSAG-NONCE-COMMITMENT";
 
 /// Round 1: this party's random session id, and a commitment to that id together
 /// with `(L0, R0)` and a blind.
@@ -178,6 +179,7 @@ fn hash_nonce_commitment(
     blind_factor: &[u8; 32],
 ) -> [u8; 32] {
     let mut hasher = Sha256::new();
+    hasher.update(SIGN_NONCE_COMMITMENT_LABEL);
     hasher.update(session_id);
     hasher.update((party_id as u32).to_be_bytes());
     hasher.update(l0.compress().as_bytes());
