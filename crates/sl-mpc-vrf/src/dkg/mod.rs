@@ -7,7 +7,7 @@ mod error;
 mod messages;
 
 pub use context::{Context, Party};
-pub use crypto::{P2pShare, DLogProof};
+pub use crypto::{DLogProof, P2pShare};
 pub use error::VrfKeygenError;
 pub use messages::{VrfKeygenMsg1, VrfKeygenMsg2, VrfKeyshare};
 

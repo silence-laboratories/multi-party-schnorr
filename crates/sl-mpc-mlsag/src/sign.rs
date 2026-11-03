@@ -716,7 +716,8 @@ impl MlsagSignContext<StateClosed> {
             r_sum += msg.r_pi_0;
         }
 
-        let signature = assemble_ring_mlsag(&self.input, &self.keyshare.key_image, &l0, &r0, tour, r_sum)?;
+        let signature =
+            assemble_ring_mlsag(&self.input, &self.keyshare.key_image, &l0, &r0, tour, r_sum)?;
         signature.verify(&self.input)?;
 
         Ok(signature)

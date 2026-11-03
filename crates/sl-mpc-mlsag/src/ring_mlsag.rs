@@ -345,7 +345,9 @@ mod tests {
         let err = fill_ring(&input, &key_image, &l0, &r0, &Scalar::from(1u64), &mut rng);
 
         match err {
-            Err(err) => {assert_eq!(err, MlsagError::ValueNotConserved)}
+            Err(err) => {
+                assert_eq!(err, MlsagError::ValueNotConserved)
+            }
             _ => panic!("Should be Err"),
         }
     }
