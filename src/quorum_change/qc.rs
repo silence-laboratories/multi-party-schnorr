@@ -168,29 +168,28 @@ where
         seed: [u8; 32],
         extra_data: Option<Vec<u8>>,
     ) -> Result<Self, QCError> {
+        if new_t < 2 || new_t as usize > new_parties.len() {
+            return Err(QCError::InvalidT);
+        }
+        if !old_parties.contains(&party_index) || new_parties.contains(&party_index) {
+            return Err(QCError::InvalidParticipantSet);
+        }
+        if old_parties.len() < old_keyshare.threshold as usize {
+            return Err(QCError::InvalidParticipantSet);
+        }
+
         let mut old_party_id_pairs = Pairs::new();
         for (party_index, party_id) in old_party_ids {
             old_party_id_pairs.push(party_index, party_id);
         }
-
-        let mut rng = ChaCha20Rng::from_seed(seed);
-
-        assert!(old_parties.contains(&party_index));
-        assert!(!new_parties.contains(&party_index));
-
         // calculate additive share s_i_0 of participant_i,
         // \sum_{i=0}^{n-1} s_i_0 = private_key
         let s_i_0 = {
-            assert!(old_parties.len() >= old_keyshare.threshold as usize);
             let old_party_id_list = old_party_id_pairs.remove_ids();
             old_keyshare.scalar_share_interpolate(old_party_id_list)
         };
-
+        let mut rng = ChaCha20Rng::from_seed(seed);
         let rand_params = QCEntropyOld::generate(new_t, s_i_0, &new_parties, &mut rng);
-
-        if new_t < 2 || new_t > new_parties.len() as u8 {
-            return Err(QCError::InvalidT);
-        }
 
         Ok(Self {
             params: QCParams {
@@ -456,13 +455,20 @@ where
         seed: [u8; 32],
         extra_data: Option<Vec<u8>>,
     ) -> Result<Self, QCError> {
+        if new_t < 2 || new_t as usize > new_parties.len() {
+            return Err(QCError::InvalidT);
+        }
+        if !(old_parties.contains(&party_index) && new_parties.contains(&party_index)) {
+            return Err(QCError::InvalidParticipantSet);
+        }
+        if old_parties.len() < old_keyshare.threshold as usize {
+            return Err(QCError::InvalidParticipantSet);
+        }
+
         let mut old_party_id_pairs = Pairs::new();
         for (party_index, party_id) in old_party_ids {
             old_party_id_pairs.push(party_index, party_id);
         }
-
-        let mut rng = ChaCha20Rng::from_seed(seed);
-
         // calculate additive share s_i_0 of participant_i,
         // \sum_{i=0}^{n-1} s_i_0 = private_key
         let s_i_0 = {
@@ -470,12 +476,8 @@ where
             let old_party_id_list = old_party_id_pairs.remove_ids();
             old_keyshare.scalar_share_interpolate(old_party_id_list)
         };
-
+        let mut rng = ChaCha20Rng::from_seed(seed);
         let rand_params = QCEntropyOld::generate(new_t, s_i_0, &new_parties, &mut rng);
-
-        if new_t < 2 || new_t > new_parties.len() as u8 {
-            return Err(QCError::InvalidT);
-        }
 
         Ok(Self {
             params: QCParams {
@@ -947,20 +949,19 @@ where
         seed: [u8; 32],
         extra_data: Option<Vec<u8>>,
     ) -> Result<Self, QCError> {
+        if new_t < 2 || new_t as usize > new_parties.len() {
+            return Err(QCError::InvalidT);
+        }
+        if old_parties.contains(&party_index) || !new_parties.contains(&party_index) {
+            return Err(QCError::InvalidParticipantSet);
+        }
+
         let mut old_party_id_pairs = Pairs::new();
         for (party_index, party_id) in old_party_ids {
             old_party_id_pairs.push(party_index, party_id);
         }
-
         let mut rng = ChaCha20Rng::from_seed(seed);
         let rand_params = QCEntropyNew::generate(&mut rng);
-
-        assert!(!old_parties.contains(&party_index));
-        assert!(new_parties.contains(&party_index));
-
-        if new_t < 2 || new_t > new_parties.len() as u8 {
-            return Err(QCError::InvalidT);
-        }
 
         Ok(Self {
             params: QCParams {
