@@ -20,7 +20,7 @@ use crate::{
 
 /// One ring member: onetime public key and amount commitment.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct RingMember {
     pub onetime_public: CompressedRistretto,
     pub commitment: CompressedRistretto,
@@ -28,7 +28,7 @@ pub struct RingMember {
 
 /// Public MLSAG inputs. Amounts and blindings stay with the central party.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct SignPublicInput {
     pub message: Vec<u8>,
     pub ring: Vec<RingMember>,
@@ -42,7 +42,7 @@ pub struct SignPublicInput {
 ///
 /// Delivery: broadcast to the signing quorum, signed only (not encrypted).
 /// The zero spend slot identifies `real_index`, so this must not leave the quorum.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct RingTour {
     pub responses: Vec<Scalar>,
     /// `L1 = α1 * G` hashed into the challenge at the real index.
@@ -343,6 +343,10 @@ mod tests {
         let l0 = RistrettoPoint::generator();
         let r0 = RistrettoPoint::generator();
         let err = fill_ring(&input, &key_image, &l0, &r0, &Scalar::from(1u64), &mut rng);
-        assert_eq!(err, Err(MlsagError::ValueNotConserved));
+
+        match err {
+            Err(err) => {assert_eq!(err, MlsagError::ValueNotConserved)}
+            _ => panic!("Should be Err"),
+        }
     }
 }

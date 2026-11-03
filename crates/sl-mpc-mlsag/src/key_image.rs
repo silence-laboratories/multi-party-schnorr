@@ -9,7 +9,7 @@ use curve25519_dalek::{
 use crate::hash_to_point::hash_to_point;
 
 /// MobileCoin-style key image: `I = x · H_p(x·G)`, compressed.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyImage {
     pub point: CompressedRistretto,
