@@ -40,7 +40,7 @@ struct DhTupleCommitments<'a> {
 
 /// Non-interactive proof that (G, Q, A, B) is a DH tuple.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct DhTupleProof {
     pub e: Scalar,
     pub z: Scalar,

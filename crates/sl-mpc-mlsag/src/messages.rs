@@ -10,7 +10,7 @@ use crate::key_image::KeyImage;
 ///
 /// Delivery: broadcast, signed only.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct KeyshareMsg {
     pub from_party: u8,
     pub session_id: SessionId,
@@ -21,7 +21,7 @@ pub struct KeyshareMsg {
 
 /// MLSAG signing-key share after end-to-end DKG (Shamir share + key image `I`).
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct MlsagKeyshare {
     pub threshold: u8,
     pub total_parties: u8,

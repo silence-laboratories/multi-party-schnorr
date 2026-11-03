@@ -397,7 +397,16 @@ where
         let final_sid = calculate_final_session_id(party_id_list.iter().copied(), &sid_i_list, &[]);
 
         // 12.4(b)
-        let mut rng = ChaCha20Rng::from_seed(self.seed);
+        // Bind DLog nonces to the transcript: if the same R1 state is processed
+        // twice with a different set of KeygenMsg1 (different final_sid), every
+        // nonce differs; with the same final_sid the proofs are byte-identical.
+        let nonce_seed: [u8; 32] = Sha256::new()
+            .chain(b"SL-Keygen-DLog-Nonce")
+            .chain(self.seed)
+            .chain(final_sid.as_ref())
+            .finalize()
+            .into();
+        let mut rng = ChaCha20Rng::from_seed(nonce_seed);
         let dlog_sid = Sha256::new()
             .chain(b"SL-EDDSA-DLOG-PROOF")
             .chain(final_sid.as_ref())

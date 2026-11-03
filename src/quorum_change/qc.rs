@@ -51,6 +51,7 @@ where
 {
     params: QCParams<G>,
     rand_params: QCEntropyOld<G>,
+    root_chain_code: [u8; 32],
     state: T,
 }
 
@@ -167,29 +168,28 @@ where
         seed: [u8; 32],
         extra_data: Option<Vec<u8>>,
     ) -> Result<Self, QCError> {
+        if new_t < 2 || new_t as usize > new_parties.len() {
+            return Err(QCError::InvalidT);
+        }
+        if !old_parties.contains(&party_index) || new_parties.contains(&party_index) {
+            return Err(QCError::InvalidParticipantSet);
+        }
+        if old_parties.len() < old_keyshare.threshold as usize {
+            return Err(QCError::InvalidParticipantSet);
+        }
+
         let mut old_party_id_pairs = Pairs::new();
         for (party_index, party_id) in old_party_ids {
             old_party_id_pairs.push(party_index, party_id);
         }
-
-        let mut rng = ChaCha20Rng::from_seed(seed);
-
-        assert!(old_parties.contains(&party_index));
-        assert!(!new_parties.contains(&party_index));
-
         // calculate additive share s_i_0 of participant_i,
         // \sum_{i=0}^{n-1} s_i_0 = private_key
         let s_i_0 = {
-            assert!(old_parties.len() >= old_keyshare.threshold as usize);
             let old_party_id_list = old_party_id_pairs.remove_ids();
             old_keyshare.scalar_share_interpolate(old_party_id_list)
         };
-
+        let mut rng = ChaCha20Rng::from_seed(seed);
         let rand_params = QCEntropyOld::generate(new_t, s_i_0, &new_parties, &mut rng);
-
-        if new_t < 2 || new_t > new_parties.len() as u8 {
-            return Err(QCError::InvalidT);
-        }
 
         Ok(Self {
             params: QCParams {
@@ -204,6 +204,7 @@ where
                 extra_data,
             },
             rand_params,
+            root_chain_code: old_keyshare.root_chain_code,
             state: R0,
         })
     }
@@ -235,6 +236,7 @@ where
         let next_state = QCPartyOld {
             params: self.params,
             rand_params: self.rand_params,
+            root_chain_code: self.root_chain_code,
             state: R1Old {
                 big_p_i_poly,
                 commitment_1,
@@ -335,7 +337,7 @@ where
                 to_party: receiver_index as u8,
                 p_i: p_i_j,
                 r_2_i: *r2_j,
-                root_chain_code: [0u8; 32],
+                root_chain_code: self.root_chain_code,
             };
             p2p_messages_2.push(p2p_msg_2);
         }
@@ -349,6 +351,7 @@ where
         let next_state = QCPartyOld {
             params: self.params,
             rand_params: self.rand_params,
+            root_chain_code: self.root_chain_code,
             state: R2Old {
                 sid_i_list,
                 commitment_list,
@@ -452,13 +455,20 @@ where
         seed: [u8; 32],
         extra_data: Option<Vec<u8>>,
     ) -> Result<Self, QCError> {
+        if new_t < 2 || new_t as usize > new_parties.len() {
+            return Err(QCError::InvalidT);
+        }
+        if !(old_parties.contains(&party_index) && new_parties.contains(&party_index)) {
+            return Err(QCError::InvalidParticipantSet);
+        }
+        if old_parties.len() < old_keyshare.threshold as usize {
+            return Err(QCError::InvalidParticipantSet);
+        }
+
         let mut old_party_id_pairs = Pairs::new();
         for (party_index, party_id) in old_party_ids {
             old_party_id_pairs.push(party_index, party_id);
         }
-
-        let mut rng = ChaCha20Rng::from_seed(seed);
-
         // calculate additive share s_i_0 of participant_i,
         // \sum_{i=0}^{n-1} s_i_0 = private_key
         let s_i_0 = {
@@ -466,12 +476,8 @@ where
             let old_party_id_list = old_party_id_pairs.remove_ids();
             old_keyshare.scalar_share_interpolate(old_party_id_list)
         };
-
+        let mut rng = ChaCha20Rng::from_seed(seed);
         let rand_params = QCEntropyOld::generate(new_t, s_i_0, &new_parties, &mut rng);
-
-        if new_t < 2 || new_t > new_parties.len() as u8 {
-            return Err(QCError::InvalidT);
-        }
 
         Ok(Self {
             params: QCParams {
@@ -666,10 +672,15 @@ where
         }
         let mut p2p_messages = messages;
         p2p_messages.sort_by_key(|msg| msg.from_party);
-
+        if !unique_senders(&p2p_messages, |m| m.from_party) {
+            return Err(QCError::InvalidMessage);
+        }
         // new_party collects (all - 1) commitments2 from old parties
         let mut commitment2_list: Pairs<HashBytes, u8> = Pairs::new();
         for message in &p2p_messages {
+            if message.from_party as usize == self.params.party_index {
+                return Err(QCError::InvalidMessage);
+            }
             if message.to_party as usize != self.params.party_index {
                 return Err(QCError::InvalidMessage);
             }
@@ -679,9 +690,6 @@ where
                 .old_party_ids
                 .find_pair_or_err(from_party_index, QCError::InvalidMessage)?;
             commitment2_list.push(from_party_id, message.commitment_2);
-        }
-        if commitment2_list.remove_ids().len() != (self.params.old_parties.len() - 1) {
-            return Err(QCError::InvalidMessage);
         }
 
         let mut p2p_messages_2 = Vec::with_capacity(self.params.new_parties.len());
@@ -700,7 +708,7 @@ where
                 to_party: receiver_index as u8,
                 p_i: *p_i_j,
                 r_2_i: *r2_j,
-                root_chain_code: [0u8; 32],
+                root_chain_code: self.root_chain_code,
             };
             p2p_messages_2.push(p2p_msg_2);
         }
@@ -754,11 +762,20 @@ where
 
         p2p_messages.sort_by_key(|msg| msg.from_party);
         broadcast_msgs_2.sort_by_key(|msg| msg.from_party);
+        if !unique_senders(&p2p_messages, |m| m.from_party) {
+            return Err(QCError::InvalidMessage);
+        }
+        if !unique_senders(&broadcast_msgs_2, |m| m.from_party) {
+            return Err(QCError::InvalidMessage);
+        }
 
         let mut p_i_list = self.state.p_i_list;
         let mut root_chain_code_list = Pairs::new_with_item(self.party_id, [0u8; 32]);
 
         for p2p_msg2 in &p2p_messages {
+            if p2p_msg2.from_party as usize == self.params.party_index {
+                return Err(QCError::InvalidMessage);
+            }
             if p2p_msg2.to_party as usize != self.params.party_index {
                 return Err(QCError::InvalidMessage);
             }
@@ -771,7 +788,10 @@ where
             let p_j_i = p2p_msg2.p_i;
             let r_2_i = p2p_msg2.r_2_i;
 
-            let commitment2 = self.state.commitment2_list.find_pair(from_party_id);
+            let commitment2 = self
+                .state
+                .commitment2_list
+                .find_pair_or_err(from_party_id, QCError::InvalidMessage)?;
             let commit_hash_2 = hash_commitment_2::<G>(
                 &self.state.final_session_id,
                 from_party_index,
@@ -787,9 +807,6 @@ where
             p_i_list.push(from_party_id, p_j_i);
 
             root_chain_code_list.push(from_party_id, p2p_msg2.root_chain_code);
-        }
-        if p_i_list.remove_ids().len() != self.params.old_parties.len() {
-            return Err(QCError::InvalidMessage);
         }
 
         let mut r1_j_list = Pairs::new();
@@ -932,20 +949,19 @@ where
         seed: [u8; 32],
         extra_data: Option<Vec<u8>>,
     ) -> Result<Self, QCError> {
+        if new_t < 2 || new_t as usize > new_parties.len() {
+            return Err(QCError::InvalidT);
+        }
+        if old_parties.contains(&party_index) || !new_parties.contains(&party_index) {
+            return Err(QCError::InvalidParticipantSet);
+        }
+
         let mut old_party_id_pairs = Pairs::new();
         for (party_index, party_id) in old_party_ids {
             old_party_id_pairs.push(party_index, party_id);
         }
-
         let mut rng = ChaCha20Rng::from_seed(seed);
         let rand_params = QCEntropyNew::generate(&mut rng);
-
-        assert!(!old_parties.contains(&party_index));
-        assert!(new_parties.contains(&party_index));
-
-        if new_t < 2 || new_t > new_parties.len() as u8 {
-            return Err(QCError::InvalidT);
-        }
 
         Ok(Self {
             params: QCParams {
@@ -1071,7 +1087,9 @@ where
         }
         let mut p2p_messages = messages;
         p2p_messages.sort_by_key(|msg| msg.from_party);
-
+        if !unique_senders(&p2p_messages, |m| m.from_party) {
+            return Err(QCError::InvalidMessage);
+        }
         // new_party collects (all - 1) commitments2 from old parties
         let mut commitment2_list: Pairs<HashBytes, u8> = Pairs::new();
         for message in &p2p_messages {
@@ -1084,9 +1102,6 @@ where
                 .old_party_ids
                 .find_pair_or_err(from_party_index, QCError::InvalidMessage)?;
             commitment2_list.push(from_party_id, message.commitment_2);
-        }
-        if commitment2_list.remove_ids().len() != self.params.old_parties.len() {
-            return Err(QCError::InvalidMessage);
         }
 
         let next_state = QCPartyNew {
@@ -1127,6 +1142,12 @@ where
 
         p2p_messages.sort_by_key(|msg| msg.from_party);
         broadcast_msgs_2.sort_by_key(|msg| msg.from_party);
+        if !unique_senders(&p2p_messages, |m| m.from_party) {
+            return Err(QCError::InvalidMessage);
+        }
+        if !unique_senders(&broadcast_msgs_2, |m| m.from_party) {
+            return Err(QCError::InvalidMessage);
+        }
 
         let mut p_i_list: Pairs<G::Scalar, u8> = Pairs::new();
         let mut root_chain_code_list = Pairs::new();
@@ -1144,7 +1165,10 @@ where
             let p_j_i = p2p_msg2.p_i;
             let r_2_i = p2p_msg2.r_2_i;
 
-            let commitment2 = self.state.commitment2_list.find_pair(from_party_id);
+            let commitment2 = self
+                .state
+                .commitment2_list
+                .find_pair_or_err(from_party_id, QCError::InvalidMessage)?;
             let commit_hash_2 = hash_commitment_2::<G>(
                 &self.state.final_session_id,
                 from_party_index,
@@ -1171,9 +1195,6 @@ where
         {
             return Err(QCError::InvalidRootChainCode);
         };
-        if p_i_list.remove_ids().len() != self.params.old_parties.len() {
-            return Err(QCError::InvalidMessage);
-        }
 
         let mut r1_j_list = Pairs::new();
         let mut big_p_j_poly_list = Pairs::new();
@@ -1307,7 +1328,6 @@ where
         sha2::Digest::update(&mut hasher, point.to_bytes());
     }
     sha2::Digest::update(&mut hasher, r1_i);
-    sha2::Digest::update(&mut hasher, r1_i);
     hasher.finalize().into()
 }
 
@@ -1338,6 +1358,11 @@ pub fn new_party_id(new_party_indices: &[usize], index: usize) -> Option<u8> {
         .iter()
         .position(|p| p == &index)
         .map(|p| p as u8)
+}
+
+/// `msgs` must be sorted by sender.
+fn unique_senders<M>(msgs: &[M], from: impl Fn(&M) -> u8) -> bool {
+    msgs.windows(2).all(|w| from(&w[0]) < from(&w[1]))
 }
 
 #[cfg(test)]
@@ -1551,6 +1576,12 @@ mod test {
         assert_eq!(new_keyshare_p3.public_key, expected_public_key);
         assert_eq!(new_keyshare_p4.public_key, expected_public_key);
 
+        let root_chain_code = old_keyshare_p0.root_chain_code;
+        assert_eq!(old_keyshare_p1.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p2.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p3.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p4.root_chain_code, root_chain_code);
+
         assert_eq!(new_keyshare_p2.key_id, new_keyshare_p3.key_id);
         assert_eq!(new_keyshare_p2.key_id, new_keyshare_p4.key_id);
 
@@ -1715,6 +1746,12 @@ mod test {
         assert_eq!(new_keyshare_p0.public_key, expected_public_key);
         assert_eq!(new_keyshare_p1.public_key, expected_public_key);
         assert_eq!(new_keyshare_p2.public_key, expected_public_key);
+
+        let root_chain_code = old_keyshare_p0.root_chain_code;
+        assert_eq!(old_keyshare_p1.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p0.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p1.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p2.root_chain_code, root_chain_code);
 
         assert_eq!(new_keyshare_p0.key_id, new_keyshare_p1.key_id);
         assert_eq!(new_keyshare_p0.key_id, new_keyshare_p2.key_id);
@@ -1977,6 +2014,15 @@ mod test {
         assert_eq!(new_keyshare_p1.public_key, expected_public_key);
         assert_eq!(new_keyshare_p2.public_key, expected_public_key);
         assert_eq!(new_keyshare_p3.public_key, expected_public_key);
+
+        let root_chain_code = old_keyshare_p0.root_chain_code;
+        assert_eq!(old_keyshare_p1.root_chain_code, root_chain_code);
+        assert_eq!(old_keyshare_p2.root_chain_code, root_chain_code);
+        assert_eq!(old_keyshare_p3.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p0.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p1.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p2.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p3.root_chain_code, root_chain_code);
 
         assert_eq!(new_keyshare_p0.key_id, new_keyshare_p1.key_id);
         assert_eq!(new_keyshare_p0.key_id, new_keyshare_p2.key_id);
