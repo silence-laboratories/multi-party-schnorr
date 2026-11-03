@@ -51,6 +51,7 @@ where
 {
     params: QCParams<G>,
     rand_params: QCEntropyOld<G>,
+    root_chain_code: [u8; 32],
     state: T,
 }
 
@@ -204,6 +205,7 @@ where
                 extra_data,
             },
             rand_params,
+            root_chain_code: old_keyshare.root_chain_code,
             state: R0,
         })
     }
@@ -235,6 +237,7 @@ where
         let next_state = QCPartyOld {
             params: self.params,
             rand_params: self.rand_params,
+            root_chain_code: self.root_chain_code,
             state: R1Old {
                 big_p_i_poly,
                 commitment_1,
@@ -335,7 +338,7 @@ where
                 to_party: receiver_index as u8,
                 p_i: p_i_j,
                 r_2_i: *r2_j,
-                root_chain_code: [0u8; 32],
+                root_chain_code: self.root_chain_code,
             };
             p2p_messages_2.push(p2p_msg_2);
         }
@@ -349,6 +352,7 @@ where
         let next_state = QCPartyOld {
             params: self.params,
             rand_params: self.rand_params,
+            root_chain_code: self.root_chain_code,
             state: R2Old {
                 sid_i_list,
                 commitment_list,
@@ -700,7 +704,7 @@ where
                 to_party: receiver_index as u8,
                 p_i: *p_i_j,
                 r_2_i: *r2_j,
-                root_chain_code: [0u8; 32],
+                root_chain_code: self.root_chain_code,
             };
             p2p_messages_2.push(p2p_msg_2);
         }
@@ -1551,6 +1555,12 @@ mod test {
         assert_eq!(new_keyshare_p3.public_key, expected_public_key);
         assert_eq!(new_keyshare_p4.public_key, expected_public_key);
 
+        let root_chain_code = old_keyshare_p0.root_chain_code;
+        assert_eq!(old_keyshare_p1.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p2.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p3.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p4.root_chain_code, root_chain_code);
+
         assert_eq!(new_keyshare_p2.key_id, new_keyshare_p3.key_id);
         assert_eq!(new_keyshare_p2.key_id, new_keyshare_p4.key_id);
 
@@ -1715,6 +1725,12 @@ mod test {
         assert_eq!(new_keyshare_p0.public_key, expected_public_key);
         assert_eq!(new_keyshare_p1.public_key, expected_public_key);
         assert_eq!(new_keyshare_p2.public_key, expected_public_key);
+
+        let root_chain_code = old_keyshare_p0.root_chain_code;
+        assert_eq!(old_keyshare_p1.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p0.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p1.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p2.root_chain_code, root_chain_code);
 
         assert_eq!(new_keyshare_p0.key_id, new_keyshare_p1.key_id);
         assert_eq!(new_keyshare_p0.key_id, new_keyshare_p2.key_id);
@@ -1977,6 +1993,15 @@ mod test {
         assert_eq!(new_keyshare_p1.public_key, expected_public_key);
         assert_eq!(new_keyshare_p2.public_key, expected_public_key);
         assert_eq!(new_keyshare_p3.public_key, expected_public_key);
+
+        let root_chain_code = old_keyshare_p0.root_chain_code;
+        assert_eq!(old_keyshare_p1.root_chain_code, root_chain_code);
+        assert_eq!(old_keyshare_p2.root_chain_code, root_chain_code);
+        assert_eq!(old_keyshare_p3.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p0.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p1.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p2.root_chain_code, root_chain_code);
+        assert_eq!(new_keyshare_p3.root_chain_code, root_chain_code);
 
         assert_eq!(new_keyshare_p0.key_id, new_keyshare_p1.key_id);
         assert_eq!(new_keyshare_p0.key_id, new_keyshare_p2.key_id);
