@@ -335,9 +335,11 @@ mod tests {
             .map(|ks| RerandParty::new(ks, &mut rng))
             .collect();
 
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-        run_round(parties, msgs)
+        let (parties, msgs): (Vec<_>, Vec<_>) =
+            run_round(parties, ()).unwrap().into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) =
+            run_round(parties, msgs).unwrap().into_iter().unzip();
+        run_round(parties, msgs).unwrap()
     }
 
     #[test]
@@ -398,15 +400,19 @@ mod tests {
             })
             .collect();
 
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-        let ready_parties: Vec<_> = run_round(parties, msgs);
+        let (parties, msgs): (Vec<_>, Vec<_>) =
+            run_round(parties, ()).unwrap().into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) =
+            run_round(parties, msgs).unwrap().into_iter().unzip();
+        let ready_parties: Vec<_> = run_round(parties, msgs).unwrap();
         assert_eq!(ready_parties[0].public_key.to_bytes().as_ref(), &vk_bytes);
 
         let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-            run_round(ready_parties, ()).into_iter().unzip();
-        let (signatures, _): (Vec<_>, Vec<_>) =
-            run_round(parties, partial_sigs).into_iter().unzip();
+            run_round(ready_parties, ()).unwrap().into_iter().unzip();
+        let (signatures, _): (Vec<_>, Vec<_>) = run_round(parties, partial_sigs)
+            .unwrap()
+            .into_iter()
+            .unzip();
 
         let vk = VerificationKey::<SpendAuth>::try_from(vk_bytes).unwrap();
         let sig = Signature::<SpendAuth>::from(signatures[0]);
