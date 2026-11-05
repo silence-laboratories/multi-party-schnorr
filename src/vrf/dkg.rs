@@ -109,6 +109,7 @@ impl Round for VrfDkgParty<VrfDkgR2> {
     }
 }
 
+#[cfg(any(test, feature = "test-support"))]
 fn run_round_local<I, R, O, E>(actors: impl IntoIterator<Item = R>, msgs: I) -> Vec<O>
 where
     R: Round<Input = I, Output = O, Error = E>,
@@ -121,7 +122,8 @@ where
         .collect()
 }
 
-fn keyshare_from_vrf(share: VrfKeyshare) -> Keyshare<VrfPoint> {
+/// Convert a Ristretto [`VrfKeyshare`] into the [`Keyshare`] used by MPS hard derivation.
+pub fn keyshare_from_vrf(share: VrfKeyshare) -> Keyshare<VrfPoint> {
     Keyshare {
         threshold: share.threshold,
         total_parties: share.total_parties,
@@ -137,7 +139,14 @@ fn keyshare_from_vrf(share: VrfKeyshare) -> Keyshare<VrfPoint> {
     }
 }
 
+impl From<VrfKeyshare> for Keyshare<VrfPoint> {
+    fn from(share: VrfKeyshare) -> Self {
+        keyshare_from_vrf(share)
+    }
+}
+
 /// Initialize VRF DKG parties for a full quorum (`n` parties, threshold `t`).
+#[cfg(any(test, feature = "test-support"))]
 pub fn setup_vrf_keygen(t: u8, n: u8) -> Result<Vec<VrfDkgParty<VrfDkgR0>>, VrfKeygenError> {
     let mut rng = rand::thread_rng();
 

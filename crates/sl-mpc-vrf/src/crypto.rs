@@ -1,7 +1,7 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-use std::collections::HashSet;
+use alloc::vec::Vec;
 
 use curve25519_dalek::RistrettoPoint;
 use sha2::{digest::Update, Digest, Sha256};
@@ -37,13 +37,17 @@ pub(crate) fn validate_input_messages(
         return Err(VrfError::InvalidMsgCount);
     }
 
-    let party_ids: HashSet<u8> = msgs.iter().map(|m| m.from_party).collect();
-    if party_ids.len() != party_id_list.len() {
-        return Err(VrfError::DuplicatePartyId);
+    for (index, msg) in msgs.iter().enumerate() {
+        if msgs[..index]
+            .iter()
+            .any(|previous| previous.from_party == msg.from_party)
+        {
+            return Err(VrfError::DuplicatePartyId);
+        }
     }
 
     for pid in party_id_list {
-        if !party_ids.contains(pid) {
+        if !msgs.iter().any(|msg| msg.from_party == *pid) {
             return Err(VrfError::InvalidMsgPartyId);
         }
     }

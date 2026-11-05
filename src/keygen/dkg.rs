@@ -910,8 +910,7 @@ mod test {
     /// Orchard ak sign normalization: with `with_orchard_ak_sign_normalize()`,
     /// every party's resulting public key must have ỹ = 0 (high bit of last encoding byte cleared),
     /// and all parties must agree on the same (possibly negated) public key / share relation.
-    /// Then a threshold RedDSA signature over those shares must verify against the
-    /// randomized verifying key derived from that normalized public key.
+    /// Then a threshold RedDSA signature over those shares must verify against that public key.
     #[cfg(feature = "redpallas")]
     #[test]
     fn keygen_redpallas_orchard_ak_sign_normalize() {
@@ -994,16 +993,10 @@ mod test {
             run_round(sign_parties, ()).unwrap().into_iter().unzip();
         let (parties, msgs): (Vec<_>, Vec<_>) =
             run_round(parties, msgs).unwrap().into_iter().unzip();
-        let (ready_parties, alphas): (Vec<_>, Vec<_>) =
-            run_round(parties, msgs).unwrap().into_iter().unzip();
+        let ready_parties: Vec<_> = run_round(parties, msgs).unwrap();
 
-        assert_eq!(alphas[0], alphas[1], "parties must agree on alpha");
-        let expected_vk = pk0 + RedPallasPoint::generator() * alphas[0];
-        assert_eq!(
-            ready_parties[0].public_key, expected_vk,
-            "signing vk must be normalized DKG pk plus RedPallas alpha tweak"
-        );
-        assert_eq!(ready_parties[1].public_key, expected_vk);
+        assert_eq!(ready_parties[0].public_key, pk0);
+        assert_eq!(ready_parties[1].public_key, pk0);
 
         let vk_bytes: [u8; 32] = ready_parties[0]
             .public_key
@@ -1023,7 +1016,7 @@ mod test {
         let vk = VerificationKey::<SpendAuth>::try_from(vk_bytes).expect("valid SpendAuth vk");
         let sig = Signature::<SpendAuth>::from(sig_bytes);
         vk.verify(msg, &sig)
-            .expect("signature must verify against vk derived from normalized DKG public key");
+            .expect("signature must verify against normalized DKG public key");
     }
 
     #[cfg(feature = "taproot")]

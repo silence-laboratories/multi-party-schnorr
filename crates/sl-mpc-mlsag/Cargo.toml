@@ -1,0 +1,35 @@
+[package]
+name = "sl-mpc-mlsag"
+version = "0.1.0-pre.1"
+edition = "2021"
+license-file = "../../LICENSE"
+description = "Threshold MLSAG keygen and signing on Ristretto (MobileCoin-compatible key image and RingMLSAG)"
+repository = "https://github.com/silence-laboratories/multi-party-schnorr"
+readme = "README.md"
+rust-version = "1.88"
+
+[features]
+default = []
+serde = [
+  "dep:serde",
+  "dep:serde_bytes",
+  "curve25519-dalek/serde",
+  "sl-mpc-vrf/serde",
+]
+
+[dependencies]
+blake2 = { version = "0.10", default-features = false }
+curve25519-dalek = { version = "~4.1.3", default-features = false, features = ["alloc", "digest", "group", "rand_core"] }
+elliptic-curve = { version = "0.13", default-features = false, features = ["arithmetic"] }
+ff = { version = "0.13.0", default-features = false }
+rand = { version = "0.8", default-features = false, features = ["alloc"] }
+rand_chacha = { version = "0.3.1", default-features = false }
+sha2 = { version = "0.10.7", default-features = false }
+sl-mpc-derive = { path = "../sl-mpc-derive", version = "0.1.1", default-features = false, features = ["vrf"] }
+sl-mpc-vrf = { path = "../sl-mpc-vrf", version = "0.1.0-pre.5", default-features = false }
+thiserror = { version = "2", default-features = false }
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+serde_bytes = { version = "0.11", default-features = false, optional = true }
+
+[dev-dependencies]
+rand = { version = "0.8", features = ["std", "std_rng"] }

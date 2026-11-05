@@ -6,6 +6,10 @@
 //! Host crates (`multi-party-schnorr`, `dkls23-ll`) wrap [`eval::Context`] round methods in their
 //! preferred API (`Round::process` vs `generate_msg*` / `handle_msg*`).
 
+#![no_std]
+
+extern crate alloc;
+
 pub mod crypto;
 pub mod dh_tuple;
 pub mod dkg;

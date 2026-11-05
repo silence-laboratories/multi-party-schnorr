@@ -6,11 +6,15 @@ mod dkg;
 mod hard_derive_root;
 mod messages;
 mod refresh;
+#[cfg(feature = "redpallas")]
+mod rerandomize;
 mod types;
 
 pub use dkg::*;
 pub use messages::*;
 pub use refresh::*;
+#[cfg(feature = "redpallas")]
+pub use rerandomize::*;
 pub use types::*;
 
 /// Utility functions

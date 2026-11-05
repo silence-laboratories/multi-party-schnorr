@@ -1,13 +1,16 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-use curve25519_dalek::RistrettoPoint;
+use alloc::vec::Vec;
+
+use curve25519_dalek::{RistrettoPoint, Scalar};
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use super::crypto::{DLogProof, HashBytes, P2pShare, SessionId};
 
-/// Broadcast: round-1 commitment.
+/// Round-1 commitment. Delivery: broadcast, signed only.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct VrfKeygenMsg1 {
@@ -18,6 +21,7 @@ pub struct VrfKeygenMsg1 {
 
 /// Round-2 opening for a single recipient.
 ///
+/// Delivery: peer-to-peer, encrypted to `to_party` and signed by `from_party`.
 /// Public fields (`r_i`, `chain_code_id`, polynomial, dlog proofs) may be duplicated per recipient.
 /// `share` is plaintext Shamir material for `to_party` only; the host must encrypt
 /// this message to that party (do not broadcast one blob containing every share).
@@ -41,7 +45,7 @@ pub struct VrfKeyshare {
     pub threshold: u8,
     pub total_parties: u8,
     pub party_id: u8,
-    pub(crate) d_i: curve25519_dalek::Scalar,
+    pub(crate) d_i: Scalar,
     pub public_key: RistrettoPoint,
     pub(crate) party_public_shares: Vec<RistrettoPoint>,
     pub key_id: [u8; 32],
