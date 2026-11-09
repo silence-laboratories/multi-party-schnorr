@@ -81,12 +81,18 @@ impl Round for SignReady<ProjectivePoint> {
             .into();
         let tweak_scalar = Scalar::reduce_from_bytes(&tweak);
 
+        let mut internal_point = self.public_key;
+        let mut internal_share = self.d_i;
+        if internal_point.to_affine().y_is_odd().unwrap_u8() == 1 {
+            internal_point = -internal_point;
+            internal_share = -internal_share;
+        }
+
         let tweaked_big_p =
-            (self.public_key + ProjectivePoint::GENERATOR * tweak_scalar).to_affine();
+            (internal_point + ProjectivePoint::GENERATOR * tweak_scalar).to_affine();
 
         let big_r = self.big_r.to_affine();
         let mut k_i = self.k_i;
-        let internal_share = self.d_i;
 
         if big_r.y_is_odd().unwrap_u8() == 1 {
             k_i = -k_i;
@@ -166,7 +172,12 @@ impl Round for PartialSign<ProjectivePoint> {
             .into();
         let tweak_scalar = Scalar::reduce_from_bytes(&tweak);
 
-        let tweaked_pubkey = self.public_key + ProjectivePoint::GENERATOR * tweak_scalar;
+        let mut internal_point = self.public_key;
+        if internal_point.to_affine().y_is_odd().unwrap_u8() == 1 {
+            internal_point = -internal_point;
+        }
+
+        let tweaked_pubkey = internal_point + ProjectivePoint::GENERATOR * tweak_scalar;
         taproot_public_key(&tweaked_pubkey)
             .unwrap()
             .verify_prehash(&self.msg_to_sign, &signature)
@@ -265,6 +276,83 @@ mod tests {
         run_sign::<Bip32Public>(subset);
     }
 
+    fn bip341_output_key(internal_key: &k256::ProjectivePoint) -> k256::ProjectivePoint {
+        use elliptic_curve::point::{AffineCoordinates, DecompactPoint};
+
+        let x_only = internal_key.to_affine().x();
+        let even_y_internal_key = k256::ProjectivePoint::from(
+            Option::<k256::AffinePoint>::from(k256::AffinePoint::decompact(&x_only)).unwrap(),
+        );
+        let tweak: [u8; 32] = Sha256::new()
+            .chain_update(TAP_TWEAK_HASH)
+            .chain_update(x_only)
+            .finalize()
+            .into();
+
+        even_y_internal_key + ProjectivePoint::GENERATOR * Scalar::reduce_from_bytes(&tweak)
+    }
+
+    fn run_sign_at_path(
+        shares: &[Keyshare<k256::ProjectivePoint>],
+        path: &DerivationPath,
+        msg_hash: [u8; 32],
+    ) -> Signature {
+        let mut rng = rand::thread_rng();
+        let parties = shares
+            .iter()
+            .cloned()
+            .map(Arc::new)
+            .map(|keyshare| {
+                SignerParty::<_, k256::ProjectivePoint>::new_with_format::<_, Legacy>(
+                    keyshare,
+                    msg_hash,
+                    path.clone(),
+                    &mut rng,
+                )
+            })
+            .collect();
+
+        finish_sign_rounds(parties)
+    }
+
+    fn run_sign_derived_paths<const T: usize, const N: usize, const K: usize>() {
+        use elliptic_curve::point::AffineCoordinates;
+
+        let msg = b"The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+        let msg_hash: [u8; 32] = Sha256::digest(msg).into();
+        let shares = run_keygen::<T, N, ProjectivePoint>();
+        let subset: Vec<_> = shares
+            .choose_multiple(&mut rand::thread_rng(), K)
+            .cloned()
+            .collect();
+
+        let mut odd_y_paths = vec![];
+        let mut rejected_paths = vec![];
+
+        for path in core::iter::once("m".into()).chain((0..20).map(|index| format!("m/{index}"))) {
+            let derivation_path: DerivationPath = path.parse().unwrap();
+            let (_, internal_key) = subset[0]
+                .derive_with_offset::<Legacy>(&derivation_path)
+                .unwrap();
+            let output_key = taproot_public_key(&bip341_output_key(&internal_key)).unwrap();
+            let signature = run_sign_at_path(&subset, &derivation_path, msg_hash);
+
+            if internal_key.to_affine().y_is_odd().unwrap_u8() == 1 {
+                odd_y_paths.push(path.clone());
+            }
+
+            if output_key.verify_prehash(&msg_hash, &signature).is_err() {
+                rejected_paths.push(path);
+            }
+        }
+
+        assert!(!odd_y_paths.is_empty());
+        assert!(
+            rejected_paths.is_empty(),
+            "rejected paths: {rejected_paths:?}, odd y paths: {odd_y_paths:?}"
+        );
+    }
+
     #[test]
     fn sign_2_2() {
         run_sign_both_formats::<2, 2, 2>();
@@ -293,5 +381,15 @@ mod tests {
     #[test]
     fn sign_5_10() {
         run_sign_both_formats::<5, 10, 5>();
+    }
+
+    #[test]
+    fn sign_derived_paths_2_2() {
+        run_sign_derived_paths::<2, 2, 2>();
+    }
+
+    #[test]
+    fn sign_derived_paths_2_3() {
+        run_sign_derived_paths::<2, 3, 2>();
     }
 }
