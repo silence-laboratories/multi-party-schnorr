@@ -398,8 +398,13 @@ where
             .chain(b"DLOG-SID")
             .finalize()
             .into();
-
-        let mut rng = ChaCha20Rng::from_seed(self.rand_params.seed);
+        let nonce_seed: [u8; 32] = Sha256::new()
+            .chain(b"SL-Keygen-DLog-Nonce")
+            .chain(self.rand_params.seed)
+            .chain(final_sid.as_ref())
+            .finalize()
+            .into();
+        let mut rng = ChaCha20Rng::from_seed(nonce_seed);
         let dlog_proof = DLogProof::prove(&dlog_sid, &self.rand_params.k_i, &mut rng);
 
         let msg2 = SignMsg2 {

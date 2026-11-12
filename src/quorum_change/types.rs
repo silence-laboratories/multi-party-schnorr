@@ -68,7 +68,7 @@ where
     G::Scalar: Serializable,
 {
     /// Generate a new set of random params
-    pub fn generate<R: CryptoRng + RngCore>(
+    pub(crate) fn generate<R: CryptoRng + RngCore>(
         new_t: u8,
         s_i_0: G::Scalar,
         new_parties: &[usize],

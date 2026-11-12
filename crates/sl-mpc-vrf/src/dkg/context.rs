@@ -22,7 +22,7 @@ use super::{
 
 /// Party metadata for VRF DKG (zero ranks, evaluation points `party_id + 1`).
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct Party {
     pub t: u8,
     pub party_id: u8,
@@ -463,10 +463,13 @@ mod tests {
             .collect();
         assert_eq!(foreign.len(), 3);
         assert!(foreign.iter().all(|m| m.to_party != parties[0].party_id()));
-        assert_eq!(
-            parties[0].round2_in(foreign),
-            Err(super::VrfKeygenError::InvalidParticipantSet)
-        );
+
+        match parties[0].round2_in(foreign) {
+            Ok(_) => panic!("Round2 in foreign should have panicked"),
+            Err(err) => {
+                assert_eq!(err, super::VrfKeygenError::InvalidParticipantSet)
+            }
+        }
     }
 
     #[test]
@@ -489,9 +492,12 @@ mod tests {
             .cloned()
             .collect();
         batch[0].share.data[32] ^= 1;
-        assert_eq!(
-            parties[0].round2_in(batch),
-            Err(super::VrfKeygenError::ProofError)
-        );
+
+        match parties[0].round2_in(batch) {
+            Ok(_) => panic!("Party should be a tampered chain"),
+            Err(err) => {
+                assert_eq!(err, super::VrfKeygenError::ProofError)
+            }
+        }
     }
 }
