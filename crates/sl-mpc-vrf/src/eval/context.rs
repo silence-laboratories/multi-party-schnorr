@@ -21,7 +21,7 @@ use crate::{
 };
 
 /// Output of a successful MPC VRF evaluation.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct VrfOutput {
     pub output: Vec<u8>,
     pub session_id: SessionId,
@@ -100,7 +100,9 @@ impl Context {
         if party_public_shares.len() != total_parties as usize {
             return Err(VrfError::InvalidKeyshare);
         }
-
+        if (threshold < 2) || (threshold > total_parties) {
+            return Err(VrfError::InvalidKeyshare);
+        }
         Ok(Self {
             party_id,
             threshold,
@@ -188,11 +190,22 @@ impl Context {
         messages.sort_by_key(|m| m.from_party);
 
         if let Some(quorum) = quorum {
+            if quorum.len() != self.threshold as usize {
+                return Err(VrfError::InvalidParticipantSet);
+            }
             if messages.len() != quorum.len() {
                 return Err(VrfError::InvalidMsgCount);
             }
             let mut expected = quorum.to_vec();
             expected.sort_unstable();
+            expected.dedup();
+            if expected.len() != quorum.len()
+                || expected
+                    .last()
+                    .is_some_and(|&pid| pid >= self.total_parties)
+            {
+                return Err(VrfError::InvalidParticipantSet);
+            }
             let mut actual: Vec<u8> = messages.iter().map(|m| m.from_party).collect();
             actual.sort_unstable();
             if actual != expected {

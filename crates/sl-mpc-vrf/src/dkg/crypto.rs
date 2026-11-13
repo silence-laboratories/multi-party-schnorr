@@ -20,7 +20,7 @@ pub const P2P_SHARE_SIZE: usize = 64;
 
 /// Per-receiver Shamir share and chain-code sid (plaintext P2P payload in round 2).
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 pub struct P2pShare {
     pub sender_pid: u8,
     pub receiver_pid: u8,
@@ -39,7 +39,7 @@ impl P2pShare {
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct DLogProof {
     pub t: Vec<u8>,
     pub s: Scalar,

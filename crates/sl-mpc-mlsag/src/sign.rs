@@ -31,13 +31,14 @@ use crate::{
 };
 
 const SIGN_SID_LABEL: &[u8] = b"SL-MLSAG-SIGN";
+const SIGN_NONCE_COMMITMENT_LABEL: &[u8] = b"SL-MLSAG-NONCE-COMMITMENT";
 
 /// Round 1: this party's random session id, and a commitment to that id together
 /// with `(L0, R0)` and a blind.
 ///
 /// Delivery: broadcast to the signing quorum, signed only.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct SignMsg1 {
     pub from_party: u8,
     pub session_id: SessionId,
@@ -49,7 +50,7 @@ pub struct SignMsg1 {
 ///
 /// Delivery: broadcast to the signing quorum, signed only.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct SignMsg2 {
     pub from_party: u8,
     pub session_id: SessionId,
@@ -63,7 +64,7 @@ pub struct SignMsg2 {
 ///
 /// Delivery: broadcast to the signing quorum, signed only.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct SignMsg3 {
     pub from_party: u8,
     pub session_id: SessionId,
@@ -71,7 +72,7 @@ pub struct SignMsg3 {
 }
 
 /// Summed spend-layer nonce from the round-2 openings. Input to [`crate::fill_ring`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 pub struct NonceCommit {
     pub l0: RistrettoPoint,
     pub r0: RistrettoPoint,
@@ -112,7 +113,6 @@ struct StateOpened {
     commits: Vec<PartyCommit>,
 }
 
-#[derive(Debug)]
 struct StateNonces {
     alpha0: Scalar,
     final_session_id: SessionId,
@@ -131,7 +131,6 @@ struct StateClosed {
 }
 
 /// One party's MLSAG signing session.
-#[derive(Debug)]
 pub struct MlsagSignContext<T> {
     party_id: u8,
     keyshare: MlsagKeyshare,
@@ -180,6 +179,7 @@ fn hash_nonce_commitment(
     blind_factor: &[u8; 32],
 ) -> [u8; 32] {
     let mut hasher = Sha256::new();
+    hasher.update(SIGN_NONCE_COMMITMENT_LABEL);
     hasher.update(session_id);
     hasher.update((party_id as u32).to_be_bytes());
     hasher.update(l0.compress().as_bytes());
@@ -718,7 +718,11 @@ impl MlsagSignContext<StateClosed> {
             r_sum += msg.r_pi_0;
         }
 
-        assemble_ring_mlsag(&self.input, &self.keyshare.key_image, &l0, &r0, tour, r_sum)
+        let signature =
+            assemble_ring_mlsag(&self.input, &self.keyshare.key_image, &l0, &r0, tour, r_sum)?;
+        signature.verify(&self.input)?;
+
+        Ok(signature)
     }
 }
 
@@ -825,7 +829,8 @@ mod tests {
             commits.push(c);
         }
         for commit in &commits[1..] {
-            assert_eq!(*commit, commits[0]);
+            assert_eq!(commit.l0, commits[0].l0);
+            assert_eq!(commit.r0, commits[0].r0);
         }
         let tour = fill_ring(
             input,
@@ -868,8 +873,8 @@ mod tests {
 
         let other = run_sign(&shares, &[1, 2], &input, &z);
         other.verify(&input).unwrap();
-        assert_eq!(signature.key_image, other.key_image);
-        assert_eq!(signature.key_image, shares[0].key_image);
+        assert_eq!(signature.key_image.point, other.key_image.point);
+        assert_eq!(signature.key_image.point, shares[0].key_image.point);
     }
 
     #[test]
@@ -917,8 +922,12 @@ mod tests {
         messages2[0].blind_factor[0] ^= 0xff;
 
         for p in parties {
-            let err = p.round2_in(messages2.clone()).unwrap_err();
-            assert_eq!(err, MlsagError::InvalidNonceCommitment(0));
+            match p.round2_in(messages2.clone()) {
+                Ok(_) => panic!("Should be Err"),
+                Err(err) => {
+                    assert_eq!(err, MlsagError::InvalidNonceCommitment(0))
+                }
+            }
         }
     }
 }

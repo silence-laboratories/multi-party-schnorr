@@ -12,7 +12,7 @@ use super::crypto::{DLogProof, HashBytes, P2pShare, SessionId};
 
 /// Round-1 commitment. Delivery: broadcast, signed only.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 pub struct VrfKeygenMsg1 {
     pub from_party: u8,
     pub session_id: SessionId,
@@ -26,7 +26,7 @@ pub struct VrfKeygenMsg1 {
 /// `share` is plaintext Shamir material for `to_party` only; the host must encrypt
 /// this message to that party (do not broadcast one blob containing every share).
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct VrfKeygenMsg2 {
     pub from_party: u8,
     pub to_party: u8,
@@ -40,7 +40,7 @@ pub struct VrfKeygenMsg2 {
 
 /// Ristretto VRF key share after DKG (includes additive public shares for VRF eval).
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct VrfKeyshare {
     pub threshold: u8,
     pub total_parties: u8,
