@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+### Added
+
+- RedPallas orchestrator-sampled rerand helpers in [`keygen::rerandomize`](src/keygen/rerandomize.rs):
+  [`apply_alpha`](src/keygen/rerandomize.rs) / [`apply_alpha_bytes`](src/keygen/rerandomize.rs),
+  [`decode_alpha`](src/keygen/rerandomize.rs), [`derive_rk`](src/keygen/rerandomize.rs),
+  [`verify_rk`](src/keygen/rerandomize.rs). Rejects zero α, identity `rk`, and non-canonical
+  encodings (`ZeroAlpha`, `IdentityRk`, `InvalidAlphaEncoding`, `RkMismatch`).
+
+### Changed
+
+- Distributed [`RerandParty`](src/keygen/rerandomize.rs) round 2 now applies the shared
+  α via [`apply_alpha`](src/keygen/rerandomize.rs) (same tweak math; adds H2 checks).
+
 ## [1.3.0-pre.6] - 2026-06-26
 
 ### Changed

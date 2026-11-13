@@ -496,7 +496,7 @@ checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
 name = "multi-party-schnorr"
-version = "1.3.0-pre.15"
+version = "1.3.0-pre.16"
 dependencies = [
  "blake2b_simd",
  "bs58",
@@ -842,7 +842,7 @@ dependencies = [
  "sha2",
  "sl-mpc-derive",
  "sl-mpc-vrf",
- "thiserror 2.0.20",
+ "thiserror",
 ]
 
 [[package]]
