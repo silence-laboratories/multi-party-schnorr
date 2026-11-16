@@ -101,12 +101,15 @@ fn finish_sign_rounds(
 ) -> Signature {
     use crate::common::utils::support::run_round;
 
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-    let ready_parties = run_round(parties, msgs);
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).unwrap().into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).unwrap().into_iter().unzip();
+    let ready_parties = run_round(parties, msgs).unwrap();
     let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-        run_round(ready_parties, ()).into_iter().unzip();
-    let (signatures, _): (Vec<_>, Vec<_>) = run_round(parties, partial_sigs).into_iter().unzip();
+        run_round(ready_parties, ()).unwrap().into_iter().unzip();
+    let (signatures, _): (Vec<_>, Vec<_>) = run_round(parties, partial_sigs)
+        .unwrap()
+        .into_iter()
+        .unzip();
     signatures[0]
 }
 

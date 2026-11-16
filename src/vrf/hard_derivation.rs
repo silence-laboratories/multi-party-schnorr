@@ -247,12 +247,14 @@ mod tests {
             .map(|init| HardDerivePartyEd25519::new(init, path.to_vec(), &mut rng).unwrap())
             .collect();
 
-        let (parties, msgs0): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+        let (parties, msgs0): (Vec<_>, Vec<_>) =
+            run_round(parties, ()).unwrap().into_iter().unzip();
         let parties: Vec<_> = parties.into_iter().take(threshold).collect();
         let msgs0: Vec<_> = msgs0.into_iter().take(threshold).collect();
 
-        let (parties, msgs1): (Vec<_>, Vec<_>) = run_round(parties, msgs0).into_iter().unzip();
-        run_round(parties, msgs1)
+        let (parties, msgs1): (Vec<_>, Vec<_>) =
+            run_round(parties, msgs0).unwrap().into_iter().unzip();
+        run_round(parties, msgs1).unwrap()
     }
 
     #[test]

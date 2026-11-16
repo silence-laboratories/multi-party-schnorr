@@ -959,9 +959,9 @@ mod test {
             })
             .collect();
 
-        let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-        let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).into_iter().unzip();
-        let shares: Vec<Keyshare<RedPallasPoint>> = run_round(actors, msgs);
+        let (actors, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).unwrap().into_iter().unzip();
+        let (actors, msgs): (Vec<_>, Vec<_>) = run_round(actors, msgs).unwrap().into_iter().unzip();
+        let shares: Vec<Keyshare<RedPallasPoint>> = run_round(actors, msgs).unwrap();
 
         let pk0 = shares[0].public_key;
         assert!(
@@ -998,9 +998,11 @@ mod test {
             })
             .collect();
 
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(sign_parties, ()).into_iter().unzip();
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-        let ready_parties: Vec<_> = run_round(parties, msgs);
+        let (parties, msgs): (Vec<_>, Vec<_>) =
+            run_round(sign_parties, ()).unwrap().into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) =
+            run_round(parties, msgs).unwrap().into_iter().unzip();
+        let ready_parties: Vec<_> = run_round(parties, msgs).unwrap();
 
         assert_eq!(ready_parties[0].public_key, pk0);
         assert_eq!(ready_parties[1].public_key, pk0);
@@ -1013,9 +1015,11 @@ mod test {
             .unwrap();
 
         let (parties, partial_sigs): (Vec<_>, Vec<_>) =
-            run_round(ready_parties, ()).into_iter().unzip();
-        let (signatures, _): (Vec<_>, Vec<_>) =
-            run_round(parties, partial_sigs).into_iter().unzip();
+            run_round(ready_parties, ()).unwrap().into_iter().unzip();
+        let (signatures, _): (Vec<_>, Vec<_>) = run_round(parties, partial_sigs)
+            .unwrap()
+            .into_iter()
+            .unzip();
 
         let sig_bytes: [u8; 64] = signatures[0];
         let vk = VerificationKey::<SpendAuth>::try_from(vk_bytes).expect("valid SpendAuth vk");

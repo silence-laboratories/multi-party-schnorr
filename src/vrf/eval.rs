@@ -185,9 +185,9 @@ pub fn run_vrf_mpc_full<R: RngCore + CryptoRng>(
         })
         .collect();
 
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
-    let outputs: Vec<VrfOutput> = run_round(parties, msgs);
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).unwrap().into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).unwrap().into_iter().unzip();
+    let outputs: Vec<VrfOutput> = run_round(parties, msgs).unwrap();
     let y = outputs[0].output.clone();
     assert!(outputs.iter().all(|o| o.output == y));
     y
@@ -217,11 +217,12 @@ pub fn run_vrf_mpc_threshold<R: RngCore + CryptoRng>(
         })
         .collect();
 
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).unwrap().into_iter().unzip();
     let subset: Vec<_> = parties.into_iter().take(threshold).collect();
     let subset_msgs: Vec<_> = msgs.into_iter().take(threshold).collect();
-    let (parties, msgs): (Vec<_>, Vec<_>) = run_round(subset, subset_msgs).into_iter().unzip();
-    let outputs: Vec<VrfOutput> = run_round(parties, msgs);
+    let (parties, msgs): (Vec<_>, Vec<_>) =
+        run_round(subset, subset_msgs).unwrap().into_iter().unzip();
+    let outputs: Vec<VrfOutput> = run_round(parties, msgs).unwrap();
     let y = outputs[0].output.clone();
     assert!(outputs.iter().all(|o| o.output == y));
     y
@@ -269,11 +270,12 @@ mod tests {
             })
             .collect();
 
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).unwrap().into_iter().unzip();
         let subset: Vec<_> = parties.into_iter().take(2).collect();
         let subset_msgs: Vec<_> = msgs.into_iter().take(2).collect();
-        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(subset, subset_msgs).into_iter().unzip();
-        let outputs: Vec<_> = run_round(parties, msgs);
+        let (parties, msgs): (Vec<_>, Vec<_>) =
+            run_round(subset, subset_msgs).unwrap().into_iter().unzip();
+        let outputs: Vec<_> = run_round(parties, msgs).unwrap();
         assert_eq!(outputs[0].output, outputs[1].output);
     }
 }
