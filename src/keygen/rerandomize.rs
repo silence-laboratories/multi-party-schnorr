@@ -1,7 +1,9 @@
 // Copyright (c) Silence Laboratories Pte. Ltd. All Rights Reserved.
 // This software is licensed under the Silence Laboratories License Agreement.
 
-//! RedPallas keyshare rerandomization: commit–open randomizers, then tweak shares.
+//! RedPallas keyshare rerandomization: distributed or orchestrator-sampled alpha.
+//!
+//! # Distributed path ([`RerandParty`])
 //!
 //! Three rounds:
 //! 1. Each party samples `(session_id, randomizer_i, blind_factor)`, commits to
@@ -11,6 +13,13 @@
 //! 3. Commitments are checked; each party adds `alpha = H(∑ randomizer_i)` to its
 //!    shamir share and `G·alpha` to the public key, then outputs the new keyshare
 //!    together with `alpha`.
+//!
+//! # Orchestrator-sampled path
+//!
+//! A trusted orchestrator (e.g. wallet-platform) samples a canonical non-zero
+//! [`Fq`] alpha and delivers it to each signer. Callers then use
+//! [`apply_alpha`] / [`apply_alpha_bytes`] (and optionally [`verify_rk`]) before
+//! DSG. Both paths produce the same share tweak: `d' = d + α`, `rk = ak + G·α`.
 
 use alloc::vec::Vec;
 
@@ -45,6 +54,14 @@ pub enum RerandError {
     InvalidMsgPartyId,
     #[error("Invalid commitment from party {0}")]
     InvalidCommitment(u8),
+    #[error("Alpha must be a non-zero scalar")]
+    ZeroAlpha,
+    #[error("Rerandomized public key must not be the identity")]
+    IdentityRk,
+    #[error("Alpha encoding is not a canonical Fq")]
+    InvalidAlphaEncoding,
+    #[error("Claimed rk does not equal ak + alpha·G")]
+    RkMismatch,
 }
 
 /// Round-1 message: commitment to `(party_id, session_id, randomizer_i)`.
@@ -125,6 +142,63 @@ impl RerandParty<RerandR0> {
             state: RerandR0,
         }
     }
+}
+
+/// Decode a canonical little-endian 32-byte `Fq` encoding.
+pub fn decode_alpha(alpha_le: &[u8; 32]) -> Result<Fq, RerandError> {
+    let mut repr = <Fq as PrimeField>::Repr::default();
+    repr.as_mut().copy_from_slice(alpha_le);
+    Option::<Fq>::from(Fq::from_repr(repr)).ok_or(RerandError::InvalidAlphaEncoding)
+}
+
+/// `rk = ak + α·G`. Rejects zero α and the identity point.
+pub fn derive_rk(ak: &RedPallasPoint, alpha: &Fq) -> Result<RedPallasPoint, RerandError> {
+    if bool::from(alpha.is_zero()) {
+        return Err(RerandError::ZeroAlpha);
+    }
+    let rk = *ak + RedPallasPoint::generator() * *alpha;
+    if bool::from(rk.is_identity()) {
+        return Err(RerandError::IdentityRk);
+    }
+    Ok(rk)
+}
+
+/// Check that `claimed_rk == ak + α·G` (and that α / rk pass [`derive_rk`] checks).
+pub fn verify_rk(
+    ak: &RedPallasPoint,
+    alpha: &Fq,
+    claimed_rk: &RedPallasPoint,
+) -> Result<(), RerandError> {
+    let rk = derive_rk(ak, alpha)?;
+    if bool::from(rk.ct_eq(claimed_rk)) {
+        Ok(())
+    } else {
+        Err(RerandError::RkMismatch)
+    }
+}
+
+/// Locally tweak a RedPallas keyshare with an externally supplied α.
+///
+/// Sets `d' = d + α` and `public_key' = ak + G·α`. Used by the orchestrator-
+/// sampled path; the distributed [`RerandParty`] path also ends here after
+/// deriving `α = H(∑ randomizer_i)`.
+pub fn apply_alpha(
+    mut keyshare: Keyshare<RedPallasPoint>,
+    alpha: Fq,
+) -> Result<(Keyshare<RedPallasPoint>, Fq), RerandError> {
+    let rk = derive_rk(&keyshare.public_key, &alpha)?;
+    keyshare.d_i += alpha;
+    keyshare.public_key = rk;
+    Ok((keyshare, alpha))
+}
+
+/// [`apply_alpha`] with a canonical 32-byte little-endian α encoding.
+pub fn apply_alpha_bytes(
+    keyshare: Keyshare<RedPallasPoint>,
+    alpha_le: &[u8; 32],
+) -> Result<(Keyshare<RedPallasPoint>, Fq), RerandError> {
+    let alpha = decode_alpha(alpha_le)?;
+    apply_alpha(keyshare, alpha)
 }
 
 fn hash_commitment_randomizer(
@@ -314,12 +388,7 @@ impl Round for RerandParty<RerandR2> {
         }
 
         let alpha = RedPallasPoint::hash_randomizer(randomizer_sum.to_repr().as_ref());
-
-        let mut keyshare = self.keyshare;
-        keyshare.d_i += alpha;
-        keyshare.public_key += RedPallasPoint::generator() * alpha;
-
-        Ok((keyshare, alpha))
+        apply_alpha(self.keyshare, alpha)
     }
 }
 
@@ -411,5 +480,125 @@ mod tests {
         let vk = VerificationKey::<SpendAuth>::try_from(vk_bytes).unwrap();
         let sig = Signature::<SpendAuth>::from(signatures[0]);
         vk.verify(msg, &sig).expect("signature must verify");
+    }
+
+    fn sign_and_verify(shares: Vec<Keyshare<RedPallasPoint>>, msg: &[u8]) {
+        use std::sync::Arc;
+
+        use reddsa::orchard::SpendAuth;
+        use reddsa::{Signature, VerificationKey};
+
+        use crate::sign::{SignerParty, R0};
+
+        let vk_bytes: [u8; 32] = shares[0]
+            .public_key
+            .to_bytes()
+            .as_ref()
+            .try_into()
+            .unwrap();
+        let path: derivation_path::DerivationPath = "m".parse().unwrap();
+        let mut rng = rand::thread_rng();
+        let parties: Vec<SignerParty<R0, RedPallasPoint>> = shares
+            .into_iter()
+            .map(Arc::new)
+            .map(|ks| {
+                SignerParty::<_, RedPallasPoint>::new(ks, msg.to_vec(), path.clone(), &mut rng)
+            })
+            .collect();
+
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, ()).into_iter().unzip();
+        let (parties, msgs): (Vec<_>, Vec<_>) = run_round(parties, msgs).into_iter().unzip();
+        let ready_parties: Vec<_> = run_round(parties, msgs);
+        let (parties, partial_sigs): (Vec<_>, Vec<_>) =
+            run_round(ready_parties, ()).into_iter().unzip();
+        let (signatures, _): (Vec<_>, Vec<_>) =
+            run_round(parties, partial_sigs).into_iter().unzip();
+
+        let vk = VerificationKey::<SpendAuth>::try_from(vk_bytes).unwrap();
+        let sig = Signature::<SpendAuth>::from(signatures[0]);
+        vk.verify(msg, &sig).expect("signature must verify");
+    }
+
+    #[test]
+    fn apply_alpha_local_then_sign_verifies() {
+        let shares = run_keygen::<2, 3, RedPallasPoint>();
+        let subset: Vec<_> = shares.into_iter().take(2).collect();
+        let ak = subset[0].public_key;
+        let alpha = Fq::random(&mut rand::thread_rng());
+        let rk = derive_rk(&ak, &alpha).unwrap();
+
+        let old = subset.clone();
+        let tweaked: Vec<_> = subset
+            .into_iter()
+            .map(|ks| {
+                verify_rk(&ak, &alpha, &rk).unwrap();
+                let (ks, a) = apply_alpha(ks, alpha).unwrap();
+                assert_eq!(a, alpha);
+                assert_eq!(ks.public_key, rk);
+                ks
+            })
+            .collect();
+
+        assert_eq!(tweaked[0].d_i - old[0].d_i, alpha);
+        assert_eq!(tweaked[1].d_i - old[1].d_i, alpha);
+        assert_eq!(tweaked[0].public_key, tweaked[1].public_key);
+
+        sign_and_verify(tweaked, b"orchestrator alpha then sign");
+    }
+
+    #[test]
+    fn apply_alpha_matches_distributed_alpha() {
+        let shares = run_keygen::<2, 3, RedPallasPoint>();
+        let subset: Vec<_> = shares.into_iter().take(2).collect();
+        let originals = subset.clone();
+        let (distributed, alphas): (Vec<_>, Vec<_>) = run_rerand(subset).into_iter().unzip();
+        assert_eq!(alphas[0], alphas[1]);
+
+        let (local0, _) = apply_alpha(originals[0].clone(), alphas[0]).unwrap();
+        let (local1, _) = apply_alpha(originals[1].clone(), alphas[0]).unwrap();
+        assert_eq!(local0.public_key, distributed[0].public_key);
+        assert_eq!(local0.d_i, distributed[0].d_i);
+        assert_eq!(local1.d_i, distributed[1].d_i);
+    }
+
+    #[test]
+    fn apply_alpha_rejects_zero_and_bad_encoding() {
+        let shares = run_keygen::<2, 3, RedPallasPoint>();
+        let ks = shares[0].clone();
+        assert!(matches!(
+            apply_alpha(ks.clone(), Fq::ZERO),
+            Err(RerandError::ZeroAlpha)
+        ));
+
+        // Non-canonical: Fq modulus bits set high enough that from_repr fails.
+        let bad = [0xff; 32];
+        assert!(matches!(
+            apply_alpha_bytes(ks.clone(), &bad),
+            Err(RerandError::InvalidAlphaEncoding)
+        ));
+
+        let alpha = Fq::ONE;
+        let rk = derive_rk(&ks.public_key, &alpha).unwrap();
+        let wrong = rk + RedPallasPoint::generator();
+        assert!(matches!(
+            verify_rk(&ks.public_key, &alpha, &wrong),
+            Err(RerandError::RkMismatch)
+        ));
+
+        // α = −ask cancels ak → identity rk.
+        let shares = run_keygen::<2, 3, RedPallasPoint>();
+        let pids = vec![shares[0].party_id(), shares[1].party_id()];
+        let ask = shares[0].scalar_share_interpolate(pids.clone())
+            + shares[1].scalar_share_interpolate(pids);
+        let ak = shares[0].public_key;
+        assert_eq!(RedPallasPoint::generator() * ask, ak);
+        assert!(matches!(
+            derive_rk(&ak, &(-ask)),
+            Err(RerandError::IdentityRk)
+        ));
+        assert!(matches!(
+            apply_alpha(shares[0].clone(), -ask),
+            Err(RerandError::IdentityRk)
+        ));
     }
 }
