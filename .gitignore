@@ -1,2 +1,5 @@
 /target
 /.cargo/
+
+# local cargo-cyclonedx dry-run outputs (SBOMs are generated in CI, never committed)
+sbom-test-*.cdx.json
