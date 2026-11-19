@@ -5,7 +5,8 @@ use alloc::{vec, vec::Vec};
 
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use elliptic_curve::Group;
-use rand::{CryptoRng, Rng, RngCore};
+use rand::{CryptoRng, Rng, RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256};
 use sl_mpc_mate::math::{GroupPolynomial, Polynomial};
 
@@ -144,10 +145,10 @@ impl Context {
     /// Each message contains only that recipient's Shamir share.
     pub fn round1_in<R: RngCore + CryptoRng>(
         &mut self,
-        rng: &mut R,
+        _rng: &mut R,
         messages: Vec<VrfKeygenMsg1>,
     ) -> Result<Vec<VrfKeygenMsg2>, VrfKeygenError> {
-        if !self.msg1_generated {
+        if !self.msg1_generated || self.round1_complete {
             return Err(VrfKeygenError::InvalidState);
         }
         if messages.len() != self.party.total_parties as usize {
@@ -184,10 +185,21 @@ impl Context {
             .finalize()
             .into();
 
+        // Bind DLog nonces to the transcript (session_id entropy ‖ final_sid),
+        // matching multi-party-schnorr keygen / sign — do not use a host RNG
+        // that can be replayed across different participant SID sets.
+        let nonce_seed: [u8; 32] = Sha256::new()
+            .chain_update(b"SL-VRF-DKG-DLog-Nonce")
+            .chain_update(self.session_id)
+            .chain_update(final_sid)
+            .finalize()
+            .into();
+        let mut proof_rng = ChaCha20Rng::from_seed(nonce_seed);
+
         let dlog_proofs: Vec<DLogProof> = self
             .polynomial
             .iter()
-            .map(|coeff| DLogProof::prove(&dlog_sid, coeff, rng))
+            .map(|coeff| DLogProof::prove(&dlog_sid, coeff, &mut proof_rng))
             .collect();
 
         self.final_session_id = final_sid;

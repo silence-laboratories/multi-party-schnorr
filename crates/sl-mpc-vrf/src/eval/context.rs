@@ -7,6 +7,7 @@ use curve25519_dalek::{RistrettoPoint, Scalar};
 use elliptic_curve::{group::GroupEncoding, subtle::ConstantTimeEq, Group};
 use rand::{CryptoRng, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
+use sha2::{digest::Update, Digest, Sha256};
 use sl_mpc_derive::{
     impls::ristretto::VrfGroup,
     math::{get_lagrange_coeff, participant_public_share},
@@ -182,7 +183,7 @@ impl Context {
         messages: Vec<VrfMsg0>,
         quorum: Option<&[u8]>,
     ) -> Result<VrfMsg1, VrfError> {
-        if !self.msg0_generated {
+        if !self.msg0_generated || self.round0_complete {
             return Err(VrfError::InvalidState);
         }
 
@@ -257,7 +258,10 @@ impl Context {
         let party_ki = RistrettoPoint::generator() * vrf_ki;
 
         let aux = (self.party_id as u32).to_be_bytes();
-        let mut proof_rng = ChaCha20Rng::from_seed(self.seed);
+        // Bind proof nonces to the transcript so a replayed/cloned Context with a
+        // different final_session_id cannot reuse r under a new Fiat–Shamir e.
+        let mut proof_rng =
+            dh_tuple_proof_rng(&self.seed, &self.final_session_id, &self.pid_list);
         let z_i = self.m_point * vrf_ki;
         let mut transcript = dh_tuple_transcript(&self.final_session_id, &aux);
         let pi = DhTupleProof::prove(
@@ -351,6 +355,23 @@ fn decode_point(bytes: &[u8]) -> Option<RistrettoPoint> {
     }
     encoding.as_mut().copy_from_slice(bytes);
     Option::from(RistrettoPoint::from_bytes(&encoding))
+}
+
+/// Derive a ChaCha20 RNG for DH-tuple proof nonces from the party seed and the
+/// session transcript (`final_session_id`, participating `pid_list`).
+fn dh_tuple_proof_rng(
+    seed: &[u8; 32],
+    final_session_id: &SessionId,
+    pid_list: &[u8],
+) -> ChaCha20Rng {
+    let nonce_seed: [u8; 32] = Sha256::new()
+        .chain(b"SL-VRF-DH-Tuple-Nonce")
+        .chain(seed)
+        .chain(final_session_id.as_ref())
+        .chain(pid_list)
+        .finalize()
+        .into();
+    ChaCha20Rng::from_seed(nonce_seed)
 }
 
 #[cfg(test)]
@@ -482,5 +503,74 @@ mod tests {
             ),
             Err(VrfError::InvalidKeyshare)
         ));
+    }
+
+    #[test]
+    fn round0_in_rejects_reentry() {
+        use alloc::vec;
+        use rand::Rng;
+
+        let shares = vrf_dkg_inner(init_states(3, 2));
+        let message = b"no-reentry".to_vec();
+        let mut rng = rand::thread_rng();
+
+        let mut victim = Context::new(
+            shares[1].party_id,
+            shares[1].threshold,
+            shares[1].total_parties,
+            message.clone(),
+            *shares[1].shamir_share(),
+            *shares[1].public_key(),
+            shares[1].party_public_shares().to_vec(),
+            &mut rng,
+        )
+        .unwrap();
+        let mut attacker = Context::new(
+            shares[0].party_id,
+            shares[0].threshold,
+            shares[0].total_parties,
+            message,
+            *shares[0].shamir_share(),
+            *shares[0].public_key(),
+            shares[0].party_public_shares().to_vec(),
+            &mut rng,
+        )
+        .unwrap();
+
+        let m0_0 = attacker.round0_out().unwrap();
+        let m0_1 = victim.round0_out().unwrap();
+        victim
+            .round0_in(vec![m0_0.clone(), m0_1.clone()], None)
+            .unwrap();
+
+        let mut m0_0b = m0_0;
+        m0_0b.session_id = rng.gen();
+        assert!(matches!(
+            victim.round0_in(vec![m0_0b, m0_1], None),
+            Err(VrfError::InvalidState)
+        ));
+    }
+
+    #[test]
+    fn dh_tuple_proof_rng_binds_transcript() {
+        let seed = [7u8; 32];
+        let sid_a = [1u8; 32];
+        let sid_b = [2u8; 32];
+        let pids = [0u8, 1u8];
+
+        let mut a = super::dh_tuple_proof_rng(&seed, &sid_a, &pids);
+        let mut b = super::dh_tuple_proof_rng(&seed, &sid_b, &pids);
+        let mut a2 = super::dh_tuple_proof_rng(&seed, &sid_a, &pids);
+
+        use rand::RngCore;
+        let mut out_a = [0u8; 32];
+        let mut out_b = [0u8; 32];
+        let mut out_a2 = [0u8; 32];
+        a.fill_bytes(&mut out_a);
+        b.fill_bytes(&mut out_b);
+        a2.fill_bytes(&mut out_a2);
+
+        assert_ne!(out_a, out_b);
+        assert_eq!(out_a, out_a2);
     }
 }

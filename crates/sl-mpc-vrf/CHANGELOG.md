@@ -4,6 +4,16 @@ All notable changes to `sl-mpc-vrf` are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- VRF eval [`Context::round0_in`](src/eval/context.rs) rejects re-entry once `round0_complete`
+  is set (was checking only `msg0_generated`), closing a DH-tuple proof nonce-reuse path that
+  could extract `λ_j · d_j`.
+- DH-tuple proof RNG in VRF eval is derived from `SHA256("SL-VRF-DH-Tuple-Nonce" ‖ seed ‖
+  final_session_id ‖ pid_list)` instead of `ChaCha20Rng::from_seed(seed)` alone.
+- VRF DKG [`Context::round1_in`](src/dkg/context.rs) likewise rejects re-entry after
+  `round1_complete`, and binds DLog proof nonces to `session_id ‖ final_sid`.
+
 ### Changed
 
 - `VrfKeygenMsg2` is a per-recipient P2P opening (`to_party` + single `share`) instead of a broadcast `c_i_list`. Hosts must encrypt each message to `to_party`.
