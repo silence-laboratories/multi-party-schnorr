@@ -253,7 +253,13 @@ impl KeyshareContext<KeyshareContextR0> {
         let i_j = self.hp * k_j;
 
         let aux = (self.keyshare.party_id as u32).to_be_bytes();
-        let mut proof_rng = ChaCha20Rng::from_seed(self.state.seed);
+        let nonce_seed: [u8; 32] = Sha256::new()
+            .chain_update(b"SL-MLSAG-KeyImage-DH-Tuple-Nonce")
+            .chain_update(self.state.seed)
+            .chain_update(self.session_id)
+            .finalize()
+            .into();
+        let mut proof_rng = ChaCha20Rng::from_seed(nonce_seed);
         let mut transcript = dh_tuple_transcript(&self.session_id, &aux);
         let pi = DhTupleProof::prove(
             DhTuplePoints {

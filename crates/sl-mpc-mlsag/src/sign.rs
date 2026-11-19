@@ -441,8 +441,8 @@ impl MlsagSignContext<StateReadyToOpen> {
     /// Prove knowledge of `α₀` under the combined session id and open the nonce.
     ///
     /// The DH-tuple transcript session id is the combined id from
-    /// [`round1_in`](Self::round1_in). The proof's randomness comes from the seed
-    /// sampled in [`round1_out`](Self::round1_out).
+    /// [`round1_in`](Self::round1_in). Proof nonces are derived from the seed
+    /// sampled in [`round1_out`](Self::round1_out) mixed with that combined id.
     ///
     /// Delivery: broadcast to the signing quorum, signed only.
     pub fn round2_out(self) -> Result<(MlsagSignContext<StateOpened>, SignMsg2), MlsagError> {
@@ -456,7 +456,16 @@ impl MlsagSignContext<StateReadyToOpen> {
             commits,
         } = self.state;
 
-        let mut proof_rng = ChaCha20Rng::from_seed(seed);
+        // Bind proof nonces to the combined session id (defence in depth:
+        // mid-protocol state is not currently Clone/serde, but hosts must not
+        // be able to reuse r under a different Fiat–Shamir challenge).
+        let nonce_seed: [u8; 32] = Sha256::new()
+            .chain_update(b"SL-MLSAG-DH-Tuple-Nonce")
+            .chain_update(seed)
+            .chain_update(final_session_id)
+            .finalize()
+            .into();
+        let mut proof_rng = ChaCha20Rng::from_seed(nonce_seed);
         let aux = (self.party_id as u32).to_be_bytes();
         let mut transcript = dh_tuple_transcript(&final_session_id, &aux);
         let pi = DhTupleProof::prove(

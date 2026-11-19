@@ -17,6 +17,12 @@
 - Distributed [`RerandParty`](src/keygen/rerandomize.rs) round 2 now applies the shared
   α via [`apply_alpha`](src/keygen/rerandomize.rs) (same tweak math; adds H2 checks).
 
+### Fixed
+
+- [`sl-mpc-vrf`](crates/sl-mpc-vrf/): VRF eval / DKG re-entry guards and transcript-bound
+  proof nonces (see that crate’s changelog). EdDSA keygen/sign DLog nonces already mixed
+  `final_sid` into the RNG seed; MLSAG DH-tuple proof nonces now do the same.
+
 ## [1.3.0-pre.6] - 2026-06-26
 
 ### Changed
