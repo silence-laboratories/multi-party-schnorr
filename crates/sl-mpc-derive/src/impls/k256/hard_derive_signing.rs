@@ -22,6 +22,7 @@ impl HardDeriveSigning for ProjectivePoint {
 mod tests {
     use super::*;
     use crate::protocol::HARD_DERIVE_DELTA_BYTES;
+    use alloc::vec; 
 
     #[test]
     fn delta_from_vrf_is_deterministic() {
